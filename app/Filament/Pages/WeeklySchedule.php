@@ -458,53 +458,5 @@ class WeeklySchedule extends Page implements HasForms
         $this->redirect($url);
     }
     
-    protected function getHeaderActions(): array
-    {
-        return [
-            // Prima riga pulsanti
-            Action::make('previousWeek')
-                ->label('Settimana Precedente')
-                ->icon('heroicon-o-arrow-left')
-                ->action('previousWeek'),
-                
-            Action::make('currentWeek')
-                ->label('Settimana Corrente')
-                ->icon('heroicon-o-calendar')
-                ->action('currentWeek'),
-                
-            Action::make('nextWeek')
-                ->label('Settimana Successiva')
-                ->icon('heroicon-o-arrow-right')
-                ->action('nextWeek'),
-                
-            Action::make('viewDrivers')
-                ->label('Vista Autisti')
-                ->icon('heroicon-o-user-group')
-                ->color(fn () => $this->viewMode === 'driver' ? 'primary' : 'gray')
-                ->action(fn () => $this->setViewMode('driver')),
-                
-            Action::make('viewVehicles')
-                ->label('Vista Veicoli')
-                ->icon('heroicon-o-truck')
-                ->color(fn () => $this->viewMode === 'vehicle' ? 'primary' : 'gray')
-                ->action(fn () => $this->setViewMode('vehicle')),
-                
-            Action::make('viewActivities')
-                ->label('Vista Attività')
-                ->icon('heroicon-o-clipboard-document-list')
-                ->color(fn () => $this->viewMode === 'activity' ? 'primary' : 'gray')
-                ->action(fn () => $this->setViewMode('activity')),
-                
-            Action::make('newActivity')
-                ->label('Nuova Attività')
-                ->icon('heroicon-o-plus')
-                ->url(route('filament.admin.resources.activities.create')),
-            // Seconda riga pulsanti
-            Action::make('exportExcel')
-                ->label('Esporta Excel')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->action('exportExcel')
-                ->color('success'),
-        ];
-    }
+
 }

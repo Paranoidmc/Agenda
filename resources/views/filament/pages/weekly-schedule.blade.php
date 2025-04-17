@@ -1,51 +1,20 @@
 <x-filament-panels::page>
-    <style>
-        /* Stile per organizzare i pulsanti su due righe */
-        .fi-header-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            width: 100%;
-        }
-        
-        .fi-header-actions > * {
-            margin-bottom: 0.5rem;
-        }
-        
-        /* Prima riga: Settimana Precedente, Settimana Corrente, Settimana Successiva */
-        .fi-header-actions > *:nth-child(1),
-        .fi-header-actions > *:nth-child(2),
-        .fi-header-actions > *:nth-child(3) {
-            order: 1;
-        }
-        
-        /* Seconda riga: Vista Autisti, Vista Veicoli, Vista Attività, Nuova Attività, Esporta Excel */
-        .fi-header-actions > *:nth-child(4),
-        .fi-header-actions > *:nth-child(5),
-        .fi-header-actions > *:nth-child(6),
-        .fi-header-actions > *:nth-child(7),
-        .fi-header-actions > *:nth-child(8) {
-            order: 2;
-        }
-        
-        /* Forza l'interruzione di riga dopo il terzo elemento */
-        .fi-header-actions::after {
-            content: "";
-            flex-basis: 100%;
-            order: 1;
-            height: 0;
-            display: block;
-        }
-        
-        /* Assicura che la seconda riga inizi su una nuova riga */
-        .fi-header-actions::before {
-            content: "";
-            flex-basis: 100%;
-            order: 1;
-            height: 0;
-            display: block;
-        }
-    </style>
+    <div class="mb-4">
+        <div class="flex gap-2 mb-2 flex-wrap">
+            <x-filament::button wire:click="previousWeek" icon="heroicon-o-arrow-left">Settimana Precedente</x-filament::button>
+            <x-filament::button wire:click="currentWeek" icon="heroicon-o-calendar">Settimana Corrente</x-filament::button>
+            <x-filament::button wire:click="nextWeek" icon="heroicon-o-arrow-right">Settimana Successiva</x-filament::button>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <x-filament::button wire:click="setViewMode('driver')" :color="$viewMode === 'driver' ? 'primary' : 'gray'" icon="heroicon-o-user-group">Vista Autisti</x-filament::button>
+            <x-filament::button wire:click="setViewMode('vehicle')" :color="$viewMode === 'vehicle' ? 'primary' : 'gray'" icon="heroicon-o-truck">Vista Veicoli</x-filament::button>
+            <x-filament::button wire:click="setViewMode('activity')" :color="$viewMode === 'activity' ? 'primary' : 'gray'" icon="heroicon-o-clipboard-document-list">Vista Attività</x-filament::button>
+            <x-filament::button wire:click="createActivity" icon="heroicon-o-plus">Nuova Attività</x-filament::button>
+            <x-filament::button wire:click="exportExcel" color="success" icon="heroicon-o-arrow-down-tray">Esporta Excel</x-filament::button>
+        </div>
+    </div>
+
+
     
     <div class="space-y-4">
         <div class="p-4 bg-white rounded-lg shadow">
