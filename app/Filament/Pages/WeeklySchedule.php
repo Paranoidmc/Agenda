@@ -109,36 +109,92 @@ class WeeklySchedule extends Page implements HasForms
         $this->weekDays = $this->getWeekDays();
         
         // Carica autisti e veicoli - convert to array to avoid Livewire serialization issues
-        $this->drivers = Driver::where('status', 'active')->get()->map(function($driver) {
-            return (object) [
-                'id' => $driver->id,
-                'name' => $driver->name . ' ' . $driver->surname
-            ];
-        })->values()->all();
-        
-        $this->vehicles = Vehicle::where('status', 'operational')->get()->map(function($vehicle) {
-            return (object) [
-                'id' => $vehicle->id,
-                'plate' => $vehicle->plate,
-                'model' => $vehicle->model
-            ];
-        })->values()->all();
-        
-        // Carica i clienti
-        $this->clients = \App\Models\Client::with('sites')
+        $this->drivers = Driver::where('status', 'active')
             ->get()
-            ->map(function($client) {
+            ->map(function($driver) {
                 return (object) [
-                    'id' => $client->id,
-                    'name' => $client->name,
-                    'sites' => $client->sites->map(function($site) {
-                        return (object) [
-                            'id' => $site->id,
-                            'name' => $site->name
-                        ];
-                    })->values()->all()
+                    'id' => $driver->id,
+                    'name' => $driver->name . ' ' . $driver->surname
                 ];
-            })->values()->all();
+            })
+            ->sortBy('name') // Ordina alfabeticamente per nome
+            ->values()
+            ->all();
+        
+        $this->vehicles = Vehicle::where('status', 'operational')
+            ->get()
+            ->map(function($vehicle) {
+                return (object) [
+                    'id' => $vehicle->id,
+                    'plate' => $vehicle->plate,
+                    'model' => $vehicle->model
+                ];
+            })
+            ->sortBy('plate') // Ordina alfabeticamente per targa
+            ->values()
+            ->all();
+        
+        // Carica i clienti e i loro cantieri
+        if ($this->viewMode === 'activity') {
+            // Per la vista attività, prepariamo una struttura che include cliente e cantiere
+            $clientsWithSites = [];
+            $clients = \App\Models\Client::with(['sites' => function($query) {
+                $query->orderBy('name'); // Ordina i cantieri per nome
+            }])->orderBy('name')->get(); // Ordina i clienti per nome
+            
+            foreach ($clients as $client) {
+                if ($client->sites->count() > 0) {
+                    // Se il cliente ha cantieri, crea una riga per ogni cantiere
+                    foreach ($client->sites as $site) {
+                        $clientsWithSites[] = (object) [
+                            'id' => $client->id,
+                            'name' => $client->name,
+                            'site_id' => $site->id,
+                            'site_name' => $site->name,
+                            'is_site_row' => true,
+                            'sort_key' => $client->name . ' - ' . $site->name // Chiave per ordinamento
+                        ];
+                    }
+                } else {
+                    // Se il cliente non ha cantieri, crea una riga solo per il cliente
+                    $clientsWithSites[] = (object) [
+                        'id' => $client->id,
+                        'name' => $client->name,
+                        'site_id' => null,
+                        'site_name' => null,
+                        'is_site_row' => false,
+                        'sort_key' => $client->name // Chiave per ordinamento
+                    ];
+                }
+            }
+            
+            // Ordina l'array finale per cliente e poi per cantiere
+            $clientsWithSites = collect($clientsWithSites)
+                ->sortBy('sort_key')
+                ->values()
+                ->all();
+            
+            $this->clients = $clientsWithSites;
+        } else {
+            // Per le altre viste, manteniamo la struttura originale ma ordinata
+            $this->clients = \App\Models\Client::with(['sites' => function($query) {
+                    $query->orderBy('name'); // Ordina i cantieri per nome
+                }])
+                ->orderBy('name') // Ordina i clienti per nome
+                ->get()
+                ->map(function($client) {
+                    return (object) [
+                        'id' => $client->id,
+                        'name' => $client->name,
+                        'sites' => $client->sites->map(function($site) {
+                            return (object) [
+                                'id' => $site->id,
+                                'name' => $site->name
+                            ];
+                        })->values()->all()
+                    ];
+                })->values()->all();
+        }
         
         // Carica le attività per la settimana selezionata
         $query = Activity::whereBetween('date', [$this->startDate, $this->endDate])
@@ -263,7 +319,7 @@ class WeeklySchedule extends Page implements HasForms
         $this->loadData();
     }
     
-    public function getActivityForSlot($date, $timeSlot, $resourceId): ?object
+    public function getActivityForSlot($date, $timeSlot, $resourceId, $siteId = null): ?object
     {
         if (!isset($this->activities[$date])) {
             return null;
@@ -278,8 +334,16 @@ class WeeklySchedule extends Page implements HasForms
                     // Convert array to object for blade template compatibility
                     return json_decode(json_encode($activityData));
                 } elseif ($this->viewMode === 'activity' && $activityData['client_id'] == $resourceId) {
-                    // Convert array to object for blade template compatibility
-                    return json_decode(json_encode($activityData));
+                    // Se è specificato un cantiere, verifica che corrisponda
+                    if ($siteId !== null) {
+                        if ($activityData['site_id'] == $siteId) {
+                            // Convert array to object for blade template compatibility
+                            return json_decode(json_encode($activityData));
+                        }
+                    } else {
+                        // Se non è specificato un cantiere, restituisci l'attività
+                        return json_decode(json_encode($activityData));
+                    }
                 }
             }
         }

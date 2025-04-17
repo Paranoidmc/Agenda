@@ -109,9 +109,9 @@
                                 <tr>
                                     <td class="py-2 px-4 border-b border-gray-200 bg-white text-sm font-medium text-gray-900">
                                         {{ $client->name }}
-                                        @if (count($client->sites) > 0)
-                                            <div class="text-xs text-gray-500 mt-1">
-                                                Cantieri: {{ count($client->sites) }}
+                                        @if ($client->is_site_row)
+                                            <div class="text-xs text-gray-500 mt-1 font-medium">
+                                                Cantiere: {{ $client->site_name }}
                                             </div>
                                         @endif
                                     </td>
@@ -121,7 +121,7 @@
                                                 @php
                                                     $clientActivities = [];
                                                     foreach ($timeSlots as $slotKey => $slotName) {
-                                                        $activity = $this->getActivityForSlot($day['date'], $slotKey, $client->id);
+                                                        $activity = $this->getActivityForSlot($day['date'], $slotKey, $client->id, $client->site_id);
                                                         if ($activity) {
                                                             $clientActivities[] = $activity;
                                                         }
@@ -133,7 +133,6 @@
                                                         <a href="{{ route('filament.admin.resources.activities.edit', $activity->id) }}" 
                                                            class="block p-2 rounded border-l-4 {{ $this->getStatusColor($activity->status) }} mb-1 hover:bg-gray-50 transition-colors">
                                                             <div class="font-medium">{{ $activity->activityType->name }}</div>
-                                                            <div class="text-xs text-gray-500 italic">Cantiere: {{ $activity->site->name }}</div>
                                                             <div class="text-xs">Autista: {{ $activity->driver->name }}</div>
                                                             <div class="text-xs">Veicolo: {{ $activity->vehicle->plate }}</div>
                                                             <div class="text-xs">{{ $timeSlots[$activity->time_slot] }}</div>
@@ -144,7 +143,7 @@
                                                 @foreach ($timeSlots as $slotKey => $slotName)
                                                     <div class="relative">
                                                         <button 
-                                                            onclick="window.location.href='{{ route('filament.admin.resources.activities.create', ['query' => ['date' => $day['date'], 'time_slot' => $slotKey, 'client_id' => $client->id]]) }}';"
+                                                            onclick="window.location.href='{{ route('filament.admin.resources.activities.create', ['query' => ['date' => $day['date'], 'time_slot' => $slotKey, 'client_id' => $client->id, 'site_id' => $client->site_id]]) }}';"
                                                             class="p-2 w-full h-10 border border-dashed border-gray-300 rounded text-xs text-gray-500 hover:bg-gray-50 flex items-center justify-center">
                                                             <span>+ {{ $slotName }}</span>
                                                         </button>
