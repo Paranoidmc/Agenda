@@ -62,11 +62,46 @@ class Activity extends Model
     
     protected static function validateScheduleConflict($activity)
     {
+        // Se sono specificati orari di inizio e fine, utilizziamo quelli per il controllo dei conflitti
+        $useSpecificTimes = $activity->start_time && $activity->end_time;
+        
         // Check for driver schedule conflicts
-        $conflictingDriverActivities = static::where('driver_id', $activity->driver_id)
+        $driverQuery = static::where('driver_id', $activity->driver_id)
             ->where('date', $activity->date)
             ->where('id', '!=', $activity->id)
-            ->where(function ($query) use ($activity) {
+            ->where('status', '!=', 'cancelled');
+            
+        if ($useSpecificTimes) {
+            // Se ci sono orari specifici, verifichiamo la sovrapposizione degli orari
+            $driverQuery->where(function ($query) use ($activity) {
+                // Verifica se ci sono attività che si sovrappongono con gli orari specificati
+                $query->where(function ($q) use ($activity) {
+                    // Attività che inizia durante l'attività corrente
+                    $q->whereNotNull('start_time')
+                      ->whereNotNull('end_time')
+                      ->where('start_time', '>=', $activity->start_time)
+                      ->where('start_time', '<', $activity->end_time);
+                })->orWhere(function ($q) use ($activity) {
+                    // Attività che finisce durante l'attività corrente
+                    $q->whereNotNull('start_time')
+                      ->whereNotNull('end_time')
+                      ->where('end_time', '>', $activity->start_time)
+                      ->where('end_time', '<=', $activity->end_time);
+                })->orWhere(function ($q) use ($activity) {
+                    // Attività che include completamente l'attività corrente
+                    $q->whereNotNull('start_time')
+                      ->whereNotNull('end_time')
+                      ->where('start_time', '<=', $activity->start_time)
+                      ->where('end_time', '>=', $activity->end_time);
+                })->orWhere(function ($q) use ($activity) {
+                    // Attività senza orari specifici (usa solo time_slot)
+                    $q->whereNull('start_time')
+                      ->whereNull('end_time');
+                });
+            });
+        } else {
+            // Altrimenti, utilizziamo il controllo basato su time_slot
+            $driverQuery->where(function ($query) use ($activity) {
                 if ($activity->time_slot === 'full_day') {
                     // Full day conflicts with any time slot
                     return $query;
@@ -77,19 +112,52 @@ class Activity extends Model
                     // Afternoon conflicts with afternoon or full day
                     return $query->whereIn('time_slot', ['afternoon', 'full_day']);
                 }
-            })
-            ->where('status', '!=', 'cancelled')
-            ->exists();
+            });
+        }
+        
+        $conflictingDriverActivities = $driverQuery->exists();
             
         if ($conflictingDriverActivities) {
             throw new \Exception("L'autista è già impegnato in questa fascia oraria.");
         }
         
         // Check for vehicle schedule conflicts
-        $conflictingVehicleActivities = static::where('vehicle_id', $activity->vehicle_id)
+        $vehicleQuery = static::where('vehicle_id', $activity->vehicle_id)
             ->where('date', $activity->date)
             ->where('id', '!=', $activity->id)
-            ->where(function ($query) use ($activity) {
+            ->where('status', '!=', 'cancelled');
+            
+        if ($useSpecificTimes) {
+            // Se ci sono orari specifici, verifichiamo la sovrapposizione degli orari
+            $vehicleQuery->where(function ($query) use ($activity) {
+                // Verifica se ci sono attività che si sovrappongono con gli orari specificati
+                $query->where(function ($q) use ($activity) {
+                    // Attività che inizia durante l'attività corrente
+                    $q->whereNotNull('start_time')
+                      ->whereNotNull('end_time')
+                      ->where('start_time', '>=', $activity->start_time)
+                      ->where('start_time', '<', $activity->end_time);
+                })->orWhere(function ($q) use ($activity) {
+                    // Attività che finisce durante l'attività corrente
+                    $q->whereNotNull('start_time')
+                      ->whereNotNull('end_time')
+                      ->where('end_time', '>', $activity->start_time)
+                      ->where('end_time', '<=', $activity->end_time);
+                })->orWhere(function ($q) use ($activity) {
+                    // Attività che include completamente l'attività corrente
+                    $q->whereNotNull('start_time')
+                      ->whereNotNull('end_time')
+                      ->where('start_time', '<=', $activity->start_time)
+                      ->where('end_time', '>=', $activity->end_time);
+                })->orWhere(function ($q) use ($activity) {
+                    // Attività senza orari specifici (usa solo time_slot)
+                    $q->whereNull('start_time')
+                      ->whereNull('end_time');
+                });
+            });
+        } else {
+            // Altrimenti, utilizziamo il controllo basato su time_slot
+            $vehicleQuery->where(function ($query) use ($activity) {
                 if ($activity->time_slot === 'full_day') {
                     // Full day conflicts with any time slot
                     return $query;
@@ -100,9 +168,10 @@ class Activity extends Model
                     // Afternoon conflicts with afternoon or full day
                     return $query->whereIn('time_slot', ['afternoon', 'full_day']);
                 }
-            })
-            ->where('status', '!=', 'cancelled')
-            ->exists();
+            });
+        }
+        
+        $conflictingVehicleActivities = $vehicleQuery->exists();
             
         if ($conflictingVehicleActivities) {
             throw new \Exception("Il veicolo è già impegnato in questa fascia oraria.");

@@ -12,15 +12,20 @@
             margin-bottom: 0.5rem;
         }
         
-        /* Prima riga di pulsanti */
-        .fi-header-actions > *:nth-child(-n+3) {
+        /* Prima riga: Settimana Precedente, Settimana Corrente, Settimana Successiva */
+        .fi-header-actions > *:nth-child(1),
+        .fi-header-actions > *:nth-child(2),
+        .fi-header-actions > *:nth-child(3) {
             order: 1;
         }
         
-        /* Seconda riga di pulsanti */
-        .fi-header-actions > *:nth-child(n+4) {
+        /* Seconda riga: Vista Autisti, Vista Veicoli, Vista Attività, Nuova Attività, Esporta Excel */
+        .fi-header-actions > *:nth-child(4),
+        .fi-header-actions > *:nth-child(5),
+        .fi-header-actions > *:nth-child(6),
+        .fi-header-actions > *:nth-child(7),
+        .fi-header-actions > *:nth-child(8) {
             order: 2;
-            flex-basis: auto;
         }
         
         /* Forza l'interruzione di riga dopo il terzo elemento */
@@ -29,6 +34,16 @@
             flex-basis: 100%;
             order: 1;
             height: 0;
+            display: block;
+        }
+        
+        /* Assicura che la seconda riga inizi su una nuova riga */
+        .fi-header-actions::before {
+            content: "";
+            flex-basis: 100%;
+            order: 1;
+            height: 0;
+            display: block;
         }
     </style>
     
