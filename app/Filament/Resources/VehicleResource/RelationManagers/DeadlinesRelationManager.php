@@ -37,7 +37,7 @@ class DeadlinesRelationManager extends RelationManager
                     ->live()
                     ->afterStateUpdated(function (Forms\Set $set, $state) {
                         if ($state) {
-                            $set('reminder_date', \Carbon\Carbon::parse($state)->subDays(15)->format('Y-m-d'));
+                            $set('reminder_date', Carbon::parse($state)->subDays(15)->format('Y-m-d'));
                         }
                     }),
                 Forms\Components\DatePicker::make('reminder_date')

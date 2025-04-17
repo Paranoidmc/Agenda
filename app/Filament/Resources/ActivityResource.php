@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ActivityResource extends Resource
@@ -40,9 +41,9 @@ class ActivityResource extends Resource
                         Forms\Components\Select::make('time_slot')
                             ->label('Fascia Oraria')
                             ->options([
-                                'morning' => 'Mattina',
-                                'afternoon' => 'Pomeriggio',
-                                'full_day' => 'Giornata Intera',
+                                'morning' => 'Slot 1',
+                                'afternoon' => 'Slot 2',
+                                'full_day' => 'Slot 3',
                             ])
                             ->required()
                             ->default('morning'),
@@ -71,6 +72,7 @@ class ActivityResource extends Resource
                             ->relationship('driver', 'name', function (Builder $query) {
                                 return $query->where('status', 'active');
                             })
+                            ->getOptionLabelFromRecordUsing(fn (Model $record) => "{$record->name} {$record->surname}")
                             ->required()
                             ->searchable()
                             ->preload(),
@@ -134,13 +136,14 @@ class ActivityResource extends Resource
                 Tables\Columns\TextColumn::make('time_slot')
                     ->label('Fascia Oraria')
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'morning' => 'Mattina',
-                        'afternoon' => 'Pomeriggio',
-                        'full_day' => 'Giornata Intera',
+                        'morning' => 'Slot 1',
+                        'afternoon' => 'Slot 2',
+                        'full_day' => 'Slot 3',
                         default => $state,
                     }),
                 Tables\Columns\TextColumn::make('driver.name')
                     ->label('Autista')
+                    ->formatStateUsing(fn ($state, $record) => $record->driver ? "{$record->driver->name} {$record->driver->surname}" : '')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('vehicle.plate')
                     ->label('Veicolo')
@@ -195,7 +198,8 @@ class ActivityResource extends Resource
                     }),
                 Tables\Filters\SelectFilter::make('driver_id')
                     ->label('Autista')
-                    ->relationship('driver', 'name'),
+                    ->relationship('driver', 'name')
+                    ->getOptionLabelFromRecordUsing(fn (Model $record) => "{$record->name} {$record->surname}"),
                 Tables\Filters\SelectFilter::make('vehicle_id')
                     ->label('Veicolo')
                     ->relationship('vehicle', 'plate'),

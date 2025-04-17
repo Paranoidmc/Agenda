@@ -20,6 +20,8 @@ class ClientResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-building-office';
     
     protected static ?string $navigationGroup = 'Anagrafiche';
+    
+    protected static ?string $navigationLabel = 'Clienti';
 
     protected static ?int $navigationSort = 10;
 

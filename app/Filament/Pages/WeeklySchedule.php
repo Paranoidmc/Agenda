@@ -41,16 +41,18 @@ class WeeklySchedule extends Page implements HasForms
     public $endDate;
     public $selectedDriver = null;
     public $selectedVehicle = null;
-    public $viewMode = 'driver'; // 'driver' o 'vehicle'
+    public $selectedClient = null;
+    public $viewMode = 'driver'; // 'driver', 'vehicle' o 'activity'
     
     public $activities = [];
     public $drivers = [];
     public $vehicles = [];
+    public $clients = [];
     public $weekDays = [];
     public $timeSlots = [
-        'morning' => 'Mattina',
-        'afternoon' => 'Pomeriggio',
-        'full_day' => 'Giornata Intera',
+        'morning' => 'Slot 1',
+        'afternoon' => 'Slot 2',
+        'full_day' => 'Slot 3',
     ];
 
     public function mount(): void
@@ -73,7 +75,7 @@ class WeeklySchedule extends Page implements HasForms
         $this->drivers = Driver::where('status', 'active')->get()->map(function($driver) {
             return (object) [
                 'id' => $driver->id,
-                'name' => $driver->name
+                'name' => $driver->name . ' ' . $driver->surname
             ];
         })->values()->all();
         
@@ -85,17 +87,37 @@ class WeeklySchedule extends Page implements HasForms
             ];
         })->values()->all();
         
+        // Carica i clienti
+        $this->clients = \App\Models\Client::with('sites')
+            ->get()
+            ->map(function($client) {
+                return (object) [
+                    'id' => $client->id,
+                    'name' => $client->name,
+                    'sites' => $client->sites->map(function($site) {
+                        return (object) [
+                            'id' => $site->id,
+                            'name' => $site->name
+                        ];
+                    })->values()->all()
+                ];
+            })->values()->all();
+        
         // Carica le attività per la settimana selezionata
         $query = Activity::whereBetween('date', [$this->startDate, $this->endDate])
             ->with(['driver', 'vehicle', 'client', 'site', 'activityType']);
             
-        // Filtra per autista o veicolo se selezionati
-        if ($this->selectedDriver) {
+        // Filtra per autista, veicolo o cliente se selezionati
+        if ($this->selectedDriver && $this->viewMode === 'driver') {
             $query->where('driver_id', $this->selectedDriver);
         }
         
-        if ($this->selectedVehicle) {
+        if ($this->selectedVehicle && $this->viewMode === 'vehicle') {
             $query->where('vehicle_id', $this->selectedVehicle);
+        }
+        
+        if ($this->selectedClient && $this->viewMode === 'activity') {
+            $query->where('client_id', $this->selectedClient);
         }
         
         // Get activities and manually process them to avoid Livewire serialization issues
@@ -118,6 +140,8 @@ class WeeklySchedule extends Page implements HasForms
                 'time_slot' => $activity->time_slot,
                 'driver_id' => $activity->driver_id,
                 'vehicle_id' => $activity->vehicle_id,
+                'client_id' => $activity->client_id,
+                'site_id' => $activity->site_id,
                 'status' => $activity->status,
                 'activityType' => [
                     'name' => $activity->activityType->name ?? 'N/A'
@@ -129,7 +153,7 @@ class WeeklySchedule extends Page implements HasForms
                     'name' => $activity->site->name ?? 'N/A'
                 ],
                 'driver' => $activity->driver ? [
-                    'name' => $activity->driver->name
+                    'name' => $activity->driver->name . ' ' . $activity->driver->surname
                 ] : null,
                 'vehicle' => $activity->vehicle ? [
                     'plate' => $activity->vehicle->plate
@@ -178,11 +202,17 @@ class WeeklySchedule extends Page implements HasForms
         $this->loadData();
     }
     
-    public function toggleViewMode(): void
+    public function setViewMode(string $mode): void
     {
-        $this->viewMode = $this->viewMode === 'driver' ? 'vehicle' : 'driver';
+        $this->viewMode = $mode;
         $this->selectedDriver = null;
         $this->selectedVehicle = null;
+        $this->selectedClient = null;
+        $this->loadData();
+    }
+    
+    public function updatedSelectedClient(): void
+    {
         $this->loadData();
     }
     
@@ -210,11 +240,32 @@ class WeeklySchedule extends Page implements HasForms
                 } elseif ($this->viewMode === 'vehicle' && $activityData['vehicle_id'] == $resourceId) {
                     // Convert array to object for blade template compatibility
                     return json_decode(json_encode($activityData));
+                } elseif ($this->viewMode === 'activity' && $activityData['client_id'] == $resourceId) {
+                    // Convert array to object for blade template compatibility
+                    return json_decode(json_encode($activityData));
                 }
             }
         }
         
         return null;
+    }
+    
+    public function getActivitiesForClientSite($date, $clientId, $siteId = null): array
+    {
+        if (!isset($this->activities[$date])) {
+            return [];
+        }
+        
+        $result = [];
+        foreach ($this->activities[$date] as $activityData) {
+            if ($activityData['client_id'] == $clientId) {
+                if ($siteId === null || $activityData['site_id'] == $siteId) {
+                    $result[] = json_decode(json_encode($activityData));
+                }
+            }
+        }
+        
+        return $result;
     }
     
     public function getStatusColor($status): string
@@ -236,7 +287,11 @@ class WeeklySchedule extends Page implements HasForms
                     ->schema([
                         Select::make('selectedDriver')
                             ->label('Filtra per Autista')
-                            ->options(Driver::where('status', 'active')->pluck('name', 'id'))
+                            ->options(Driver::where('status', 'active')
+                                ->get()
+                                ->mapWithKeys(function ($driver) {
+                                    return [$driver->id => $driver->name . ' ' . $driver->surname];
+                                }))
                             ->placeholder('Tutti gli autisti')
                             ->live()
                             ->hidden(fn () => $this->viewMode !== 'driver'),
@@ -247,11 +302,18 @@ class WeeklySchedule extends Page implements HasForms
                             ->placeholder('Tutti i veicoli')
                             ->live()
                             ->hidden(fn () => $this->viewMode !== 'vehicle'),
+                            
+                        Select::make('selectedClient')
+                            ->label('Filtra per Cliente')
+                            ->options(\App\Models\Client::pluck('name', 'id'))
+                            ->placeholder('Tutti i clienti')
+                            ->live()
+                            ->hidden(fn () => $this->viewMode !== 'activity'),
                     ]),
             ]);
     }
     
-    public function createActivity($date, $timeSlot, $resourceId): void
+    public function createActivity($date, $timeSlot, $resourceId, $siteId = null): void
     {
         $params = [
             'date' => $date,
@@ -260,8 +322,13 @@ class WeeklySchedule extends Page implements HasForms
         
         if ($this->viewMode === 'driver') {
             $params['driver_id'] = $resourceId;
-        } else {
+        } elseif ($this->viewMode === 'vehicle') {
             $params['vehicle_id'] = $resourceId;
+        } elseif ($this->viewMode === 'activity') {
+            $params['client_id'] = $resourceId;
+            if ($siteId) {
+                $params['site_id'] = $siteId;
+            }
         }
         
         $url = route('filament.admin.resources.activities.create', ['query' => $params]);
@@ -286,10 +353,23 @@ class WeeklySchedule extends Page implements HasForms
                 ->icon('heroicon-o-arrow-right')
                 ->action('nextWeek'),
                 
-            Action::make('toggleView')
-                ->label(fn () => $this->viewMode === 'driver' ? 'Vista Veicoli' : 'Vista Autisti')
-                ->icon(fn () => $this->viewMode === 'driver' ? 'heroicon-o-truck' : 'heroicon-o-user-group')
-                ->action('toggleViewMode'),
+            Action::make('viewDrivers')
+                ->label('Vista Autisti')
+                ->icon('heroicon-o-user-group')
+                ->color(fn () => $this->viewMode === 'driver' ? 'primary' : 'gray')
+                ->action(fn () => $this->setViewMode('driver')),
+                
+            Action::make('viewVehicles')
+                ->label('Vista Veicoli')
+                ->icon('heroicon-o-truck')
+                ->color(fn () => $this->viewMode === 'vehicle' ? 'primary' : 'gray')
+                ->action(fn () => $this->setViewMode('vehicle')),
+                
+            Action::make('viewActivities')
+                ->label('Vista Attività')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->color(fn () => $this->viewMode === 'activity' ? 'primary' : 'gray')
+                ->action(fn () => $this->setViewMode('activity')),
                 
             Action::make('newActivity')
                 ->label('Nuova Attività')
