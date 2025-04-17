@@ -44,7 +44,7 @@ class WeeklySchedule extends Page implements HasForms
     public $selectedDriver = null;
     public $selectedVehicle = null;
     public $selectedClient = null;
-    public $viewMode = 'driver'; // 'driver', 'vehicle' o 'activity'
+    public $viewMode = 'activity'; // 'driver', 'vehicle' o 'activity'
     
     public $activities = [];
     public $drivers = [];
@@ -134,37 +134,117 @@ class WeeklySchedule extends Page implements HasForms
             ->values()
             ->all();
         
+        // Carica le attività per la settimana selezionata
+        $query = Activity::whereBetween('date', [$this->startDate, $this->endDate])
+            ->with(['driver', 'vehicle', 'client', 'site', 'activityType']);
+            
+        // Filtra per autista, veicolo o cliente se selezionati
+        if ($this->selectedDriver && $this->viewMode === 'driver') {
+            $query->where('driver_id', $this->selectedDriver);
+        }
+        
+        if ($this->selectedVehicle && $this->viewMode === 'vehicle') {
+            $query->where('vehicle_id', $this->selectedVehicle);
+        }
+        
+        if ($this->selectedClient && $this->viewMode === 'activity') {
+            $query->where('client_id', $this->selectedClient);
+        }
+        
+        // Get activities and manually process them to avoid Livewire serialization issues
+        $activities = $query->get();
+        
+        // Reset activities array
+        $this->activities = [];
+        
+        // Raccogli gli ID dei clienti con attività nella settimana
+        $clientsWithActivities = [];
+        $sitesWithActivities = [];
+        
+        // Manually group activities by date
+        foreach ($activities as $activity) {
+            $dateKey = $activity->date->format('Y-m-d');
+            
+            if (!isset($this->activities[$dateKey])) {
+                $this->activities[$dateKey] = [];
+            }
+            
+            // Aggiungi il cliente e il cantiere alle liste di quelli con attività
+            $clientsWithActivities[$activity->client_id] = true;
+            if ($activity->site_id) {
+                $sitesWithActivities[$activity->site_id] = true;
+            }
+            
+            // Store only the necessary data
+            $this->activities[$dateKey][] = [
+                'id' => $activity->id,
+                'time_slot' => $activity->time_slot,
+                'start_time' => $activity->start_time ? $activity->start_time->format('H:i') : null,
+                'end_time' => $activity->end_time ? $activity->end_time->format('H:i') : null,
+                'driver_id' => $activity->driver_id,
+                'vehicle_id' => $activity->vehicle_id,
+                'client_id' => $activity->client_id,
+                'site_id' => $activity->site_id,
+                'status' => $activity->status,
+                'activityType' => [
+                    'name' => $activity->activityType->name ?? 'N/A'
+                ],
+                'client' => [
+                    'name' => $activity->client->name ?? 'N/A'
+                ],
+                'site' => [
+                    'name' => $activity->site->name ?? 'N/A'
+                ],
+                'driver' => $activity->driver ? [
+                    'name' => $activity->driver->name . ' ' . $activity->driver->surname
+                ] : null,
+                'vehicle' => $activity->vehicle ? [
+                    'plate' => $activity->vehicle->plate
+                ] : null
+            ];
+        }
+        
         // Carica i clienti e i loro cantieri
         if ($this->viewMode === 'activity') {
             // Per la vista attività, prepariamo una struttura che include cliente e cantiere
             $clientsWithSites = [];
-            $clients = \App\Models\Client::with(['sites' => function($query) {
-                $query->orderBy('name'); // Ordina i cantieri per nome
-            }])->orderBy('name')->get(); // Ordina i clienti per nome
             
-            foreach ($clients as $client) {
-                if ($client->sites->count() > 0) {
-                    // Se il cliente ha cantieri, crea una riga per ogni cantiere
-                    foreach ($client->sites as $site) {
+            // Se ci sono attività, carica solo i clienti con attività
+            if (!empty($clientsWithActivities)) {
+                $clients = \App\Models\Client::with(['sites' => function($query) {
+                    $query->orderBy('name'); // Ordina i cantieri per nome
+                }])
+                ->whereIn('id', array_keys($clientsWithActivities)) // Solo clienti con attività
+                ->orderBy('name')
+                ->get();
+                
+                foreach ($clients as $client) {
+                    if ($client->sites->count() > 0) {
+                        // Se il cliente ha cantieri, crea una riga per ogni cantiere con attività
+                        foreach ($client->sites as $site) {
+                            // Includi solo i cantieri con attività o tutti se il cliente è selezionato
+                            if (isset($sitesWithActivities[$site->id]) || $this->selectedClient == $client->id) {
+                                $clientsWithSites[] = (object) [
+                                    'id' => $client->id,
+                                    'name' => $client->name,
+                                    'site_id' => $site->id,
+                                    'site_name' => $site->name,
+                                    'is_site_row' => true,
+                                    'sort_key' => $client->name . ' - ' . $site->name // Chiave per ordinamento
+                                ];
+                            }
+                        }
+                    } else {
+                        // Se il cliente non ha cantieri, crea una riga solo per il cliente
                         $clientsWithSites[] = (object) [
                             'id' => $client->id,
                             'name' => $client->name,
-                            'site_id' => $site->id,
-                            'site_name' => $site->name,
-                            'is_site_row' => true,
-                            'sort_key' => $client->name . ' - ' . $site->name // Chiave per ordinamento
+                            'site_id' => null,
+                            'site_name' => null,
+                            'is_site_row' => false,
+                            'sort_key' => $client->name // Chiave per ordinamento
                         ];
                     }
-                } else {
-                    // Se il cliente non ha cantieri, crea una riga solo per il cliente
-                    $clientsWithSites[] = (object) [
-                        'id' => $client->id,
-                        'name' => $client->name,
-                        'site_id' => null,
-                        'site_name' => null,
-                        'is_site_row' => false,
-                        'sort_key' => $client->name // Chiave per ordinamento
-                    ];
                 }
             }
             
@@ -194,64 +274,6 @@ class WeeklySchedule extends Page implements HasForms
                         })->values()->all()
                     ];
                 })->values()->all();
-        }
-        
-        // Carica le attività per la settimana selezionata
-        $query = Activity::whereBetween('date', [$this->startDate, $this->endDate])
-            ->with(['driver', 'vehicle', 'client', 'site', 'activityType']);
-            
-        // Filtra per autista, veicolo o cliente se selezionati
-        if ($this->selectedDriver && $this->viewMode === 'driver') {
-            $query->where('driver_id', $this->selectedDriver);
-        }
-        
-        if ($this->selectedVehicle && $this->viewMode === 'vehicle') {
-            $query->where('vehicle_id', $this->selectedVehicle);
-        }
-        
-        if ($this->selectedClient && $this->viewMode === 'activity') {
-            $query->where('client_id', $this->selectedClient);
-        }
-        
-        // Get activities and manually process them to avoid Livewire serialization issues
-        $activities = $query->get();
-        
-        // Reset activities array
-        $this->activities = [];
-        
-        // Manually group activities by date
-        foreach ($activities as $activity) {
-            $dateKey = $activity->date->format('Y-m-d');
-            
-            if (!isset($this->activities[$dateKey])) {
-                $this->activities[$dateKey] = [];
-            }
-            
-            // Store only the necessary data
-            $this->activities[$dateKey][] = [
-                'id' => $activity->id,
-                'time_slot' => $activity->time_slot,
-                'driver_id' => $activity->driver_id,
-                'vehicle_id' => $activity->vehicle_id,
-                'client_id' => $activity->client_id,
-                'site_id' => $activity->site_id,
-                'status' => $activity->status,
-                'activityType' => [
-                    'name' => $activity->activityType->name ?? 'N/A'
-                ],
-                'client' => [
-                    'name' => $activity->client->name ?? 'N/A'
-                ],
-                'site' => [
-                    'name' => $activity->site->name ?? 'N/A'
-                ],
-                'driver' => $activity->driver ? [
-                    'name' => $activity->driver->name . ' ' . $activity->driver->surname
-                ] : null,
-                'vehicle' => $activity->vehicle ? [
-                    'plate' => $activity->vehicle->plate
-                ] : null
-            ];
         }
     }
     

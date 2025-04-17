@@ -47,6 +47,12 @@ class ActivityResource extends Resource
                             ])
                             ->required()
                             ->default('morning'),
+                        Forms\Components\TimePicker::make('start_time')
+                            ->label('Ora Inizio')
+                            ->seconds(false),
+                        Forms\Components\TimePicker::make('end_time')
+                            ->label('Ora Fine')
+                            ->seconds(false),
                         Forms\Components\Select::make('activity_type_id')
                             ->label('Tipo Attività')
                             ->relationship('activityType', 'name')
@@ -141,6 +147,12 @@ class ActivityResource extends Resource
                         'full_day' => 'Slot 3',
                         default => $state,
                     }),
+                Tables\Columns\TextColumn::make('start_time')
+                    ->label('Ora Inizio')
+                    ->time('H:i'),
+                Tables\Columns\TextColumn::make('end_time')
+                    ->label('Ora Fine')
+                    ->time('H:i'),
                 Tables\Columns\TextColumn::make('driver.name')
                     ->label('Autista')
                     ->formatStateUsing(fn ($state, $record) => $record->driver ? "{$record->driver->name} {$record->driver->surname}" : '')

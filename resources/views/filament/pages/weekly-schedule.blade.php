@@ -1,4 +1,37 @@
 <x-filament-panels::page>
+    <style>
+        /* Stile per organizzare i pulsanti su due righe */
+        .fi-header-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        
+        .fi-header-actions > * {
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Prima riga di pulsanti */
+        .fi-header-actions > *:nth-child(-n+3) {
+            order: 1;
+        }
+        
+        /* Seconda riga di pulsanti */
+        .fi-header-actions > *:nth-child(n+4) {
+            order: 2;
+            flex-basis: auto;
+        }
+        
+        /* Forza l'interruzione di riga dopo il terzo elemento */
+        .fi-header-actions::after {
+            content: "";
+            flex-basis: 100%;
+            order: 1;
+            height: 0;
+        }
+    </style>
+    
     <div class="space-y-4">
         <div class="p-4 bg-white rounded-lg shadow">
             {{ $this->form }}
@@ -36,7 +69,13 @@
                                     @foreach ($weekDays as $day)
                                         <td class="py-2 px-4 border-b border-gray-200 bg-white text-sm {{ $day['is_today'] ? 'bg-blue-50' : '' }}">
                                             <div class="grid grid-cols-1 gap-1">
-                                                @foreach ($timeSlots as $slotKey => $slotName)
+                                                @php
+                                                    // Ordine degli slot
+                                                    $slotOrder = ['morning', 'afternoon', 'full_day'];
+                                                @endphp
+                                                
+                                                {{-- Mostra tutti gli slot nell'ordine corretto --}}
+                                                @foreach ($slotOrder as $slotKey)
                                                     @php
                                                         $activity = $this->getActivityForSlot($day['date'], $slotKey, $driver->id);
                                                     @endphp
@@ -50,12 +89,18 @@
                                                                 <div class="text-xs text-gray-500 italic">{{ $activity->site->name }}</div>
                                                                 <div class="text-xs">Veicolo: {{ $activity->vehicle->plate }}</div>
                                                                 <div class="text-xs">{{ $timeSlots[$activity->time_slot] }}</div>
+                                                                @if($activity->start_time || $activity->end_time)
+                                                                    <div class="text-xs font-medium mt-1">
+                                                                        @if($activity->start_time) Inizio: {{ $activity->start_time }} @endif
+                                                                        @if($activity->end_time) Fine: {{ $activity->end_time }} @endif
+                                                                    </div>
+                                                                @endif
                                                             </a>
                                                         @else
                                                             <button 
                                                                 onclick="window.location.href='{{ route('filament.admin.resources.activities.create', ['query' => ['date' => $day['date'], 'time_slot' => $slotKey, 'driver_id' => $driver->id]]) }}';"
                                                                 class="p-2 w-full h-10 border border-dashed border-gray-300 rounded text-xs text-gray-500 hover:bg-gray-50 flex items-center justify-center">
-                                                                <span>+ {{ $slotName }}</span>
+                                                                <span>+ {{ $timeSlots[$slotKey] }}</span>
                                                             </button>
                                                         @endif
                                                     </div>
@@ -75,7 +120,13 @@
                                     @foreach ($weekDays as $day)
                                         <td class="py-2 px-4 border-b border-gray-200 bg-white text-sm {{ $day['is_today'] ? 'bg-blue-50' : '' }}">
                                             <div class="grid grid-cols-1 gap-1">
-                                                @foreach ($timeSlots as $slotKey => $slotName)
+                                                @php
+                                                    // Ordine degli slot
+                                                    $slotOrder = ['morning', 'afternoon', 'full_day'];
+                                                @endphp
+                                                
+                                                {{-- Mostra tutti gli slot nell'ordine corretto --}}
+                                                @foreach ($slotOrder as $slotKey)
                                                     @php
                                                         $activity = $this->getActivityForSlot($day['date'], $slotKey, $vehicle->id);
                                                     @endphp
@@ -89,12 +140,18 @@
                                                                 <div class="text-xs text-gray-500 italic">{{ $activity->site->name }}</div>
                                                                 <div class="text-xs">Autista: {{ $activity->driver->name }}</div>
                                                                 <div class="text-xs">{{ $timeSlots[$activity->time_slot] }}</div>
+                                                                @if($activity->start_time || $activity->end_time)
+                                                                    <div class="text-xs font-medium mt-1">
+                                                                        @if($activity->start_time) Inizio: {{ $activity->start_time }} @endif
+                                                                        @if($activity->end_time) Fine: {{ $activity->end_time }} @endif
+                                                                    </div>
+                                                                @endif
                                                             </a>
                                                         @else
                                                             <button 
                                                                 onclick="window.location.href='{{ route('filament.admin.resources.activities.create', ['query' => ['date' => $day['date'], 'time_slot' => $slotKey, 'vehicle_id' => $vehicle->id]]) }}';"
                                                                 class="p-2 w-full h-10 border border-dashed border-gray-300 rounded text-xs text-gray-500 hover:bg-gray-50 flex items-center justify-center">
-                                                                <span>+ {{ $slotName }}</span>
+                                                                <span>+ {{ $timeSlots[$slotKey] }}</span>
                                                             </button>
                                                         @endif
                                                     </div>
@@ -128,26 +185,45 @@
                                                     }
                                                 @endphp
                                                 
-                                                @if (count($clientActivities) > 0)
-                                                    @foreach ($clientActivities as $activity)
+                                                {{-- Prepara gli slot occupati --}}
+                                                @php
+                                                    $occupiedSlots = [];
+                                                    foreach ($clientActivities as $activity) {
+                                                        $occupiedSlots[$activity->time_slot] = $activity;
+                                                    }
+                                                    
+                                                    // Ordine degli slot
+                                                    $slotOrder = ['morning', 'afternoon', 'full_day'];
+                                                @endphp
+                                                
+                                                {{-- Mostra tutti gli slot nell'ordine corretto --}}
+                                                @foreach ($slotOrder as $slotKey)
+                                                    @if (isset($occupiedSlots[$slotKey]))
+                                                        {{-- Questo slot è occupato, mostra l'attività --}}
+                                                        @php $activity = $occupiedSlots[$slotKey]; @endphp
                                                         <a href="{{ route('filament.admin.resources.activities.edit', $activity->id) }}" 
                                                            class="block p-2 rounded border-l-4 {{ $this->getStatusColor($activity->status) }} mb-1 hover:bg-gray-50 transition-colors">
                                                             <div class="font-medium">{{ $activity->activityType->name }}</div>
                                                             <div class="text-xs">Autista: {{ $activity->driver->name }}</div>
                                                             <div class="text-xs">Veicolo: {{ $activity->vehicle->plate }}</div>
                                                             <div class="text-xs">{{ $timeSlots[$activity->time_slot] }}</div>
+                                                            @if($activity->start_time || $activity->end_time)
+                                                                <div class="text-xs font-medium mt-1">
+                                                                    @if($activity->start_time) Inizio: {{ $activity->start_time }} @endif
+                                                                    @if($activity->end_time) Fine: {{ $activity->end_time }} @endif
+                                                                </div>
+                                                            @endif
                                                         </a>
-                                                    @endforeach
-                                                @endif
-                                                
-                                                @foreach ($timeSlots as $slotKey => $slotName)
-                                                    <div class="relative">
-                                                        <button 
-                                                            onclick="window.location.href='{{ route('filament.admin.resources.activities.create', ['query' => ['date' => $day['date'], 'time_slot' => $slotKey, 'client_id' => $client->id, 'site_id' => $client->site_id]]) }}';"
-                                                            class="p-2 w-full h-10 border border-dashed border-gray-300 rounded text-xs text-gray-500 hover:bg-gray-50 flex items-center justify-center">
-                                                            <span>+ {{ $slotName }}</span>
-                                                        </button>
-                                                    </div>
+                                                    @else
+                                                        {{-- Questo slot è libero, mostra il pulsante per aggiungere --}}
+                                                        <div class="relative">
+                                                            <button 
+                                                                onclick="window.location.href='{{ route('filament.admin.resources.activities.create', ['query' => ['date' => $day['date'], 'time_slot' => $slotKey, 'client_id' => $client->id, 'site_id' => $client->site_id]]) }}';"
+                                                                class="p-2 w-full h-10 border border-dashed border-gray-300 rounded text-xs text-gray-500 hover:bg-gray-50 flex items-center justify-center">
+                                                                <span>+ {{ $timeSlots[$slotKey] }}</span>
+                                                            </button>
+                                                        </div>
+                                                    @endif
                                                 @endforeach
                                             </div>
                                         </td>

@@ -13,6 +13,8 @@ class Activity extends Model
     protected $fillable = [
         'date',
         'time_slot',
+        'start_time',
+        'end_time',
         'driver_id',
         'vehicle_id',
         'client_id',
@@ -28,6 +30,8 @@ class Activity extends Model
     protected $casts = [
         'date' => 'date',
         'completed_at' => 'datetime',
+        'start_time' => 'datetime',
+        'end_time' => 'datetime',
     ];
     
     protected static function booted()
