@@ -14,6 +14,8 @@ use Filament\Forms\Form;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Actions\Action;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\WeeklyScheduleExport;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
@@ -54,6 +56,41 @@ class WeeklySchedule extends Page implements HasForms
         'afternoon' => 'Slot 2',
         'full_day' => 'Slot 3',
     ];
+
+    public function exportExcel()
+    {
+        // Prepara i dati per la tabella export
+        $rows = [];
+        if ($this->viewMode === 'driver') {
+            foreach ($this->drivers as $driver) {
+                $row = ['label' => $driver->name, 'days' => []];
+                foreach ($this->weekDays as $day) {
+                    $cell = [];
+                    foreach ($this->timeSlots as $slotKey => $slotName) {
+                        // Qui $day può essere array o oggetto, quindi usiamo ->date se oggetto, altrimenti ['date']
+                        $date = is_array($day) ? $day['date'] : $day->date;
+                        $activity = $this->getActivityForSlot($date, $slotKey, $driver->id);
+                        if ($activity) {
+                            $cell[] = [
+                                'activityType' => isset($activity->activityType) && is_object($activity->activityType) ? $activity->activityType->name : '',
+                                'client' => isset($activity->client) && is_object($activity->client) ? $activity->client->name : '',
+                                'site' => isset($activity->site) && is_object($activity->site) ? $activity->site->name : '',
+                                'vehicle' => isset($activity->vehicle) && is_object($activity->vehicle) ? $activity->vehicle->plate : '',
+                                'slot' => isset($this->timeSlots[$activity->time_slot]) ? $this->timeSlots[$activity->time_slot] : $activity->time_slot,
+                            ];
+                        }
+                    }
+                    $row['days'][] = $cell;
+                }
+                $rows[] = $row;
+            }
+        }
+        // Puoi aggiungere anche per vehicle e activity viewMode se serve
+        return Excel::download(new WeeklyScheduleExport([
+            'weekDays' => $this->weekDays,
+            'rows' => $rows,
+        ]), 'agenda-settimanale.xlsx');
+    }
 
     public function mount(): void
     {
@@ -338,6 +375,7 @@ class WeeklySchedule extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
+            // Prima riga pulsanti
             Action::make('previousWeek')
                 ->label('Settimana Precedente')
                 ->icon('heroicon-o-arrow-left')
@@ -375,6 +413,12 @@ class WeeklySchedule extends Page implements HasForms
                 ->label('Nuova Attività')
                 ->icon('heroicon-o-plus')
                 ->url(route('filament.admin.resources.activities.create')),
+            // Seconda riga pulsanti
+            Action::make('exportExcel')
+                ->label('Esporta Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->action('exportExcel')
+                ->color('success'),
         ];
     }
 }
