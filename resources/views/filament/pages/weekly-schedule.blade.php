@@ -46,7 +46,10 @@
                     <tbody>
                         @if ($viewMode === 'driver')
                             @foreach ($drivers as $driver)
-                                <tr>
+    @if ($selectedDriver && $driver->id != $selectedDriver)
+        @continue
+    @endif
+    <tr>
                                     <td class="py-2 px-4 border-b border-gray-200 bg-white text-sm font-medium text-gray-900">
                                         {{ $driver->name }}
                                     </td>
@@ -96,7 +99,10 @@
                             @endforeach
                         @elseif ($viewMode === 'vehicle')
                             @foreach ($vehicles as $vehicle)
-                                <tr>
+    @if ($selectedVehicle && $vehicle->id != $selectedVehicle)
+        @continue
+    @endif
+    <tr>
                                     <td class="py-2 px-4 border-b border-gray-200 bg-white text-sm font-medium text-gray-900">
                                         {{ $vehicle->plate }}
                                         <div class="text-xs text-gray-500">{{ $vehicle->model }}</div>
@@ -147,7 +153,10 @@
                             @endforeach
                         @else
                             @foreach ($clients as $client)
-                                <tr>
+    @if ($selectedClient && $client->id != $selectedClient)
+        @continue
+    @endif
+    <tr>
                                     <td class="py-2 px-4 border-b border-gray-200 bg-white text-sm font-medium text-gray-900">
                                         {{ $client->name }}
                                         @if ($client->is_site_row)
