@@ -1,4 +1,12 @@
 <x-filament-panels::page>
+    <!-- Includi il CSS personalizzato -->
+    <style>
+        @import url('/css/custom.css');
+    </style>
+    
+    <!-- Includi il JavaScript personalizzato -->
+    <script src="/js/custom.js"></script>
+    
     <div class="mb-4">
         <div class="flex gap-2 mb-2 flex-wrap">
             <x-filament::button wire:click="previousWeek" icon="heroicon-o-arrow-left">Settimana Precedente</x-filament::button>
@@ -19,6 +27,33 @@
     <div class="space-y-4">
         <div class="p-4 bg-white rounded-lg shadow">
             {{ $this->form }}
+            
+            <!-- Legenda dei colori -->
+            <div class="mt-4 border-t pt-3">
+                <h3 class="text-sm font-medium mb-2">Legenda stati:</h3>
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-sky-100 border border-sky-500 mr-2"></div>
+                        <span class="text-xs">Non assegnato</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-yellow-100 border border-yellow-500 mr-2"></div>
+                        <span class="text-xs">Assegnato</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-red-100 border border-red-500 mr-2"></div>
+                        <span class="text-xs">Doc Emesso</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-green-100 border border-green-500 mr-2"></div>
+                        <span class="text-xs">Completato</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-pink-100 border border-pink-500 mr-2"></div>
+                        <span class="text-xs">Annullato</span>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div class="p-4 bg-white rounded-lg shadow">

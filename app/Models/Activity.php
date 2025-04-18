@@ -58,6 +58,9 @@ class Activity extends Model
         if ($activity->status !== 'completed' && $activity->completed_at !== null) {
             $activity->completed_at = null;
         }
+        
+        // Nessuna logica speciale per gli altri stati (planned, in_progress, doc_issued, cancelled)
+        // ma possiamo aggiungere qui se necessario in futuro
     }
     
     protected static function validateScheduleConflict($activity)

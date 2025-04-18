@@ -1,0 +1,55 @@
+/* Colori personalizzati per le celle dell'agenda */
+.bg-sky-100 {
+    background-color: #e0f2fe !important; /* Azzurro chiaro */
+}
+
+.bg-yellow-100 {
+    background-color: #fef9c3 !important; /* Giallo */
+}
+
+.bg-green-100 {
+    background-color: #d1fad1 !important; /* Verde chiaro più intenso */
+}
+
+.bg-pink-100 {
+    background-color: #ffe0e6 !important; /* Rosa molto chiaro */
+}
+
+.bg-red-100 {
+    background-color: #ffb3b3 !important; /* Rosso chiaro più intenso */
+}
+
+.border-sky-500 {
+    border-color: #0ea5e9 !important; /* Bordo azzurro */
+}
+
+.border-yellow-500 {
+    border-color: #eab308 !important; /* Bordo giallo */
+}
+
+.border-green-500 {
+    border-color: #2ea043 !important; /* Bordo verde più intenso */
+}
+
+.border-pink-500 {
+    border-color: #ffb6c1 !important; /* Bordo rosa più chiaro */
+}
+
+.border-red-500 {
+    border-color: #ff3333 !important; /* Bordo rosso più intenso */
+}
+
+/* Assicuriamoci che il testo sia sempre nero per una migliore leggibilità */
+.text-black {
+    color: #000000 !important;
+}
+
+/* Disabilitiamo l'effetto hover che cambia il colore di sfondo */
+.hover\:bg-gray-50:hover {
+    background-color: inherit !important;
+}
+
+/* Modifica del testo del pulsante "Cancel" in "Esci" */
+button[type="button"]:not([disabled]):not(.filament-tables-bulk-actions-trigger):not(.filament-link):not([id*="-tab-"]):not(.choices__button) {
+    content: "Esci" !important;
+}

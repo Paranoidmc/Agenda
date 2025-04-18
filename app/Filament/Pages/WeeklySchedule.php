@@ -393,12 +393,19 @@ class WeeklySchedule extends Page implements HasForms
     
     public function getStatusColor($status): string
     {
+        // Implementazione della legenda dei colori richiesta:
+        // - Non assegnato (planned) --> Azzurro chiaro
+        // - Assegnato (in_progress) --> Giallo
+        // - Doc Emesso (cancelled) --> Rosa chiaro
+        // - Completato (completed) --> Verde chiaro
+        // - Annullato (cancelled) --> Rosa chiaro
         return match ($status) {
-            'planned' => 'bg-blue-100 border-blue-500 text-blue-800',
-            'in_progress' => 'bg-yellow-100 border-yellow-500 text-yellow-800',
-            'completed' => 'bg-green-100 border-green-500 text-green-800',
-            'cancelled' => 'bg-red-100 border-red-500 text-red-800',
-            default => 'bg-gray-100 border-gray-500 text-gray-800',
+            'planned' => 'bg-sky-100 border-sky-500 text-black', // Azzurro chiaro
+            'in_progress' => 'bg-yellow-100 border-yellow-500 text-black', // Giallo
+            'completed' => 'bg-green-100 border-green-500 text-black', // Verde chiaro
+            'cancelled' => 'bg-pink-100 border-pink-500 text-black', // Rosa chiaro
+            'doc_issued' => 'bg-red-100 border-red-500 text-black', // Rosso chiaro
+            default => 'bg-gray-100 border-gray-500 text-black',
         };
     }
     

@@ -62,10 +62,11 @@ class ActivityResource extends Resource
                         Forms\Components\Select::make('status')
                             ->label('Stato')
                             ->options([
-                                'planned' => 'Pianificata',
-                                'in_progress' => 'In Corso',
-                                'completed' => 'Completata',
-                                'cancelled' => 'Annullata',
+                                'planned' => 'Non assegnato',
+                                'in_progress' => 'Assegnato',
+                                'doc_issued' => 'Doc Emesso',
+                                'completed' => 'Completato',
+                                'cancelled' => 'Annullato',
                             ])
                             ->default('planned')
                             ->required(),
@@ -171,11 +172,20 @@ class ActivityResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Stato')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'planned' => 'Non assegnato',
+                        'in_progress' => 'Assegnato',
+                        'doc_issued' => 'Doc Emesso',
+                        'completed' => 'Completato',
+                        'cancelled' => 'Annullato',
+                        default => $state,
+                    })
                     ->color(fn (string $state): string => match ($state) {
-                        'planned' => 'info',
-                        'in_progress' => 'warning',
-                        'completed' => 'success',
-                        'cancelled' => 'danger',
+                        'planned' => 'info', // Azzurro
+                        'in_progress' => 'warning', // Giallo
+                        'doc_issued' => 'danger', // Rosso
+                        'completed' => 'success', // Verde
+                        'cancelled' => 'gray', // Rosa (usiamo gray perché non c'è un colore rosa predefinito)
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('created_at')
@@ -221,10 +231,11 @@ class ActivityResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Stato')
                     ->options([
-                        'planned' => 'Pianificata',
-                        'in_progress' => 'In Corso',
-                        'completed' => 'Completata',
-                        'cancelled' => 'Annullata',
+                        'planned' => 'Non assegnato',
+                        'in_progress' => 'Assegnato',
+                        'doc_issued' => 'Doc Emesso',
+                        'completed' => 'Completato',
+                        'cancelled' => 'Annullato',
                     ]),
             ])
             ->actions([

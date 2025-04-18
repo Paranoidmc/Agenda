@@ -63,6 +63,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->renderHook(
+                'panels::body.end',
+                fn () => '<script src="/js/custom.js"></script>'
+            );
     }
 }
