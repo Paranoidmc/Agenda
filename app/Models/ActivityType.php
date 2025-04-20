@@ -14,6 +14,9 @@ class ActivityType extends Model
         'name',
         'description',
         'color',
+        'nome',
+        'descrizione',
+        'colore',
     ];
 
     public function activities(): HasMany

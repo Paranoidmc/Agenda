@@ -18,8 +18,19 @@ class Site extends Model
         'postal_code',
         'province',
         'client_id',
+        'phone',
+        'email',
         'notes',
         'status',
+        // Campi in italiano
+        'nome',
+        'indirizzo',
+        'citta',
+        'cap',
+        'provincia',
+        'cliente_id',
+        'telefono',
+        'note',
     ];
 
     public function client(): BelongsTo

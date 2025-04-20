@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ActivitiesRelationManager extends RelationManager
 {
+    protected static ?string $label = 'Attività';
+    protected static ?string $pluralLabel = 'Attività';
+    protected static ?string $title = 'Attività';
+    protected static ?string $recordTitleAttribute = 'date';
     protected static string $relationship = 'activities';
 
     public function form(Form $form): Form

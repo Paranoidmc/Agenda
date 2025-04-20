@@ -1,0 +1,107 @@
+/* Fix per problemi di visualizzazione di Filament */
+.fi-sidebar-group, 
+.fi-sidebar-item, 
+.fi-active, 
+.fi-sidebar-group-items,
+.fi-sidebar-group-collapse-button, 
+.rotate-180, 
+.fi-main-sidebar, 
+.fi-sidebar-nav {
+    display: block !important;
+}
+
+.fi-sidebar-group-items {
+    margin-left: 1rem;
+}
+
+.fi-sidebar-group-collapse-button {
+    float: right;
+}
+
+.fi-active {
+    font-weight: bold;
+    color: #f59e0b !important;
+}
+
+/* Fix per tabelle e form */
+.fi-ta-ctn,
+.fi-ta-content,
+.fi-ta-table,
+.fi-ta-header-cell,
+.fi-ta-cell,
+.fi-fo-field-wrp,
+.fi-fo-component-ctn,
+.fi-fo-field,
+.fi-input-wrp,
+.fi-select-input,
+.fi-btn,
+.fi-dropdown,
+.fi-dropdown-panel,
+.fi-dropdown-list,
+.fi-dropdown-list-item,
+.fi-badge,
+.fi-pagination,
+.fi-pagination-item,
+.fi-pagination-item-button {
+    display: block !important;
+}
+
+/* Fix per layout */
+.fi-layout,
+.fi-main,
+.fi-main-ctn,
+.fi-section,
+.fi-section-content,
+.fi-section-header-heading,
+.fi-tabs,
+.fi-tabs-item,
+.fi-tabs-item-active {
+    display: block !important;
+}
+
+/* Fix per relation manager */
+.fi-relation-manager,
+.fi-relation-manager-header,
+.fi-relation-manager-content,
+.fi-relation-manager-table {
+    display: block !important;
+}
+
+/* Fix per form */
+.fi-form,
+.fi-form-section,
+.fi-form-section-content,
+.fi-fieldset,
+.fi-fieldset-legend,
+.fi-fieldset-content {
+    display: block !important;
+}
+
+/* Fix per bottoni */
+.fi-btn-group,
+.fi-icon-btn {
+    display: inline-flex !important;
+}
+
+/* Fix per dropdown */
+.fi-dropdown-trigger {
+    display: inline-block !important;
+}
+
+/* Fix per modal */
+.fi-modal,
+.fi-modal-window,
+.fi-modal-content,
+.fi-modal-header,
+.fi-modal-heading,
+.fi-modal-footer {
+    display: block !important;
+}
+
+/* Fix per notification */
+.fi-notification,
+.fi-notification-title,
+.fi-notification-body,
+.fi-notification-close {
+    display: block !important;
+}

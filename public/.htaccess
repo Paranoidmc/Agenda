@@ -18,8 +18,21 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-    # Send Requests To Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
+    # Se la richiesta è per un file o una directory esistente, servila normalmente
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Se la richiesta inizia con admin o api o è per file PHP, vai su index.php (Laravel)
+    RewriteCond %{REQUEST_URI} ^/admin [OR]
+    RewriteCond %{REQUEST_URI} ^/api [OR]
+    RewriteCond %{REQUEST_URI} ^/filament [OR]
+    RewriteCond %{REQUEST_URI} ^/livewire [OR]
+    RewriteCond %{REQUEST_URI} ^/css [OR]
+    RewriteCond %{REQUEST_URI} ^/js [OR]
+    RewriteCond %{REQUEST_URI} \.php$
     RewriteRule ^ index.php [L]
+
+    # Altrimenti, tutte le altre richieste vanno su index.html (SPA React)
+    RewriteRule ^ index.html [L]
 </IfModule>

@@ -37,6 +37,16 @@ class Vehicle extends Model
         'maintenance_interval_months',
         'status',
         'notes',
+        // Campi in italiano
+        'targa',
+        'modello',
+        'marca',
+        'colore',
+        'anno',
+        'tipo',
+        'carburante',
+        'km',
+        'note',
     ];
     
     protected $casts = [

@@ -12,15 +12,25 @@ class Client extends Model
 
     protected $fillable = [
         'name',
+        'email',
+        'phone',
         'address',
         'city',
         'postal_code',
         'province',
-        'email',
-        'phone',
         'vat_number',
         'fiscal_code',
         'notes',
+        // Campi in italiano
+        'nome',
+        'telefono',
+        'indirizzo',
+        'citta',
+        'cap',
+        'provincia',
+        'partita_iva',
+        'codice_fiscale',
+        'note',
     ];
 
     public function activities(): HasMany

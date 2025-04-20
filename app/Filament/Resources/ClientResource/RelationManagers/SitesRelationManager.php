@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SitesRelationManager extends RelationManager
 {
+    protected static ?string $label = 'Cantiere';
+    protected static ?string $pluralLabel = 'Cantieri';
+    protected static ?string $title = 'Cantiere';
+    protected static ?string $recordTitleAttribute = 'name';
     protected static string $relationship = 'sites';
 
     public function form(Form $form): Form
@@ -73,11 +77,11 @@ class SitesRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\CreateAction::make()->label('Nuova sede'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->label('Modifica'),
+                Tables\Actions\DeleteAction::make()->label('Elimina'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

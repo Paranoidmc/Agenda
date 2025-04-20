@@ -65,8 +65,12 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->renderHook(
-                'panels::body.end',
-                fn () => '<script src="/js/custom.js"></script>'
+                'panels::head.end',
+                fn () => '
+                    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+                    <meta http-equiv="Pragma" content="no-cache" />
+                    <meta http-equiv="Expires" content="0" />
+                '
             );
     }
 }

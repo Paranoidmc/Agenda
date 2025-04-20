@@ -1,0 +1,95 @@
+// Fix per problemi di visualizzazione di Filament
+document.addEventListener("DOMContentLoaded", function() {
+    // Nascondi tutti gli script visibili
+    var scripts = document.querySelectorAll("script:not([src])");
+    scripts.forEach(function(script) {
+        if (script.innerText.includes("collapsedGroups") || 
+            script.innerText.includes("activeSidebarItem")) {
+            script.style.display = "none";
+        }
+    });
+
+    // Fix per la sidebar
+    setTimeout(function() {
+        var sidebarGroups = document.querySelectorAll('.fi-sidebar-group');
+        sidebarGroups.forEach(function(group) {
+            group.style.display = 'block';
+            var items = group.querySelector('.fi-sidebar-group-items');
+            if (items) {
+                items.style.display = 'block';
+                items.style.marginLeft = '1rem';
+            }
+            var button = group.querySelector('.fi-sidebar-group-collapse-button');
+            if (button) {
+                button.style.display = 'block';
+                button.style.float = 'right';
+            }
+        });
+
+        var sidebarItems = document.querySelectorAll('.fi-sidebar-item');
+        sidebarItems.forEach(function(item) {
+            item.style.display = 'block';
+        });
+
+        var activeItems = document.querySelectorAll('.fi-active');
+        activeItems.forEach(function(item) {
+            item.style.display = 'block';
+            item.style.fontWeight = 'bold';
+            item.style.color = '#f59e0b !important';
+        });
+
+        var sidebar = document.querySelector('.fi-main-sidebar');
+        if (sidebar) {
+            sidebar.style.display = 'block';
+        }
+
+        var sidebarNav = document.querySelector('.fi-sidebar-nav');
+        if (sidebarNav) {
+            sidebarNav.style.display = 'block';
+        }
+    }, 100);
+
+    // Fix per le tabelle
+    setTimeout(function() {
+        var tables = document.querySelectorAll('.fi-ta-table');
+        tables.forEach(function(table) {
+            table.style.display = 'table';
+        });
+
+        var tableRows = document.querySelectorAll('.fi-ta-row');
+        tableRows.forEach(function(row) {
+            row.style.display = 'table-row';
+        });
+
+        var tableCells = document.querySelectorAll('.fi-ta-cell');
+        tableCells.forEach(function(cell) {
+            cell.style.display = 'table-cell';
+        });
+    }, 100);
+
+    // Fix per i form
+    setTimeout(function() {
+        var forms = document.querySelectorAll('.fi-form');
+        forms.forEach(function(form) {
+            form.style.display = 'block';
+        });
+
+        var formSections = document.querySelectorAll('.fi-section');
+        formSections.forEach(function(section) {
+            section.style.display = 'block';
+        });
+
+        var formFields = document.querySelectorAll('.fi-field-wrp');
+        formFields.forEach(function(field) {
+            field.style.display = 'block';
+        });
+    }, 100);
+
+    // Fix per i relation manager
+    setTimeout(function() {
+        var relationManagers = document.querySelectorAll('.fi-relation-manager');
+        relationManagers.forEach(function(manager) {
+            manager.style.display = 'block';
+        });
+    }, 100);
+});

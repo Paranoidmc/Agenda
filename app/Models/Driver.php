@@ -32,6 +32,18 @@ class Driver extends Model
         'employee_id',
         'notes',
         'status',
+        // Campi in italiano
+        'nome',
+        'cognome',
+        'telefono',
+        'indirizzo',
+        'citta',
+        'cap',
+        'provincia',
+        'codice_fiscale',
+        'patente',
+        'scadenza_patente',
+        'note',
     ];
 
     protected $casts = [

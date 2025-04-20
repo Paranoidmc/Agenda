@@ -11,6 +11,10 @@ class Activity extends Model
     use HasFactory;
 
     protected $fillable = [
+        'titolo',
+        'descrizione',
+        'data_inizio',
+        'data_fine',
         'date',
         'time_slot',
         'start_time',
@@ -21,14 +25,18 @@ class Activity extends Model
         'site_id',
         'activity_type_id',
         'status',
+        'stato',
         'start_location',
         'end_location',
         'notes',
+        'note',
         'completed_at',
     ];
 
     protected $casts = [
         'date' => 'date',
+        'data_inizio' => 'date',
+        'data_fine' => 'date',
         'completed_at' => 'datetime',
         'start_time' => 'datetime',
         'end_time' => 'datetime',
