@@ -1,0 +1,338 @@
+import React, { useState, useEffect } from 'react';
+import './WeeklyCalendar.css';
+
+export default function WeeklyCalendar({ 
+  events, 
+  currentWeek, 
+  onEventClick, 
+  onPrevWeek,
+  onNextWeek,
+  viewMode = 'activity',
+  getEventContent,
+  rows
+}) {
+  const cellHeight = 48; // Altezza in pixel per ogni cella oraria
+
+
+  // Funzione per trovare attività per cella
+  function getCellEvents(row, day) {
+    return row.events.filter(event => sameDay(event.start, day));
+  }
+  function sameDay(date1, date2) {
+    const d1 = date1 instanceof Date ? date1 : new Date(date1);
+    const d2 = date2 instanceof Date ? date2 : new Date(date2);
+    return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+  }
+
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [visibleHours, setVisibleHours] = useState({ start: 8, end: 18 });
+  const [calendarWidth, setCalendarWidth] = useState('100%');
+  
+  // Data corrente per evidenziare il giorno attuale
+  const today = new Date();
+  
+  // Genera gli slot orari per la visualizzazione
+  useEffect(() => {
+    const slots = [];
+    for (let hour = 0; hour < 24; hour++) {
+      slots.push(hour);
+    }
+    setTimeSlots(slots);
+  }, []);
+
+  // Formatta la data in formato leggibile
+  const formatDate = (date) => {
+    const dayName = date.toLocaleDateString('it-IT', { weekday: 'short' }).replace(/^\w/, c => c.toUpperCase());
+    const dayNumber = date.getDate();
+    const month = date.toLocaleDateString('it-IT', { month: 'short' });
+    return {
+      dayName,
+      dayNumber,
+      month
+    };
+  };
+
+  // Formatta l'ora in formato 24h
+  const formatHour = (hour) => {
+    return hour.toString().padStart(2, '0') + ':00';
+  };
+
+  // Calcola il colore di contrasto per il testo
+  const getContrastColor = (color) => {
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return yiq >= 128 ? 'black' : 'white';
+  };
+
+  // Determina se un evento deve essere visualizzato in un determinato giorno e ora
+  const shouldShowEvent = (event, day, hour) => {
+    // Assicuriamoci che event.start e event.end siano oggetti Date validi
+    const eventDate = event.start instanceof Date ? event.start : new Date(event.start);
+    const eventEndDate = event.end instanceof Date ? event.end : new Date(event.end);
+    
+    // Debug
+    console.log(`Checking event: ${event.title}`, {
+      eventDate,
+      eventEndDate,
+      day,
+      hour,
+      eventType: event.type
+    });
+    
+    // Verifica se l'evento è nello stesso giorno
+    const isSameDay = 
+      eventDate.getDate() === day.getDate() && 
+      eventDate.getMonth() === day.getMonth() && 
+      eventDate.getFullYear() === day.getFullYear();
+    
+    if (!isSameDay) {
+      console.log(`Event ${event.title} is not on the same day`);
+      return false;
+    }
+    
+    // Per le scadenze, mostra sempre nella prima riga visibile
+    if (event.type === 'deadline') {
+      console.log(`Deadline ${event.title} shown at hour ${visibleHours.start}`);
+      return hour === visibleHours.start;
+    }
+    
+    // Per le attività, verifica se l'ora corrisponde
+    const eventHour = eventDate.getHours();
+    const eventEndHour = eventEndDate.getHours() || eventHour + 1; // Default 1 ora se non specificato
+    
+    const shouldShow = hour >= eventHour && hour < eventEndHour;
+    console.log(`Activity ${event.title} at hour ${hour}: ${shouldShow ? 'SHOWN' : 'HIDDEN'} (${eventHour}-${eventEndHour})`);
+    
+    return shouldShow;
+  };
+
+  // Calcola l'altezza dell'evento in base alla durata
+  const getEventHeight = (event) => {
+    if (event.type === 'deadline') return `${cellHeight}px`;
+    
+    // Assicuriamoci che event.start e event.end siano oggetti Date validi
+    const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
+    const eventEnd = event.end instanceof Date ? event.end : new Date(event.end);
+    
+    const startHour = eventStart.getHours();
+    const endHour = eventEnd.getHours() || startHour + 1;
+    const durationHours = endHour - startHour;
+    
+    // Assicuriamoci che l'altezza sia almeno di 60px (1 ora)
+    return `${Math.max(1, durationHours) * 60}px`; // 60px per ora
+  };
+
+  // Raggruppa gli eventi per tipo di vista
+  const getEventsByView = () => {
+    switch (viewMode) {
+      case 'driver':
+        const driverMap = new Map();
+        events.forEach(event => {
+          if (event.driverId && event.driverName) {
+            if (!driverMap.has(event.driverId)) {
+              driverMap.set(event.driverId, {
+                id: event.driverId,
+                name: event.driverName,
+                events: []
+              });
+            }
+            driverMap.get(event.driverId).events.push(event);
+          }
+        });
+        return Array.from(driverMap.values());
+
+      case 'vehicle':
+        const vehicleMap = new Map();
+        events.forEach(event => {
+          if (event.vehicleId && event.vehicleName) {
+            if (!vehicleMap.has(event.vehicleId)) {
+              vehicleMap.set(event.vehicleId, {
+                id: event.vehicleId,
+                name: event.vehicleName,
+                events: []
+              });
+            }
+            vehicleMap.get(event.vehicleId).events.push(event);
+          }
+        });
+        return Array.from(vehicleMap.values());
+
+      case 'activity':
+      default:
+        return events.map(event => ({
+          id: event.id,
+          name: event.title,
+          events: [event]
+        }));
+    }
+  };
+
+  // Ottiene gli eventi per un determinato giorno
+  const getEventsForDay = (row, day) => {
+    return row.events.filter(event => sameDay(event.start, day));
+  };
+
+  // Ottiene gli eventi per un determinato giorno e ora
+  const getEventsForTimeSlot = (day, hour) => {
+    // Aggiungiamo un log per vedere quanti eventi ci sono in totale
+    if (hour === 8) {
+      console.log(`Totale eventi disponibili per ${day.toDateString()}: ${events.length}`);
+      
+      // Log degli eventi per questo giorno
+      const eventsForDay = events.filter(event => {
+        const eventDate = new Date(event.start);
+        return eventDate.getDate() === day.getDate() && 
+               eventDate.getMonth() === day.getMonth() && 
+               eventDate.getFullYear() === day.getFullYear();
+      });
+      
+      console.log(`Eventi per ${day.toDateString()}: ${eventsForDay.length}`, 
+        eventsForDay.map(e => ({
+          id: e.id,
+          title: e.title,
+          start: e.start instanceof Date ? e.start.toISOString() : e.start,
+          type: e.type
+        }))
+      );
+    }
+    
+    // Applica la vista selezionata
+    let filteredEvents = events;
+    if (viewMode === 'driver') {
+      filteredEvents = events.filter(event => event.driverId);
+    } else if (viewMode === 'vehicle') {
+      filteredEvents = events.filter(event => event.vehicleId);
+    } // Altrimenti mostra tutte le attività (activity)
+    return filteredEvents.filter(event => {
+      const eventDate = new Date(event.start);
+      const eventHour = eventDate.getHours();
+      return eventHour === hour;
+    });
+  };
+
+
+
+  return (
+    <div className="weekly-calendar">
+      <div className="calendar-header">
+        <button onClick={onPrevWeek}>
+          ← Settimana Precedente
+        </button>
+        <button onClick={onNextWeek}>
+          Settimana Successiva →
+        </button>
+      </div>
+
+      <div className="calendar-grid">
+        {/* Header delle colonne */}
+        <div className="time-column header">
+          {viewMode === 'driver' ? 'Autista' : viewMode === 'vehicle' ? 'Veicolo' : 'Cantiere'}
+        </div>
+        {currentWeek.map((day, index) => (
+          <div 
+            key={index} 
+            className="day-header"
+          >
+            <span className="day-name">{formatDate(day).dayName}</span>
+            <span className="day-number">{formatDate(day).dayNumber}</span>
+            <span className="month">{formatDate(day).month}</span>
+          </div>
+        ))}
+
+        {/* Righe per ogni elemento */}
+        {rows.map((row, rowIndex) => (
+          <React.Fragment key={row.id || rowIndex}>
+            {/* Colonna del nome */}
+            <div className="time-column">
+              {row.name || row.label}
+            </div>
+
+            {/* Celle per ogni giorno */}
+            {currentWeek.map((day, dayIndex) => {
+              const cellEvents = getCellEvents(row, day);
+              return (
+                <div
+                  key={`${rowIndex}-${dayIndex}`}
+                  className="calendar-cell"
+                >
+                  {cellEvents.map((event, eventIndex) => {
+                    // Determine the color to use
+                    let backgroundColor = '#007aff'; // Default color
+                    
+                    if (event.type === 'activity') {
+                      console.log(`Rendering event ${event.id}:`, JSON.stringify(event, null, 2));
+                      
+                      // Usa il colore dell'evento che è stato già preparato nella pagina
+                      if (event.color && event.color.startsWith('#')) {
+                        backgroundColor = event.color;
+                        console.log(`Usando colore dell'evento: ${backgroundColor}`);
+                      } else if (event.backgroundColor && event.backgroundColor.startsWith('#')) {
+                        backgroundColor = event.backgroundColor;
+                        console.log(`Usando backgroundColor dell'evento: ${backgroundColor}`);
+                      } else if (event.activityTypeColor && event.activityTypeColor.startsWith('#')) {
+                        backgroundColor = event.activityTypeColor;
+                        console.log(`Usando activityTypeColor dell'evento: ${backgroundColor}`);
+                      } else if (event.data && event.data.activityType) {
+                        console.log(`L'evento ha un activityType:`, JSON.stringify(event.data.activityType, null, 2));
+                        
+                        // Prova a prendere il colore dal tipo di attività
+                        if (event.data.activityType.colore && event.data.activityType.colore.startsWith('#')) {
+                          backgroundColor = event.data.activityType.colore;
+                          console.log(`Usando colore italiano dal tipo di attività: ${backgroundColor}`);
+                        } else if (event.data.activityType.color && event.data.activityType.color.startsWith('#')) {
+                          backgroundColor = event.data.activityType.color;
+                          console.log(`Usando colore inglese dal tipo di attività: ${backgroundColor}`);
+                        } else {
+                          console.warn(`Il tipo di attività non ha un colore valido:`, event.data.activityType);
+                        }
+                      } else if (event.data && event.data.activity_type_id) {
+                        console.log(`L'evento ha solo activity_type_id: ${event.data.activity_type_id}`);
+                      } else {
+                        console.warn(`L'evento non ha informazioni sul tipo di attività:`, event);
+                      }
+                    } else if (event.type === 'deadline') {
+                      backgroundColor = event.color || '#ff3b30';
+                      console.log(`Usando colore per scadenza: ${backgroundColor}`);
+                    }
+                    
+                    // Assicuriamoci che il colore sia valido
+                    if (!backgroundColor || !backgroundColor.startsWith('#')) {
+                      backgroundColor = '#007aff'; // Colore predefinito se non valido
+                      console.warn(`Colore non valido, usando predefinito: ${backgroundColor}`);
+                    }
+                    
+                    console.log(`Rendering event ${event.id} with final color ${backgroundColor}`);
+                    
+                    const textColor = getContrastColor(backgroundColor);
+                    
+                    return (
+                      <div
+                        key={`${event.id}-${eventIndex}`}
+                        className={`event`}
+                        style={{
+                          backgroundColor: backgroundColor,
+                          color: textColor,
+                          borderLeft: `3px solid ${backgroundColor}`,
+                          borderColor: backgroundColor,
+                          borderWidth: '2px',
+                          borderStyle: 'solid'
+                        }}
+                        onClick={() => onEventClick?.(event)}
+                        title={getEventContent(event)}
+                      >
+                        {getEventContent(event)}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -106,7 +106,9 @@ class SiteController extends Controller
      */
     public function show(Site $site)
     {
-        $site->load(['client', 'activities']);
+        $site->load(['client', 'activities' => function($query) {
+            $query->with(['driver', 'vehicle', 'activityType']);
+        }]);
         
         // Aggiungiamo i campi in italiano
         $site->nome = $site->name;
@@ -129,6 +131,40 @@ class SiteController extends Controller
             $site->client->codice_fiscale = $site->client->fiscal_code;
             $site->client->note = $site->client->notes;
         }
+        
+        // Aggiungiamo i campi in italiano per le attività
+        $site->activities = $site->activities->map(function ($activity) {
+            // Aggiungiamo i campi in italiano
+            $activity->titolo = $activity->title ?? '';
+            $activity->descrizione = $activity->description ?? '';
+            $activity->data_inizio = $activity->date;
+            $activity->data_fine = $activity->date;
+            $activity->stato = $activity->status;
+            $activity->note = $activity->notes;
+            
+            // Aggiungiamo i campi in italiano per l'autista
+            if ($activity->driver) {
+                $activity->driver->nome = $activity->driver->name;
+                $activity->driver->cognome = $activity->driver->surname;
+                $activity->driver->telefono = $activity->driver->phone;
+            }
+            
+            // Aggiungiamo i campi in italiano per il veicolo
+            if ($activity->vehicle) {
+                $activity->vehicle->targa = $activity->vehicle->plate;
+                $activity->vehicle->modello = $activity->vehicle->model;
+                $activity->vehicle->marca = $activity->vehicle->brand;
+            }
+            
+            // Aggiungiamo i campi in italiano per il tipo di attività
+            if ($activity->activityType) {
+                $activity->activityType->nome = $activity->activityType->name;
+                $activity->activityType->descrizione = $activity->activityType->description;
+                $activity->activityType->colore = $activity->activityType->color;
+            }
+            
+            return $activity;
+        });
         
         return response()->json($site);
     }
@@ -220,5 +256,29 @@ class SiteController extends Controller
     {
         $site->delete();
         return response()->json(null, 204);
+    }
+    
+    /**
+     * Get all sites for a specific client
+     */
+    public function getClientSites($clientId)
+    {
+        $sites = Site::where('client_id', $clientId)->get();
+        
+        // Aggiungiamo i campi in italiano per ogni sede
+        $sites = $sites->map(function ($site) {
+            // Aggiungiamo i campi in italiano
+            $site->nome = $site->name;
+            $site->indirizzo = $site->address;
+            $site->citta = $site->city;
+            $site->cap = $site->postal_code;
+            $site->provincia = $site->province;
+            $site->telefono = $site->phone;
+            $site->note = $site->notes;
+            
+            return $site;
+        });
+        
+        return response()->json($sites);
     }
 }

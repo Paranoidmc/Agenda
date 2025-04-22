@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test CSRF Login</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Test CSRF Login</h1>
+    <div>
+        <label for="email">Email:</label>
+        <input type="email" id="email" value="admin@example.com">
+    </div>
+    <div>
+        <label for="password">Password:</label>
+        <input type="password" id="password" value="password">
+    </div>
+    <button onclick="testLogin()">Test Login</button>
+    <div id="result"></div>
+
+    <script>
+        // Funzione per leggere il valore di un cookie
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+            return null;
+        }
+
+        // Crea un'istanza axios configurata
+        const api = axios.create({
+            baseURL: 'http://localhost:8000',
+            withCredentials: true,
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // Interceptor per aggiungere il token XSRF a ogni richiesta
+        api.interceptors.request.use(config => {
+            const xsrfToken = getCookie('XSRF-TOKEN');
+            if (xsrfToken) {
+                config.headers['X-XSRF-TOKEN'] = xsrfToken;
+                console.log('XSRF Token aggiunto:', xsrfToken);
+            } else {
+                console.log('XSRF Token non trovato');
+            }
+            return config;
+        });
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = '<p>Tentativo di login in corso...</p>';
+            
+            try {
+                console.log('1. Ottengo CSRF cookie...');
+                // Ottieni il token CSRF
+                await api.get('/sanctum/csrf-cookie');
+                console.log('CSRF cookie ottenuto');
+                console.log('Cookie XSRF-TOKEN:', getCookie('XSRF-TOKEN'));
+                
+                console.log('2. Eseguo login...');
+                // Esegui login
+                const loginResponse = await api.post('/login', {
+                    email,
+                    password
+                });
+                
+                console.log('Login completato:', loginResponse.data);
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(loginResponse.data, null, 2) + '</pre>';
+                
+                // Prova a ottenere i dati utente
+                console.log('3. Ottengo dati utente...');
+                const userResponse = await api.get('/api/user', {
+                    headers: {
+                        'Authorization': `Bearer ${loginResponse.data.token}`
+                    }
+                });
+                
+                console.log('Dati utente:', userResponse.data);
+                resultDiv.innerHTML += '<h3>Dati utente:</h3><pre>' + JSON.stringify(userResponse.data, null, 2) + '</pre>';
+                
+            } catch (error) {
+                console.error('Errore:', error);
+                let errorMessage = 'Errore durante il login';
+                
+                if (error.response) {
+                    console.error('Status:', error.response.status);
+                    console.error('Data:', error.response.data);
+                    console.error('Headers:', error.response.headers);
+                    errorMessage = `Errore ${error.response.status}: ${JSON.stringify(error.response.data)}`;
+                } else if (error.request) {
+                    console.error('Request:', error.request);
+                    errorMessage = 'Nessuna risposta dal server';
+                } else {
+                    console.error('Message:', error.message);
+                    errorMessage = error.message;
+                }
+                
+                resultDiv.innerHTML = `<p style="color: red">${errorMessage}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

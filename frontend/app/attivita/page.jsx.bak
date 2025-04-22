@@ -1,0 +1,516 @@
+"use client";
+import { useEffect, useState } from "react";
+import api from "../../lib/api";
+import { useAuth } from "../../context/AuthContext";
+import SidePanel from "../../components/SidePanel";
+import EntityForm from "../../components/EntityForm";
+import PageHeader from "../../components/PageHeader";
+
+export default function AttivitaPage() {
+  const { user, loading } = useAuth();
+  const [attivita, setAttivita] = useState([]);
+  const [fetching, setFetching] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedAttivita, setSelectedAttivita] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [tableWidth, setTableWidth] = useState('100%');
+  const [clienti, setClienti] = useState([]);
+  const [veicoli, setVeicoli] = useState([]);
+  const [autisti, setAutisti] = useState([]);
+  const [tipiAttivita, setTipiAttivita] = useState([]);
+  const [sedi, setSedi] = useState([]);
+  const [sediPerCliente, setSediPerCliente] = useState({});
+  const [validationErrors, setValidationErrors] = useState({});
+
+  // Funzione per ottenere i campi del form attività
+  const getAttivitaFields = (selectedAttivita) => {
+    // Determina quali sedi mostrare in base al cliente selezionato
+    let sediOptions = [];
+    const clienteId = selectedAttivita?.client_id;
+    
+    if (clienteId && sediPerCliente[clienteId]) {
+      // Se abbiamo le sedi per questo cliente, le utilizziamo
+      sediOptions = sediPerCliente[clienteId].map(sede => ({ 
+        value: sede.id, 
+        label: sede.nome || sede.name 
+      }));
+    } else {
+      // Altrimenti mostriamo tutte le sedi
+      sediOptions = sedi.map(sede => ({ 
+        value: sede.id, 
+        label: `${sede.nome || sede.name} (${sede.client?.nome || 'N/D'})` 
+      }));
+    }
+    
+    return [
+      { name: 'titolo', label: 'Titolo', required: true },
+      { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
+      { name: 'data_inizio', label: 'Data Inizio', type: 'datetime-local', required: true },
+      { name: 'data_fine', label: 'Data Fine', type: 'datetime-local', required: true },
+      { 
+        name: 'client_id', 
+        label: 'Cliente', 
+        type: 'select', 
+        isNumeric: true, 
+        required: true,
+        options: clienti.map(cliente => ({ value: cliente.id, label: cliente.nome })),
+        onChange: handleClienteChange
+      },
+      { 
+        name: 'site_id', 
+        label: 'Sede', 
+        type: 'select', 
+        isNumeric: true, 
+        required: true,
+        options: sediOptions,
+        disabled: !clienteId || sediOptions.length === 0
+      },
+      { 
+        name: 'driver_id', 
+        label: 'Autista', 
+        type: 'select', 
+        isNumeric: true, 
+        required: true,
+        options: autisti.map(autista => ({ value: autista.id, label: `${autista.nome} ${autista.cognome}` }))
+      },
+      { 
+        name: 'vehicle_id', 
+        label: 'Veicolo', 
+        type: 'select', 
+        isNumeric: true, 
+        required: true,
+        options: veicoli.map(veicolo => ({ value: veicolo.id, label: `${veicolo.targa} - ${veicolo.marca} ${veicolo.modello}` }))
+      },
+      { 
+        name: 'activity_type_id', 
+        label: 'Tipo Attività', 
+        type: 'select', 
+        isNumeric: true, 
+        required: true,
+        options: tipiAttivita.map(tipo => ({ value: tipo.id, label: tipo.nome }))
+      },
+      { 
+        name: 'stato', 
+        label: 'Stato', 
+        type: 'select', 
+        required: true,
+        options: [
+          { value: 'Programmata', label: 'Programmata' },
+          { value: 'In corso', label: 'In corso' },
+          { value: 'Completata', label: 'Completata' },
+          { value: 'Annullata', label: 'Annullata' }
+        ]
+      },
+      { name: 'note', label: 'Note', type: 'textarea' }
+    ];
+  };
+
+  useEffect(() => {
+    if (!loading && user) {
+      loadAttivita();
+      loadClienti();
+      loadVeicoli();
+      loadAutisti();
+      loadTipiAttivita();
+      loadSedi();
+    } else if (!loading && !user) {
+      // Se non c'è un utente e non sta caricando, imposta fetching a false
+      setFetching(false);
+    }
+  }, [user, loading]);
+
+  // Effetto per animare la tabella quando il pannello si apre/chiude
+  useEffect(() => {
+    if (isPanelOpen) {
+      // Riduci la larghezza della tabella con un ritardo per l'animazione
+      setTimeout(() => {
+        setTableWidth('60%');
+      }, 50);
+    } else {
+      // Ripristina la larghezza della tabella
+      setTableWidth('100%');
+    }
+  }, [isPanelOpen]);
+  
+  // Reset degli errori di validazione quando si cambia modalità di editing
+  useEffect(() => {
+    setValidationErrors({});
+  }, [isEditing]);
+  
+  // Carica le sedi quando cambia il cliente selezionato
+  const handleClienteChange = (clientId) => {
+    if (clientId) {
+      loadSediPerCliente(clientId);
+    }
+  };
+
+  const loadAttivita = () => {
+    setFetching(true);
+    api.get("/activities")
+      .then(res => setAttivita(res.data))
+      .catch((err) => {
+        console.error("Errore nel caricamento delle attività:", err);
+        if (err.response && err.response.status === 401) {
+          setError("Sessione scaduta. Effettua nuovamente il login.");
+        } else {
+          setError("Errore nel caricamento delle attività");
+        }
+      })
+      .finally(() => setFetching(false));
+  };
+
+  const loadClienti = () => {
+    api.get("/clients")
+      .then(res => setClienti(res.data))
+      .catch(err => console.error("Errore nel caricamento dei clienti:", err));
+  };
+
+  const loadVeicoli = () => {
+    api.get("/vehicles")
+      .then(res => setVeicoli(res.data))
+      .catch(err => console.error("Errore nel caricamento dei veicoli:", err));
+  };
+
+  const loadAutisti = () => {
+    api.get("/drivers")
+      .then(res => setAutisti(res.data))
+      .catch(err => console.error("Errore nel caricamento degli autisti:", err));
+  };
+
+  const loadTipiAttivita = () => {
+    api.get("/activity-types")
+      .then(res => setTipiAttivita(res.data))
+      .catch(err => console.error("Errore nel caricamento dei tipi di attività:", err));
+  };
+  
+  const loadSedi = () => {
+    api.get("/sites")
+      .then(res => setSedi(res.data))
+      .catch(err => console.error("Errore nel caricamento delle sedi:", err));
+  };
+  
+  const loadSediPerCliente = (clientId) => {
+    if (!clientId) return;
+    
+    // Controlla se abbiamo già caricato le sedi per questo cliente
+    if (sediPerCliente[clientId]) {
+      return;
+    }
+    
+    api.get(`/clients/${clientId}/sites`)
+      .then(res => {
+        setSediPerCliente(prev => ({
+          ...prev,
+          [clientId]: res.data
+        }));
+      })
+      .catch(err => console.error(`Errore nel caricamento delle sedi per il cliente ${clientId}:`, err));
+  };
+
+  const handleViewDetails = (attivita) => {
+    setSelectedAttivita(attivita);
+    setIsEditing(false);
+    setIsPanelOpen(true);
+    setValidationErrors({});
+    
+    // Carica le sedi per il cliente selezionato
+    if (attivita.client_id) {
+      loadSediPerCliente(attivita.client_id);
+    }
+  };
+
+  const handleClosePanel = () => {
+    setIsPanelOpen(false);
+    // Reset dello stato dopo che l'animazione di chiusura è completata
+    setTimeout(() => {
+      setSelectedAttivita(null);
+      setIsEditing(false);
+      setValidationErrors({});
+    }, 300);
+  };
+
+  const handleSaveAttivita = async (formData) => {
+    setIsSaving(true);
+    setValidationErrors({});
+    
+    try {
+      // Assicuriamoci che i campi ID siano numeri
+      const preparedData = { ...formData };
+      
+      // Converti gli ID in numeri
+      ['client_id', 'site_id', 'driver_id', 'vehicle_id', 'activity_type_id'].forEach(field => {
+        if (preparedData[field]) {
+          preparedData[field] = Number(preparedData[field]);
+        }
+      });
+      
+      // Log per debug
+      console.log('Dati attività da salvare:', preparedData);
+      
+      let response;
+      if (preparedData.id) {
+        // Aggiornamento
+        response = await api.put(`/activities/${preparedData.id}`, preparedData);
+        console.log('Risposta aggiornamento attività:', response.data);
+        
+        // Aggiorna la lista delle attività
+        setAttivita(prev => 
+          prev.map(a => a.id === preparedData.id ? response.data : a)
+        );
+        
+        // Aggiorna l'attività selezionata
+        setSelectedAttivita(response.data);
+      } else {
+        // Creazione
+        response = await api.post('/activities', preparedData);
+        console.log('Risposta creazione attività:', response.data);
+        
+        // Aggiorna la lista delle attività
+        setAttivita(prev => [...prev, response.data]);
+        
+        // Seleziona la nuova attività
+        setSelectedAttivita(response.data);
+      }
+      
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Errore durante il salvataggio:", err);
+      
+      // Gestione specifica degli errori di validazione (422)
+      if (err.response && err.response.status === 422) {
+        console.error("Errori di validazione:", err.response.data);
+        
+        // Se il backend restituisce errori di validazione in formato Laravel
+        if (err.response.data.errors) {
+          setValidationErrors(err.response.data.errors);
+          
+          // Crea un messaggio di errore leggibile
+          const errorMessages = Object.entries(err.response.data.errors)
+            .map(([field, messages]) => {
+              // Trova il label del campo per un messaggio più user-friendly
+              const fields = getAttivitaFields(selectedAttivita);
+              const fieldConfig = fields.find(f => f.name === field);
+              const fieldLabel = fieldConfig ? fieldConfig.label : field;
+              return `${fieldLabel}: ${messages.join(', ')}`;
+            })
+            .join('\n');
+          
+          alert(`Errori di validazione:\n${errorMessages}`);
+        } else {
+          // Fallback se il formato è diverso
+          alert("Si sono verificati errori di validazione. Controlla i dati inseriti.");
+        }
+      } else if (err.response) {
+        // Altri errori HTTP
+        console.error("Dettagli errore:", {
+          status: err.response.status,
+          data: err.response.data,
+          headers: err.response.headers
+        });
+        
+        // Mostra un messaggio più specifico se disponibile
+        const errorMessage = err.response.data?.message || "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
+        alert(errorMessage);
+      } else if (err.request) {
+        // La richiesta è stata effettuata ma non è stata ricevuta alcuna risposta
+        console.error("Nessuna risposta ricevuta:", err.request);
+        alert("Nessuna risposta dal server. Verifica la connessione di rete.");
+      } else {
+        // Si è verificato un errore durante l'impostazione della richiesta
+        alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAttivita = async (id) => {
+    if (!id) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.delete(`/activities/${id}`);
+      
+      // Rimuovi l'attività dalla lista
+      setAttivita(prev => prev.filter(a => a.id !== id));
+      
+      // Chiudi il pannello
+      handleClosePanel();
+    } catch (err) {
+      console.error("Errore durante l'eliminazione:", err);
+      
+      // Mostra dettagli dell'errore per il debug
+      if (err.response) {
+        console.error("Dettagli errore:", {
+          status: err.response.status,
+          data: err.response.data,
+          headers: err.response.headers
+        });
+        
+        // Mostra un messaggio più specifico se disponibile
+        const errorMessage = err.response.data?.message || "Si è verificato un errore durante l'eliminazione. Riprova più tardi.";
+        alert(errorMessage);
+      } else {
+        alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi.");
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCreateNew = () => {
+    setSelectedAttivita({
+      data_inizio: new Date().toISOString().slice(0, 16),
+      data_fine: new Date().toISOString().slice(0, 16),
+      stato: 'Programmata'
+    });
+    setIsEditing(true);
+    setIsPanelOpen(true);
+    setValidationErrors({});
+  };
+
+  // Funzione per formattare la data
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/D';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Funzione per ottenere il colore dello stato
+  const getStatusColor = (stato) => {
+    switch (stato?.toLowerCase()) {
+      case 'completata':
+        return '#34c759'; // Verde
+      case 'in corso':
+        return '#007aff'; // Blu
+      case 'programmata':
+        return '#ff9500'; // Arancione
+      case 'annullata':
+        return '#ff3b30'; // Rosso
+      default:
+        return '#8e8e93'; // Grigio
+    }
+  };
+
+  if (loading || fetching) return <div className="centered">Caricamento...</div>;
+  if (error) return <div className="centered">{error}</div>;
+
+  return (
+    <div style={{ padding: 32 }}>
+      <PageHeader 
+        title="Attività" 
+        buttonLabel="Nuova Attività" 
+        onAddClick={handleCreateNew} 
+      />
+      <div 
+        style={{ 
+          background: '#fff', 
+          borderRadius: 14, 
+          boxShadow: 'var(--box-shadow)', 
+          padding: 24,
+          transition: 'width 0.3s ease-in-out',
+          width: tableWidth,
+          overflow: 'hidden'
+        }
+      >
+        {attivita.length === 0 ? (
+          <div>Nessuna attività trovata.</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #eee' }}>
+                <th style={{ textAlign: 'left', padding: 8 }}>Titolo</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Data Inizio</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Data Fine</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Cliente</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Autista</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Veicolo</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Stato</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attivita.map(activity => (
+                <tr 
+                  key={activity.id} 
+                  style={{ 
+                    borderBottom: '1px solid #f3f3f3',
+                    backgroundColor: selectedAttivita?.id === activity.id && isPanelOpen ? 'rgba(0, 122, 255, 0.05)' : 'transparent',
+                    transition: 'background-color 0.3s ease'
+                  }}
+                >
+                  <td style={{ padding: 8 }}>{activity.titolo}</td>
+                  <td style={{ padding: 8 }}>{formatDate(activity.data_inizio)}</td>
+                  <td style={{ padding: 8 }}>{formatDate(activity.data_fine)}</td>
+                  <td style={{ padding: 8 }}>{activity.client?.nome || 'N/D'}</td>
+                  <td style={{ padding: 8 }}>{activity.driver ? `${activity.driver.nome} ${activity.driver.cognome}` : 'N/D'}</td>
+                  <td style={{ padding: 8 }}>{activity.vehicle?.targa || 'N/D'}</td>
+                  <td style={{ padding: 8 }}>
+                    <span style={{ 
+                      display: 'inline-block',
+                      padding: '0.2em 0.6em',
+                      borderRadius: 12,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: '#fff',
+                      backgroundColor: getStatusColor(activity.stato)
+                    }}>
+                      {activity.stato || 'N/D'}
+                    </span>
+                  </td>
+                  <td style={{ padding: 8 }}>
+                    <button 
+                      onClick={() => handleViewDetails(activity)}
+                      style={{ 
+                        background: 'var(--primary)', 
+                        color: '#fff', 
+                        borderRadius: 6, 
+                        padding: '0.4em 1em', 
+                        fontSize: 14,
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Dettagli
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Pannello laterale per i dettagli */}
+      <SidePanel 
+        isOpen={isPanelOpen} 
+        onClose={handleClosePanel} 
+        title={isEditing ? "Modifica Attività" : "Dettagli Attività"}
+      >
+        {selectedAttivita && (
+          <EntityForm
+            data={selectedAttivita}
+            fields={getAttivitaFields(selectedAttivita).map(field => ({
+              ...field,
+              error: validationErrors[field.name] ? validationErrors[field.name][0] : null
+            }))}
+            onSave={handleSaveAttivita}
+            onDelete={handleDeleteAttivita}
+            isEditing={isEditing}
+            setIsEditing={setIsEditing}
+            isLoading={isSaving || isDeleting}
+          />
+        )}
+      </SidePanel>
+    </div>
+  );
+}

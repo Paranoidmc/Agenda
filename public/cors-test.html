@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>CORS Test</h1>
+    <button onclick="testCORS()">Test CORS</button>
+    <div id="result"></div>
+    <script>
+        async function testCORS() {
+            try {
+                console.log("Testing CORS...");
+                document.getElementById('result').innerHTML = "Testing CORS...";
+                
+                // Test the CORS endpoint
+                const response = await axios.get('http://localhost:8000/api/cors-test', {
+                    withCredentials: true,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log("CORS Response:", response.data);
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(response.data, null, 2) + '</pre>';
+            } catch (error) {
+                console.error("CORS Error:", error);
+                if (error.response) {
+                    console.error("Status:", error.response.status);
+                    console.error("Data:", error.response.data);
+                    console.error("Headers:", error.response.headers);
+                    document.getElementById('result').innerHTML = '<pre>Error: ' + JSON.stringify(error.response.data, null, 2) + '</pre>';
+                } else {
+                    console.error("Network Error:", error.message);
+                    document.getElementById('result').innerHTML = '<pre>Error: ' + error.message + '</pre>';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

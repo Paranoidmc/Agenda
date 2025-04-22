@@ -1,10 +1,10 @@
 <?php
 
 return [
-    'sites' => 'Sedi',
+    'sites' => 'Cantieri',
     'activity' => 'Attività',
     'activities' => 'Attività',
-    'site' => 'Sede',
+    'site' => 'Cantiere',
     'dashboard' => 'Dashboard',
     'clients' => 'Clienti',
     'client' => 'Cliente',
@@ -12,12 +12,12 @@ return [
     'vehicle' => 'Veicolo',
     'relation_managers' => [
         'activities' => 'Attività',
-        'sites' => 'Sedi',
+        'sites' => 'Cantieri',
         'clients' => 'Clienti',
         'vehicles' => 'Veicoli',
     ],
     'navigation' => [
         'group' => 'Clienti',
-        'label' => 'Sedi',
+        'label' => 'Cantieri',
     ],
 ];

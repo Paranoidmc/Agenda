@@ -11,9 +11,36 @@ class VehicleDeadlineController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $deadlines = VehicleDeadline::with('vehicle')->get();
+        $query = VehicleDeadline::with('vehicle');
+        
+        // Filtraggio per data di scadenza
+        if ($request->has('start_date')) {
+            $query->whereDate('expiry_date', '>=', $request->start_date);
+        }
+        
+        // Filtraggio per data di fine
+        if ($request->has('end_date')) {
+            $query->whereDate('expiry_date', '<=', $request->end_date);
+        }
+        
+        // Filtraggio per veicolo
+        if ($request->has('vehicle_id')) {
+            $query->where('vehicle_id', $request->vehicle_id);
+        }
+        
+        // Filtraggio per tipo
+        if ($request->has('type')) {
+            $query->where('type', $request->type);
+        }
+        
+        // Filtraggio per stato
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        $deadlines = $query->get();
         
         // Aggiungiamo i campi in italiano per ogni scadenza
         $deadlines = $deadlines->map(function ($deadline) {

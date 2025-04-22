@@ -16,6 +16,8 @@ class Kernel extends HttpKernel
     protected $middleware = [
         // CORS Middleware (Laravel 9+)
         \App\Http\Middleware\HandleCors::class,
+        // Additional CORS headers middleware
+        \App\Http\Middleware\AddCorsHeaders::class,
         // Fallback for older Laravel (Fruitcake)
         // \Fruitcake\Cors\HandleCors::class,
         \Illuminate\Foundation\Http\Middleware\CheckForMaintenanceMode::class,
@@ -42,12 +44,14 @@ class Kernel extends HttpKernel
 
         'api' => [
             \App\Http\Middleware\HandleCors::class,
+            \App\Http\Middleware\AddCorsHeaders::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
             'throttle:api',
             \Illuminate\Cookie\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
+            // Rimuoviamo la verifica CSRF per le API
+            // \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];

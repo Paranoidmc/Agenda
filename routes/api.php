@@ -4,12 +4,27 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Api\AuthController as ApiAuthController;
 
 file_put_contents(storage_path('logs/api_route_loaded.log'), date('c')." api.php loaded\n", FILE_APPEND);
 
 Route::get('/test-api', function () {
     return ['status' => 'ok'];
 });
+
+// Test route for CORS
+Route::get('/cors-test', function (Request $request) {
+    return response()->json([
+        'message' => 'CORS is working!',
+        'origin' => $request->header('Origin'),
+        'method' => $request->method(),
+        'headers' => $request->headers->all(),
+    ]);
+});
+
+// Route per il CSRF cookie di Sanctum
+use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
+Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show']);
 
 // Rotta per il login spostata più in basso con middleware e logging
 
@@ -20,7 +35,7 @@ Route::middleware('web')->post('/logout', function (Request $request) {
     return response()->json(['message' => 'Logout ok']);
 });
 
-Route::middleware('auth:api')->get('/user', function (Request $request) {
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     // Log per debug
     \Log::info('GET su /api/user', [
         'ip' => request()->ip(),
@@ -46,21 +61,11 @@ Route::get('/login', function () {
 });
 
 // Log tutte le richieste POST a /api/login per debug
-Route::middleware('api')->post('/login', function (Request $request) {
-    \Log::info('POST su /api/login', [
-        'ip' => request()->ip(),
-        'user-agent' => request()->userAgent(),
-        'referer' => request()->headers->get('referer'),
-        'full_url' => request()->fullUrl(),
-        'headers' => $request->headers->all(),
-        'body' => $request->all(),
-    ]);
-    
-    return app()->call([app(AuthController::class), 'login']);
-});
+// Login Sanctum: sessione/cookie
+Route::post('/login', [App\Http\Controllers\AuthController::class, 'login']);
 Route::middleware('api')->post('/refresh', [AuthController::class, 'refresh']);
 
-Route::middleware('auth:api')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     // Le route reali restano sotto
     Route::apiResource('drivers', App\Http\Controllers\DriverController::class);
     Route::apiResource('vehicles', App\Http\Controllers\VehicleController::class);
@@ -72,4 +77,10 @@ Route::middleware('auth:api')->group(function () {
     
     // Rotte aggiuntive per le relazioni
     Route::get('vehicles/{vehicle}/deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'getVehicleDeadlines']);
+    Route::get('clients/{client}/sites', [App\Http\Controllers\SiteController::class, 'getClientSites']);
+    Route::get('sites/{site}/activities', [App\Http\Controllers\ActivityController::class, 'getSiteActivities']);
+    Route::get('clients/{client}/activities', [App\Http\Controllers\ActivityController::class, 'getClientActivities']);
+    Route::get('drivers/{driver}/activities', [App\Http\Controllers\ActivityController::class, 'getDriverActivities']);
+    Route::get('vehicles/{vehicle}/activities', [App\Http\Controllers\ActivityController::class, 'getVehicleActivities']);
+    Route::get('available-resources', [App\Http\Controllers\ActivityController::class, 'getAvailableResources']);
 });

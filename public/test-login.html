@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Test Login</h1>
+    <button onclick="testLogin()">Esegui Test Login</button>
+    <div id="result"></div>
+    <script>
+        // Funzione per eseguire il test di login
+        async function testLogin() {
+            try {
+                console.log("[TEST] Avvio login manuale...");
+                
+                // 1. Ottieni il token CSRF
+                await axios.get('http://localhost:8000/sanctum/csrf-cookie', {
+                    withCredentials: true
+                });
+                console.log("[TEST] CSRF token ottenuto");
+                
+                // 2. Prova login
+                const loginResponse = await axios.post('http://localhost:8000/login', {
+                    email: 'admin@example.com',
+                    password: 'password'
+                }, {
+                    withCredentials: true,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log("[TEST] Risposta login:", loginResponse.data);
+                document.getElementById('result').innerHTML += '<pre>' + JSON.stringify(loginResponse.data, null, 2) + '</pre>';
+                
+                // 3. Prova a prendere l'utente
+                const token = loginResponse.data.token;
+                const userResponse = await axios.get('http://localhost:8000/api/user', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                console.log("[TEST] Utente autenticato:", userResponse.data);
+                document.getElementById('result').innerHTML += '<pre>' + JSON.stringify(userResponse.data, null, 2) + '</pre>';
+                
+                return userResponse.data;
+            } catch (error) {
+                console.error("[TEST] Errore durante il login:");
+                if (error.response) {
+                    console.error("[TEST] Status:", error.response.status);
+                    console.error("[TEST] Data:", error.response.data);
+                    console.error("[TEST] Headers:", error.response.headers);
+                    document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(error.response.data, null, 2) + '</pre>';
+                } else {
+                    console.error("[TEST] Errore di rete:", error.message);
+                    document.getElementById('result').innerHTML = '<pre>' + error.message + '</pre>';
+                }
+                throw error;
+            }
+        }
+    </script>
+</body>
+</html>

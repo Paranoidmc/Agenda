@@ -3,9 +3,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-    "postbuild": "mkdir -p public/css/filament && cp resources/css/filament/custom.css public/css/filament/custom.css",
+        "postbuild": "mkdir -p public/css/filament && cp resources/css/filament/custom.css public/css/filament/custom.css",
         "dev": "concurrently \"vite\" \"npm run watch:customcss\"",
-    "watch:customcss": "nodemon --watch resources/css/filament/custom.css --exec \"mkdir -p public/css/filament && cp resources/css/filament/custom.css public/css/filament/custom.css\" --ext css"
+        "watch:customcss": "nodemon --watch resources/css/filament/custom.css --exec \"mkdir -p public/css/filament && cp resources/css/filament/custom.css public/css/filament/custom.css\" --ext css"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
@@ -21,6 +21,7 @@
         "@mui/icons-material": "^7.0.2",
         "@mui/material": "^7.0.2",
         "@mui/x-data-grid": "^8.0.0",
+        "react-draggable": "^4.4.6",
         "react-router-dom": "^6.30.0"
     }
 }

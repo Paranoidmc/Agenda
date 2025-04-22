@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\AuthController;
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -9,6 +11,8 @@ Route::get('/', function () {
 Route::get('/login', function () {
     return redirect('http://localhost:3000/login');
 })->name('login');
+
+Route::post('/login', [AuthController::class, 'login'])->middleware(['web']);
 
 Route::get('/react-app', function () {
     return view('react-app');

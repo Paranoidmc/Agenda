@@ -3,89 +3,75 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-
-use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
-    /**
-     * Login utente e generazione token
-     */
     public function login(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|string',
+        // Non è più necessario disabilitare la protezione CSRF, poiché l'abbiamo rimossa dal middleware API
+        
+        \Log::info('Tentativo login', [
+            'email' => $request->input('email'),
+            'password' => 'NASCOSTA',
+            'all' => $request->except(['password']),
+            'headers' => $request->headers->all(),
+            'cookies' => $request->cookies->all(),
+            'xsrf' => $request->header('X-XSRF-TOKEN'),
+            'cookie_xsrf' => $request->cookie('XSRF-TOKEN'),
+            'has_session' => $request->hasSession(),
         ]);
-
-        if ($validator->fails()) {
-            return response()->json(['error' => 'Dati non validi'], 422);
+        
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'password' => 'required'
+            ]);
+            
+            if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+                return response()->json(['error' => 'Credenziali non valide'], 401);
+            }
+            
+            $user = Auth::user();
+            $token = $user->createToken('auth_token')->plainTextToken;
+            
+            return response()->json([
+                'user' => $user,
+                'token' => $token,
+                'message' => 'Login effettuato con successo'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Errore login: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Errore durante il login: ' . $e->getMessage()
+            ], 500);
         }
-
-        $credentials = $request->only('email', 'password');
-        if (!auth()->attempt($credentials)) {
-            return response()->json(['error' => 'Credenziali non valide'], 401);
-        }
-        
-        $user = auth()->user();
-        $token = $user->createToken('api')->plainTextToken;
-        $refreshToken = bin2hex(random_bytes(32)); // Genera un refresh token casuale
-        
-        // Salva il refresh token nell'utente (aggiungi un campo refresh_token alla tabella users)
-        $user->refresh_token = $refreshToken;
-        $user->save();
-        
-        return response()->json([
-            'token' => $token,
-            'refresh_token' => $refreshToken,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
-        ]);
     }
-    
-    /**
-     * Refresh del token
-     */
-    public function refresh(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'refresh_token' => 'required|string',
-        ]);
 
-        if ($validator->fails()) {
-            return response()->json(['error' => 'Refresh token mancante'], 422);
+    public function logout(Request $request)
+    {
+        // Revoca il token corrente
+        if ($request->user()) {
+            $request->user()->currentAccessToken()->delete();
         }
         
-        $refreshToken = $request->refresh_token;
-        $user = User::where('refresh_token', $refreshToken)->first();
+        // Logout dalla sessione web
+        Auth::guard('web')->logout();
         
-        if (!$user) {
-            return response()->json(['error' => 'Refresh token non valido'], 401);
+        // Invalida la sessione e rigenera il token CSRF
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
         }
         
-        // Revoca tutti i token esistenti
-        $user->tokens()->delete();
-        
-        // Genera un nuovo token
-        $token = $user->createToken('api')->plainTextToken;
-        $newRefreshToken = bin2hex(random_bytes(32));
-        
-        // Aggiorna il refresh token
-        $user->refresh_token = $newRefreshToken;
-        $user->save();
-        
-        return response()->json([
-            'token' => $token,
-            'refresh_token' => $newRefreshToken,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
-        ]);
+        return response()->json(['message' => 'Logout effettuato con successo']);
+    }
+
+    public function user(Request $request)
+    {
+        return response()->json(Auth::user());
     }
 }
