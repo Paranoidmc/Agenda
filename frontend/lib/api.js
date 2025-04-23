@@ -1,4 +1,41 @@
 import axios from 'axios';
+import cacheService from '../src/services/cacheService';
+
+// Stato globale di caricamento
+export const loadingState = {
+  activeRequests: 0,
+  listeners: new Set(),
+  
+  // Incrementa il contatore di richieste attive
+  increment() {
+    this.activeRequests++;
+    this.notifyListeners();
+  },
+  
+  // Decrementa il contatore di richieste attive
+  decrement() {
+    this.activeRequests = Math.max(0, this.activeRequests - 1);
+    this.notifyListeners();
+  },
+  
+  // Verifica se ci sono richieste attive
+  isLoading() {
+    return this.activeRequests > 0;
+  },
+  
+  // Aggiunge un listener per i cambiamenti di stato
+  addListener(callback) {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
+  },
+  
+  // Notifica tutti i listener
+  notifyListeners() {
+    for (const listener of this.listeners) {
+      listener(this.isLoading());
+    }
+  }
+};
 
 // Funzione per leggere il valore di un cookie
 function getCookie(name) {
@@ -9,6 +46,7 @@ function getCookie(name) {
   return null;
 }
 
+// Configurazione di base per axios
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
   withCredentials: true,
@@ -21,37 +59,98 @@ const api = axios.create({
 
 // Interceptor per aggiungere i token di autenticazione a ogni richiesta
 api.interceptors.request.use(config => {
+  // Incrementa il contatore di richieste attive
+  if (!config.skipLoadingState) {
+    loadingState.increment();
+  }
+  
+  // Verifica se la richiesta può essere servita dalla cache
+  if (config.method === 'get' && config.useCache !== false) {
+    const cacheKey = cacheService.generateKey(config.url, config.params);
+    const cachedData = cacheService.get(cacheKey);
+    
+    if (cachedData) {
+      // Se abbiamo dati in cache, annulla la richiesta e restituisci i dati dalla cache
+      config.adapter = () => {
+        loadingState.decrement();
+        return Promise.resolve({
+          data: cachedData,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {}
+        });
+      };
+      return config;
+    }
+  }
+  
   // Aggiungi il token CSRF
   const xsrfToken = getCookie('XSRF-TOKEN');
   if (xsrfToken) {
     config.headers['X-XSRF-TOKEN'] = xsrfToken;
-    console.log('Aggiunto CSRF token alla richiesta:', config.url);
-  } else {
-    console.log('Nessun CSRF token trovato per la richiesta:', config.url);
   }
   
   // Aggiungi il token Bearer per l'autenticazione
   const token = localStorage.getItem('token');
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
-    console.log('Aggiunto token di autenticazione alla richiesta:', config.url);
   }
   
-  // Log per debug
-  console.log('Richiesta in uscita:', {
-    url: config.url,
-    method: config.method,
-    headers: config.headers,
-    withCredentials: config.withCredentials
-  });
+  // Log per debug solo in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Richiesta in uscita:', {
+      url: config.url,
+      method: config.method,
+      params: config.params
+    });
+  }
   
   return config;
 });
 
-// Interceptor per gestire gli errori di autenticazione e altri errori comuni
+// Interceptor per gestire le risposte e gli errori
 api.interceptors.response.use(
-  response => response,
-  error => {
+  response => {
+    // Decrementa il contatore di richieste attive
+    if (!response.config.skipLoadingState) {
+      loadingState.decrement();
+    }
+    
+    // Memorizza la risposta nella cache se è una GET
+    if (response.config.method === 'get' && response.config.useCache !== false) {
+      const cacheKey = cacheService.generateKey(response.config.url, response.config.params);
+      const ttl = response.config.cacheTTL || undefined; // Usa il TTL predefinito se non specificato
+      cacheService.set(cacheKey, response.data, ttl);
+    }
+    
+    return response;
+  },
+  async error => {
+    // Decrementa il contatore di richieste attive
+    if (error.config && !error.config.skipLoadingState) {
+      loadingState.decrement();
+    }
+    
+    // Gestione dei retry per errori di rete o timeout
+    if (error.config && !error.response && error.config.retry !== false) {
+      const retryConfig = error.config;
+      retryConfig.retryCount = retryConfig.retryCount || 0;
+      const maxRetries = retryConfig.maxRetries || 2;
+      
+      if (retryConfig.retryCount < maxRetries) {
+        retryConfig.retryCount++;
+        
+        // Attendi prima di riprovare (backoff esponenziale)
+        const delay = Math.pow(2, retryConfig.retryCount) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        console.log(`Riprovo richiesta (${retryConfig.retryCount}/${maxRetries}):`, retryConfig.url);
+        return api(retryConfig);
+      }
+    }
+    
     // Gestione degli errori di rete
     if (!error.response) {
       console.error('Errore di rete o timeout:', error.message);
@@ -109,5 +208,51 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Metodi di utilità per l'API
+const apiUtils = {
+  /**
+   * Invalida la cache per un endpoint specifico
+   * @param {string} endpoint - Endpoint da invalidare
+   */
+  invalidateCache(endpoint) {
+    cacheService.invalidatePattern(endpoint);
+  },
+  
+  /**
+   * Svuota completamente la cache
+   */
+  clearCache() {
+    cacheService.clear();
+  },
+  
+  /**
+   * Imposta il TTL predefinito per la cache
+   * @param {number} ttl - Tempo di vita in millisecondi
+   */
+  setDefaultCacheTTL(ttl) {
+    cacheService.setDefaultTTL(ttl);
+  },
+  
+  /**
+   * Ottiene lo stato di caricamento globale
+   * @returns {boolean} True se ci sono richieste attive
+   */
+  isLoading() {
+    return loadingState.isLoading();
+  },
+  
+  /**
+   * Aggiunge un listener per i cambiamenti di stato di caricamento
+   * @param {Function} callback - Funzione da chiamare quando lo stato cambia
+   * @returns {Function} Funzione per rimuovere il listener
+   */
+  onLoadingChange(callback) {
+    return loadingState.addListener(callback);
+  }
+};
+
+// Aggiungi i metodi di utilità all'oggetto API
+Object.assign(api, apiUtils);
 
 export default api;

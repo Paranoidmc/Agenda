@@ -9,7 +9,7 @@ import PageHeader from "../../components/PageHeader";
 import TabPanel from "../../components/TabPanel";
 import ActivityList from "../../components/ActivityList";
 import SiteList from "../../components/SiteList";
-import DataTable from "../../components/DataTable";
+import OptimizedTable from "../../components/OptimizedTable";
 
 export default function ClientiPage() {
   const router = useRouter();
@@ -64,19 +64,9 @@ export default function ClientiPage() {
     }
   }, [isPanelOpen]);
 
+  // Questa funzione non è più necessaria con DataTableServer
   const loadClienti = () => {
-    setFetching(true);
-    api.get("/clients")
-      .then(res => setClienti(res.data))
-      .catch((err) => {
-        console.error("Errore nel caricamento dei clienti:", err);
-        if (err.response && err.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento dei clienti");
-        }
-      })
-      .finally(() => setFetching(false));
+    setFetching(false); // Impostiamo subito a false perché il caricamento è gestito dal componente
   };
 
   const handleViewDetails = (cliente) => {
@@ -204,8 +194,8 @@ export default function ClientiPage() {
           overflow: 'hidden'
         }}
       >
-        <DataTable 
-          data={clienti}
+        <OptimizedTable 
+          endpoint="/clients"
           columns={[
             { 
               key: 'nome', 
@@ -286,6 +276,9 @@ export default function ClientiPage() {
           searchPlaceholder="Cerca clienti..."
           emptyMessage="Nessun cliente trovato"
           defaultVisibleColumns={['nome', 'citta', 'telefono', 'partita_iva', 'actions']}
+          defaultSortKey="nome"
+          defaultSortDirection="asc"
+          refreshInterval={300000} // Aggiorna ogni 5 minuti
         />
       </div>
 

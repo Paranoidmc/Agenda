@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import Link from 'next/link';
 import { AuthProvider } from "../context/AuthContext";
 import Sidebar from "../components/Sidebar";
+import GlobalLoader from "../components/GlobalLoader";
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -28,6 +29,9 @@ export default function RootLayout({ children }) {
     <html lang="it">
       <body className={inter.className}>
         <AuthProvider>
+          {/* Indicatore di caricamento globale */}
+          <GlobalLoader />
+          
           <header style={{
             background: '#fff',
             borderBottom: '1px solid #e5e5ea',

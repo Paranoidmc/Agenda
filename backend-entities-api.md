@@ -9,7 +9,7 @@ Questa documentazione riassume le principali entità, relazioni e API del backen
   - nome, indirizzo, citta, cap, provincia, telefono, partita_iva, codice_fiscale, note
 - **Relazioni:**
   - `activities` (Attività)
-  - `sites` (Sedi)
+  - `sites` (Cantieri)
 
 ### 2. Veicoli (`Vehicle`)
 - **Campi:**
@@ -18,7 +18,7 @@ Questa documentazione riassume le principali entità, relazioni e API del backen
   - `activities` (Attività)
   - `deadlines` (Scadenze)
 
-### 3. Sedi (`Site`)
+### 3. Cantieri (`Site`)
 - **Campi:**
   - nome, indirizzo, citta, cap, provincia, telefono, note
 - **Relazioni:**
