@@ -34,6 +34,7 @@ import DataTable from "../../components/DataTable";
 export default function ScadenzePage() {
   const { user, loading } = useAuth();
   const [scadenze, setScadenze] = useState([]);
+const [searchText, setSearchText] = useState("");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [selectedScadenza, setSelectedScadenza] = useState(null);
@@ -98,7 +99,10 @@ export default function ScadenzePage() {
   const loadScadenze = () => {
     setFetching(true);
     api.get("/vehicle-deadlines")
-      .then(res => setScadenze(res.data))
+      .then(res => {
+        let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        setScadenze(arr);
+      })
       .catch((err) => {
         console.error("Errore nel caricamento delle scadenze:", err);
         if (err.response && err.response.status === 401) {
@@ -221,8 +225,14 @@ export default function ScadenzePage() {
     }
   };
 
-  if (loading || fetching) return <div className="centered">Caricamento...</div>;
-  if (error) return <div className="centered">{error}</div>;
+  if (loading || fetching) return <div className="centered"><span className="loader" style={{display:'inline-block', width:32, height:32, border:'4px solid #ddd', borderTop:'4px solid var(--primary)', borderRadius:'50%', animation:'spin 1s linear infinite'}}></span> Caricamento scadenze...</div>;
+  if (error) return (
+    <div className="centered">
+      {error}
+      <br />
+      <button onClick={loadScadenze} style={{marginTop: 12, padding: '8px 16px', borderRadius: 6, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer'}}>Riprova</button>
+    </div>
+  );
 
   return (
     <div style={{ padding: 32 }}>
@@ -231,6 +241,15 @@ export default function ScadenzePage() {
         buttonLabel="Nuova Scadenza" 
         onAddClick={handleCreateNew} 
       />
+      <div style={{margin: '18px 0 12px 0'}}>
+        <input
+          type="text"
+          placeholder="Cerca per targa, tipo o data..."
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          style={{padding: 8, borderRadius: 6, border: '1px solid #ccc', width: 240}}
+        />
+      </div>
       <div 
         style={{ 
           transition: 'width 0.3s ease-in-out',
@@ -239,7 +258,10 @@ export default function ScadenzePage() {
         }}
       >
         <DataTable 
-          data={scadenze}
+          data={scadenze.filter(s => {
+            const testo = (s.vehicle?.targa || "") + " " + (s.tipo || "") + " " + (s.data_scadenza || "");
+            return testo.toLowerCase().includes(searchText.toLowerCase());
+          })}
           columns={[
             { 
               key: 'vehicle.targa', 

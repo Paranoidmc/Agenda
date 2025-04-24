@@ -7,7 +7,6 @@
 /storage/*.key
 /storage/pail
 /vendor
-.env
 .env.backup
 .env.production
 .phpactor.json
@@ -25,6 +24,73 @@ yarn-error.log
 /backup_jsx
 
 # Next.js specific
+/frontend/.next/
+/frontend/out/
+/frontend/build/
+
+# Laravel environment files
+.env
+.env.*
+
+# Laravel cache, logs, sessions, compiled, vendor
+/storage/app/public
+/storage/framework/cache
+/storage/framework/sessions
+/storage/framework/views
+/storage/logs
+/bootstrap/cache
+/vendor/
+
+# Node modules
+/node_modules/
+/frontend/node_modules/
+
+# Laravel build
+/public/build/
+/public/hot/
+/public/storage/
+
+# Composer & npm logs
+npm-debug.log
+yarn-error.log
+composer.lock
+package-lock.json
+
+# IDE/editor/project files
+/.idea/
+/.vscode/
+/.fleet/
+/.nova/
+/.zed/
+.phpactor.json
+Homestead.json
+Homestead.yaml
+
+# System files
+.DS_Store
+Thumbs.db
+*.pem
+
+# Editor swap/backup/temp files
+*.swp
+*.swo
+*.bak
+*.tmp
+*~
+
+# Auth & backup
+/auth.json
+/backup_jsx
+
+# PHP Unit
+.phpunit.cache
+.phpunit.result.cache
+
+# Misc
+/storage/*.key
+/storage/pail
+
+# Next.js build output
 /frontend/.next/
 /frontend/out/
 /frontend/build/

@@ -14,6 +14,7 @@ export default function AutistiPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [autisti, setAutisti] = useState([]);
+const [searchText, setSearchText] = useState("");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [selectedAutista, setSelectedAutista] = useState(null);
@@ -86,8 +87,19 @@ export default function AutistiPage() {
 
   const loadAutisti = () => {
     setFetching(true);
-    api.get("/drivers")
-      .then(res => setAutisti(res.data))
+    api.get("/drivers?all=1")
+      .then(res => {
+        // Gestione robusta della risposta: ordina solo se array
+        let autistiArr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        if (Array.isArray(autistiArr)) {
+          autistiArr = [...autistiArr].sort((a, b) => {
+            const nomeA = (a.cognome || '') + (a.nome || '');
+            const nomeB = (b.cognome || '') + (b.nome || '');
+            return nomeA.localeCompare(nomeB);
+          });
+        }
+        setAutisti(autistiArr);
+      })
       .catch((err) => {
         console.error("Errore nel caricamento degli autisti:", err);
         if (err.response && err.response.status === 401) {
@@ -112,9 +124,15 @@ export default function AutistiPage() {
     if (!driverId) return;
     
     setLoadingActivities(true);
+setActivities([]);
     try {
       const response = await api.get(`/drivers/${driverId}/activities`);
-      setActivities(response.data);
+      // Gestione robusta della risposta: ordina solo se array
+      let activitiesArr = Array.isArray(response.data) ? response.data : (Array.isArray(response.data.data) ? response.data.data : []);
+      if (Array.isArray(activitiesArr)) {
+        activitiesArr = [...activitiesArr].sort((a, b) => (a.data_inizio && b.data_inizio ? new Date(b.data_inizio) - new Date(a.data_inizio) : 0));
+      }
+      setActivities(activitiesArr);
     } catch (err) {
       console.error("Errore nel caricamento delle attività:", err);
     } finally {
@@ -204,7 +222,13 @@ export default function AutistiPage() {
   };
 
   if (loading || fetching) return <div className="centered">Caricamento...</div>;
-  if (error) return <div className="centered">{error}</div>;
+  if (error) return (
+  <div className="centered">
+    {error}
+    <br />
+    <button onClick={loadAutisti} style={{marginTop: 12, padding: '8px 16px', borderRadius: 6, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer'}}>Riprova</button>
+  </div>
+);
 
   return (
     <div style={{ padding: 32 }}>
@@ -213,6 +237,15 @@ export default function AutistiPage() {
         buttonLabel="Nuovo Autista" 
         onAddClick={handleCreateNew} 
       />
+      <div style={{margin: '18px 0 12px 0'}}>
+        <input
+          type="text"
+          placeholder="Cerca per nome o cognome..."
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          style={{padding: 8, borderRadius: 6, border: '1px solid #ccc', width: 240}}
+        />
+      </div>
       <div 
         style={{ 
           transition: 'width 0.3s ease-in-out',
@@ -221,7 +254,10 @@ export default function AutistiPage() {
         }}
       >
         <DataTable 
-          data={autisti}
+          data={autisti.filter(a => {
+            const testo = (a.nome || "") + " " + (a.cognome || "");
+            return testo.toLowerCase().includes(searchText.toLowerCase());
+          })}
           columns={[
             { 
               key: 'nome', 

@@ -12,31 +12,98 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     
-    // Pulisci eventuali token residui
+    console.group("[LOGIN-PAGE] Processo di login");
+    console.log("[LOGIN-PAGE] Avvio processo di login");
+    
+    // Pulisci eventuali token residui e dati non validi
     if (typeof window !== 'undefined') {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      console.log("[LOGIN-PAGE] Pulizia dati precedenti");
+      try {
+        // Salva temporaneamente i valori per il debug
+        const oldToken = localStorage.getItem("token");
+        const oldUser = localStorage.getItem("user");
+        console.log("[LOGIN-PAGE] Dati prima della pulizia:", { token: !!oldToken, user: !!oldUser });
+        
+        // Rimuovi i dati
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        
+        // Pulisci anche eventuali valori non validi
+        if (localStorage.getItem("user") === "undefined" || localStorage.getItem("user") === "null") {
+          localStorage.removeItem("user");
+        }
+        
+        // Forza la pulizia di localStorage se ci sono problemi
+        if (localStorage.getItem("user")) {
+          console.warn("[LOGIN-PAGE] Pulizia forzata dei dati utente");
+          localStorage.clear();
+        }
+        
+        // Verifica che i dati siano stati rimossi
+        const tokenAfter = localStorage.getItem("token");
+        const userAfter = localStorage.getItem("user");
+        console.log("[LOGIN-PAGE] Dati dopo la pulizia:", { token: !!tokenAfter, user: !!userAfter });
+      } catch (storageError) {
+        console.error("[LOGIN-PAGE] Errore nella pulizia dello storage:", storageError);
+      }
     }
     
     try {
-      console.log("Tentativo di login con email:", email);
-      await login(email, password);
+      console.log("[LOGIN-PAGE] Tentativo di login con email:", email);
       
-      console.log("Login riuscito, reindirizzamento alla dashboard...");
+      // Chiamata alla funzione login del contesto di autenticazione
+      const loginResult = await login(email, password);
+      console.log("[LOGIN-PAGE] Risultato login:", loginResult);
       
-      // Forza un reload della pagina dopo il login
+      console.log("[LOGIN-PAGE] Login riuscito, preparazione reindirizzamento...");
+      
+      // Attendi un momento per assicurarsi che i dati siano salvati
+      console.log("[LOGIN-PAGE] Attesa per assicurarsi che i dati siano salvati...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verifica che l'utente sia stato impostato correttamente
       if (typeof window !== 'undefined') {
-        window.location.href = '/dashboard';
+        const token = localStorage.getItem("token");
+        const userData = localStorage.getItem("user");
+        
+        console.log("[LOGIN-PAGE] Verifica dati salvati:");
+        console.log("[LOGIN-PAGE] Token salvato:", !!token);
+        console.log("[LOGIN-PAGE] Dati utente salvati:", !!userData);
+        
+        if (token && userData) {
+          // Reindirizza alla dashboard
+          console.log("[LOGIN-PAGE] Reindirizzamento alla dashboard...");
+          
+          // Aggiungi un parametro per evitare la cache
+          window.location.href = '/dashboard?t=' + new Date().getTime();
+        } else {
+          // Se mancano i dati, mostra un errore
+          console.error("[LOGIN-PAGE] Dati mancanti dopo il login");
+          setError("Errore durante il login: dati utente non salvati correttamente");
+          
+          // Pulisci i dati
+          console.log("[LOGIN-PAGE] Pulizia dati non validi");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+        }
       }
     } catch (err) {
-      console.error("Errore di login:", err);
+      console.error("[LOGIN-PAGE] Errore di login:", err);
       
       // Mostra un messaggio di errore più specifico se disponibile
       if (err.message) {
+        console.log("[LOGIN-PAGE] Messaggio di errore:", err.message);
         setError(err.message);
+      } else if (err.response?.data?.message) {
+        console.log("[LOGIN-PAGE] Messaggio di errore dalla risposta:", err.response.data.message);
+        setError(err.response.data.message);
       } else {
+        console.log("[LOGIN-PAGE] Messaggio di errore generico");
         setError("Credenziali non valide o errore di connessione");
       }
+    } finally {
+      console.log("[LOGIN-PAGE] Processo di login completato");
+      console.groupEnd();
     }
   };
 

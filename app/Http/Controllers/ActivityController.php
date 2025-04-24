@@ -14,14 +14,16 @@ class ActivityController extends Controller
     {
         $query = Activity::with(['client', 'driver', 'vehicle', 'site', 'activityType']);
         
-        // Filtraggio per data di inizio
-        if ($request->has('start_date')) {
-            $query->whereDate('date', '>=', $request->start_date);
-        }
-        
-        // Filtraggio per data di fine
-        if ($request->has('end_date')) {
-            $query->whereDate('date', '<=', $request->end_date);
+        // Filtraggio per intervallo date
+        if ($request->has('start_date') && $request->has('end_date')) {
+            $query->where(function($q) use ($request) {
+                $q->whereBetween('data_inizio', [$request->start_date, $request->end_date])
+                  ->orWhereBetween('data_fine', [$request->start_date, $request->end_date])
+                  ->orWhere(function($q) use ($request) {
+                      $q->where('data_inizio', '<=', $request->start_date)
+                        ->where('data_fine', '>=', $request->end_date);
+                  });
+            });
         }
         
         // Filtraggio per cliente
@@ -54,17 +56,45 @@ class ActivityController extends Controller
             $query->where('status', $request->status);
         }
         
-        $activities = $query->get();
+        // PAGINAZIONE E RICERCA
+        $perPage = $request->input('perPage', 25);
+        $search = $request->input('search');
         
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('titolo', 'like', "%$search%")
+                  ->orWhere('descrizione', 'like', "%$search%")
+                  ->orWhere('notes', 'like', "%$search%")
+                  ->orWhere('note', 'like', "%$search%")
+                  ->orWhereHas('client', function ($sub) use ($search) {
+                      $sub->where('name', 'like', "%$search%")
+                          ->orWhere('address', 'like', "%$search%")
+                          ->orWhere('city', 'like', "%$search%")
+                          ->orWhere('province', 'like', "%$search%")
+                          ->orWhere('postal_code', 'like', "%$search%")
+                          ->orWhere('notes', 'like', "%$search%")
+                          ;
+                  })
+                  ->orWhereHas('site', function ($sub) use ($search) {
+                      $sub->where('name', 'like', "%$search%")
+                          ->orWhere('address', 'like', "%$search%")
+                          ->orWhere('city', 'like', "%$search%")
+                          ->orWhere('province', 'like', "%$search%")
+                          ->orWhere('postal_code', 'like', "%$search%")
+                          ->orWhere('notes', 'like', "%$search%")
+                          ;
+                  })
+                  ;
+            });
+        }
+        
+        // Carica le relazioni senza specificare i campi
+        $query->with(['client', 'driver', 'vehicle', 'site', 'activityType']);
+        
+        $activities = $query->orderBy('data_inizio', 'desc')->paginate($perPage);
         // Aggiungiamo i campi in italiano per ogni attività
-        $activities = $activities->map(function ($activity) {
-            // Aggiungiamo i campi in italiano
-            $activity->titolo = $activity->title ?? '';
-            $activity->descrizione = $activity->description ?? '';
-            $activity->data_inizio = $activity->date;
-            $activity->data_fine = $activity->date;
-            $activity->stato = $activity->status;
-            $activity->note = $activity->notes;
+        $activities->getCollection()->transform(function ($activity) {
+            // Manteniamo solo i campi in italiano
             
             // Aggiungiamo i campi in italiano per il cliente
             if ($activity->client) {
@@ -149,35 +179,32 @@ class ActivityController extends Controller
             'stato' => 'nullable|string|max:50',
             'note' => 'nullable|string',
             'time_slot' => 'nullable|string|in:morning,afternoon,full_day',
-            'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i|after:start_time',
+            'ora_inizio' => 'nullable|date_format:H:i',
+            'ora_fine' => 'nullable|date_format:H:i|after:ora_inizio',
             'start_location' => 'nullable|string|max:255',
             'end_location' => 'nullable|string|max:255',
         ]);
 
-        // Map Italian field names to English field names
+        // Usa direttamente i campi in italiano
         $data = [
-            'title' => $validated['titolo'], // Imposta il campo title
-            'description' => $validated['descrizione'] ?? null, // Imposta il campo description
+            'titolo' => $validated['titolo'],
+            'descrizione' => $validated['descrizione'] ?? null,
             'date' => $validated['data_inizio'],
+            'data_inizio' => $validated['data_inizio'],
+            'data_fine' => $validated['data_fine'],
             'time_slot' => $validated['time_slot'] ?? 'full_day',
-            'start_time' => $validated['start_time'] ?? null,
-            'end_time' => $validated['end_time'] ?? null,
+            'ora_inizio' => $validated['ora_inizio'] ?? null,
+            'ora_fine' => $validated['ora_fine'] ?? null,
             'driver_id' => $validated['driver_id'],
             'vehicle_id' => $validated['vehicle_id'],
             'client_id' => $validated['client_id'],
             'site_id' => $validated['site_id'],
             'activity_type_id' => $validated['activity_type_id'],
             'status' => $validated['stato'] ?? 'planned',
+            'stato' => $validated['stato'] ?? 'planned',
             'start_location' => $validated['start_location'] ?? null,
             'end_location' => $validated['end_location'] ?? null,
             'notes' => $validated['note'] ?? null,
-            // Keep the Italian fields too for compatibility
-            'titolo' => $validated['titolo'],
-            'descrizione' => $validated['descrizione'] ?? null,
-            'data_inizio' => $validated['data_inizio'],
-            'data_fine' => $validated['data_fine'],
-            'stato' => $validated['stato'] ?? 'planned',
             'note' => $validated['note'] ?? null,
         ];
 
@@ -219,11 +246,12 @@ class ActivityController extends Controller
      */
     public function show(Activity $activity)
     {
+        // Carica le relazioni senza specificare i campi
         $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
         
-        // Aggiungiamo i campi in italiano
-        $activity->titolo = $activity->title ?? '';
-        $activity->descrizione = $activity->description ?? '';
+        // Aggiungiamo i campi in inglese (per compatibilità)
+        $activity->title = $activity->titolo ?? '';
+        $activity->description = $activity->descrizione ?? '';
         $activity->data_inizio = $activity->date;
         $activity->data_fine = $activity->date;
         $activity->stato = $activity->status;
@@ -313,6 +341,8 @@ class ActivityController extends Controller
             'end_time' => 'nullable|date_format:H:i|after:start_time',
             'start_location' => 'nullable|string|max:255',
             'end_location' => 'nullable|string|max:255',
+            'km_inizio' => 'nullable|numeric',
+            'km_fine' => 'nullable|numeric|gte:km_inizio',
         ]);
 
         // Map Italian field names to English field names
@@ -378,12 +408,10 @@ class ActivityController extends Controller
         }
         
         if (isset($validated['titolo'])) {
-            $data['title'] = $validated['titolo']; // Imposta anche il campo inglese
             $data['titolo'] = $validated['titolo'];
         }
         
         if (isset($validated['descrizione'])) {
-            $data['description'] = $validated['descrizione']; // Imposta anche il campo inglese
             $data['descrizione'] = $validated['descrizione'];
         }
 
@@ -470,15 +498,16 @@ class ActivityController extends Controller
         $startTime = $request->start_time;
         $endTime = $request->end_time;
         
-        // Get all drivers
-        $allDrivers = \App\Models\Driver::all();
+        // Get all active drivers
+        $allDrivers = \App\Models\Driver::where('is_active', true)->get();
         
-        // Get all vehicles
-        $allVehicles = \App\Models\Vehicle::all();
+        // Get all active vehicles
+        $allVehicles = \App\Models\Vehicle::where('is_active', true)->get();
         
         // Find busy drivers for the specified date and time slot
-        $busyDriverIds = Activity::where('date', $date)
+        $busyDriverIds = Activity::whereDate('data_inizio', $date)
             ->where('status', '!=', 'cancelled')
+            ->where('driver_id', '!=', $request->input('exclude_driver_id'))
             ->where(function($query) use ($timeSlot) {
                 if ($timeSlot === 'morning') {
                     // Morning conflicts with morning or full day
@@ -495,8 +524,9 @@ class ActivityController extends Controller
             ->toArray();
             
         // Find busy vehicles for the specified date and time slot
-        $busyVehicleIds = Activity::where('date', $date)
+        $busyVehicleIds = Activity::whereDate('data_inizio', $date)
             ->where('status', '!=', 'cancelled')
+            ->where('vehicle_id', '!=', $request->input('exclude_vehicle_id'))
             ->where(function($query) use ($timeSlot) {
                 if ($timeSlot === 'morning') {
                     // Morning conflicts with morning or full day

@@ -20,6 +20,13 @@ class AuthController extends Controller
             'xsrf' => $request->header('X-XSRF-TOKEN'),
             'cookie_xsrf' => $request->cookie('XSRF-TOKEN'),
             'has_session' => $request->hasSession(),
+            // DEBUG avanzato sessione
+            'session_driver' => config('session.driver'),
+            'session_files_path' => config('session.files'),
+            'session_id' => $request->hasSession() ? $request->session()->getId() : null,
+            'session_started' => $request->hasSession() ? $request->session()->isStarted() : null,
+            'session_file_exists' => $request->hasSession() ? file_exists(config('session.files') . '/' . $request->session()->getId()) : null,
+            'session_file_path' => $request->hasSession() ? config('session.files') . '/' . $request->session()->getId() : null,
         ]);
         
         try {
@@ -31,9 +38,16 @@ class AuthController extends Controller
             if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
                 return response()->json(['error' => 'Credenziali non valide'], 401);
             }
+
+            // Forza la rigenerazione della sessione dopo login
+            if ($request->hasSession()) {
+                $request->session()->regenerate();
+            }
             
             $user = Auth::user();
-            $token = $user->createToken('auth_token')->plainTextToken;
+            
+            // Genera un token personale per l'utente
+            $token = $user->createToken('api-token')->plainTextToken;
             
             return response()->json([
                 'user' => $user,

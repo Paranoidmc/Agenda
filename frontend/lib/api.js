@@ -48,13 +48,15 @@ function getCookie(name) {
 
 // Configurazione di base per axios
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  // Usa il proxy configurato in next.config.js
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '',
   withCredentials: true,
   headers: {
     'Accept': 'application/json',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
   },
-  timeout: 10000 // Timeout di 10 secondi
+  timeout: 30000 // Timeout di 30 secondi
 });
 
 // Interceptor per aggiungere i token di autenticazione a ogni richiesta
@@ -92,18 +94,24 @@ api.interceptors.request.use(config => {
     config.headers['X-XSRF-TOKEN'] = xsrfToken;
   }
   
-  // Aggiungi il token Bearer per l'autenticazione
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
+  // Aggiungi il token di autenticazione se disponibile
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
   }
+  
+  // Aggiungi header Accept per JSON
+  config.headers['Accept'] = 'application/json';
   
   // Log per debug solo in development
   if (process.env.NODE_ENV === 'development') {
     console.log('Richiesta in uscita:', {
       url: config.url,
       method: config.method,
-      params: config.params
+      params: config.params,
+      headers: config.headers
     });
   }
   
@@ -116,6 +124,16 @@ api.interceptors.response.use(
     // Decrementa il contatore di richieste attive
     if (!response.config.skipLoadingState) {
       loadingState.decrement();
+    }
+    
+    // Log per debug solo in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Risposta ricevuta:', {
+        url: response.config.url,
+        method: response.config.method,
+        status: response.status,
+        data: response.data
+      });
     }
     
     // Memorizza la risposta nella cache se è una GET
@@ -131,6 +149,19 @@ api.interceptors.response.use(
     // Decrementa il contatore di richieste attive
     if (error.config && !error.config.skipLoadingState) {
       loadingState.decrement();
+    }
+    
+    // Log dettagliato per il debug
+    if (process.env.NODE_ENV === 'development') {
+      console.group('Dettagli errore API');
+      console.log('URL:', error.config?.url);
+      console.log('Metodo:', error.config?.method?.toUpperCase());
+      console.log('Status:', error.response?.status);
+      console.log('Headers inviati:', error.config?.headers);
+      console.log('Dati inviati:', error.config?.data ? JSON.parse(error.config.data) : 'Nessun dato');
+      console.log('Risposta:', error.response?.data);
+      console.log('Errore completo:', error);
+      console.groupEnd();
     }
     
     // Gestione dei retry per errori di rete o timeout
@@ -161,7 +192,27 @@ api.interceptors.response.use(
     switch (error.response.status) {
       case 401: // Unauthorized
         console.error('Sessione scaduta o non autenticata');
-        // Pulisci localStorage e reindirizza al login
+        
+        // Prova a ottenere un nuovo CSRF token e riprova la richiesta
+        if (error.config && !error.config._retry) {
+          error.config._retry = true;
+          
+          try {
+            // Ottieni un nuovo CSRF token
+            await api.get('/sanctum/csrf-cookie');
+            
+            // Verifica se abbiamo un token in localStorage
+            const token = localStorage.getItem('token');
+            if (token) {
+              // Riprova la richiesta originale
+              return api(error.config);
+            }
+          } catch (retryError) {
+            console.error('Errore nel tentativo di refresh:', retryError);
+          }
+        }
+        
+        // Se il retry fallisce o non è possibile, reindirizza al login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -192,17 +243,6 @@ api.interceptors.response.use(
         
       default:
         console.error(`Errore HTTP ${error.response.status}:`, error.response.data);
-    }
-    
-    // Log dettagliato per il debug
-    if (process.env.NODE_ENV === 'development') {
-      console.group('Dettagli errore API');
-      console.log('URL:', error.config?.url);
-      console.log('Metodo:', error.config?.method?.toUpperCase());
-      console.log('Status:', error.response?.status);
-      console.log('Dati inviati:', error.config?.data ? JSON.parse(error.config.data) : 'Nessun dato');
-      console.log('Risposta:', error.response?.data);
-      console.groupEnd();
     }
     
     return Promise.reject(error);

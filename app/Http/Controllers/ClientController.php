@@ -10,12 +10,53 @@ class ClientController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $clients = Client::with(['activities', 'sites'])->get();
-        
-        // Aggiungiamo i campi in italiano per ogni cliente
-        $clients = $clients->map(function ($client) {
+        $perPage = $request->input('perPage', 25);
+        $search = $request->input('search');
+        $query = Client::query();
+
+        // Ricerca base su nome, citta, partita iva, codice fiscale
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                  ->orWhere('city', 'like', "%$search%")
+                  ->orWhere('vat_number', 'like', "%$search%")
+                  ->orWhere('fiscal_code', 'like', "%$search%")
+                  ->orWhere('codice_arca', 'like', "%$search%")
+                  ->orWhere('email', 'like', "%$search%")
+                  ->orWhere('phone', 'like', "%$search%")
+                  ->orWhere('address', 'like', "%$search%")
+                  ->orWhere('province', 'like', "%$search%")
+                  ->orWhere('postal_code', 'like', "%$search%")
+                  ->orWhere('notes', 'like', "%$search%")
+                ;
+            });
+        }
+
+        // Solo i campi necessari per la tabella
+        $fields = [
+            'id', 'name', 'address', 'city', 'postal_code', 'province', 'phone', 'email', 'vat_number', 'fiscal_code', 'codice_arca', 'notes'
+        ];
+
+        $clients = $query->select($fields)->orderBy('name')->paginate($perPage);
+
+        // Mappa i campi in italiano per ogni cliente
+        $clients->getCollection()->transform(function ($client) {
+            // Assicurati che tutti i campi siano definiti
+            $client->name = $client->name ?? '';
+            $client->address = $client->address ?? '';
+            $client->city = $client->city ?? '';
+            $client->postal_code = $client->postal_code ?? '';
+            $client->province = $client->province ?? '';
+            $client->phone = $client->phone ?? '';
+            $client->email = $client->email ?? '';
+            $client->vat_number = $client->vat_number ?? '';
+            $client->fiscal_code = $client->fiscal_code ?? '';
+            $client->codice_arca = $client->codice_arca ?? '';
+            $client->notes = $client->notes ?? '';
+            
+            // Aggiungi i campi in italiano
             $client->nome = $client->name;
             $client->indirizzo = $client->address;
             $client->citta = $client->city;
@@ -25,9 +66,10 @@ class ClientController extends Controller
             $client->partita_iva = $client->vat_number;
             $client->codice_fiscale = $client->fiscal_code;
             $client->note = $client->notes;
+            
             return $client;
         });
-        
+
         return response()->json($clients);
     }
 
@@ -46,10 +88,10 @@ class ClientController extends Controller
             'provincia' => 'nullable|string|max:50',
             'partita_iva' => 'nullable|string|max:50',
             'codice_fiscale' => 'nullable|string|max:50',
+            'codice_arca' => 'nullable|string|max:50',
             'note' => 'nullable|string',
         ]);
 
-        // Map Italian field names to English field names
         $data = [
             'name' => $validated['nome'],
             'email' => $validated['email'],
@@ -60,6 +102,7 @@ class ClientController extends Controller
             'province' => $validated['provincia'] ?? null,
             'vat_number' => $validated['partita_iva'] ?? null,
             'fiscal_code' => $validated['codice_fiscale'] ?? null,
+            'codice_arca' => $validated['codice_arca'] ?? null,
             'notes' => $validated['note'] ?? null,
         ];
 
@@ -74,6 +117,7 @@ class ClientController extends Controller
         $client->telefono = $client->phone;
         $client->partita_iva = $client->vat_number;
         $client->codice_fiscale = $client->fiscal_code;
+        $client->codice_arca = $client->codice_arca;
         $client->note = $client->notes;
         
         return response()->json($client, 201);
@@ -86,6 +130,19 @@ class ClientController extends Controller
     {
         $client->load(['activities', 'sites']);
         
+        // Assicurati che tutti i campi siano definiti
+        $client->name = $client->name ?? '';
+        $client->address = $client->address ?? '';
+        $client->city = $client->city ?? '';
+        $client->postal_code = $client->postal_code ?? '';
+        $client->province = $client->province ?? '';
+        $client->phone = $client->phone ?? '';
+        $client->email = $client->email ?? '';
+        $client->vat_number = $client->vat_number ?? '';
+        $client->fiscal_code = $client->fiscal_code ?? '';
+        $client->codice_arca = $client->codice_arca ?? '';
+        $client->notes = $client->notes ?? '';
+        
         // Aggiungiamo i campi in italiano
         $client->nome = $client->name;
         $client->indirizzo = $client->address;
@@ -95,6 +152,7 @@ class ClientController extends Controller
         $client->telefono = $client->phone;
         $client->partita_iva = $client->vat_number;
         $client->codice_fiscale = $client->fiscal_code;
+        $client->codice_arca = $client->codice_arca;
         $client->note = $client->notes;
         
         return response()->json($client);
@@ -115,10 +173,10 @@ class ClientController extends Controller
             'provincia' => 'nullable|string|max:50',
             'partita_iva' => 'nullable|string|max:50',
             'codice_fiscale' => 'nullable|string|max:50',
+            'codice_arca' => 'nullable|string|max:50',
             'note' => 'nullable|string',
         ]);
 
-        // Map Italian field names to English field names
         $data = [];
         
         if (isset($validated['nome'])) {
@@ -157,6 +215,10 @@ class ClientController extends Controller
             $data['fiscal_code'] = $validated['codice_fiscale'];
         }
         
+        if (isset($validated['codice_arca'])) {
+            $data['codice_arca'] = $validated['codice_arca'];
+        }
+        
         if (isset($validated['note'])) {
             $data['notes'] = $validated['note'];
         }
@@ -172,6 +234,7 @@ class ClientController extends Controller
         $client->telefono = $client->phone;
         $client->partita_iva = $client->vat_number;
         $client->codice_fiscale = $client->fiscal_code;
+        $client->codice_arca = $client->codice_arca;
         $client->note = $client->notes;
         
         return response()->json($client);

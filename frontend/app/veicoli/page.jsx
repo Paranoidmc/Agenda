@@ -28,13 +28,21 @@ export default function VeicoliPage() {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [loadingDeadlines, setLoadingDeadlines] = useState(false);
 
-  // Campi del form veicolo - informazioni generali
+  // Campi del form veicolo - allineati alla migration e al model
   const veicoloFields = [
-    { name: 'targa', label: 'Targa', required: true },
-    { name: 'marca', label: 'Marca', required: true },
-    { name: 'modello', label: 'Modello', required: true },
-    { name: 'anno', label: 'Anno', type: 'number' },
-    { name: 'carburante', label: 'Carburante', type: 'select', options: [
+    { name: 'plate', label: 'Targa', required: true },
+    { name: 'name', label: 'Nome veicolo' },
+    { name: 'brand', label: 'Marca', required: true },
+    { name: 'model', label: 'Modello', required: true },
+    { name: 'year', label: 'Anno', type: 'number' },
+    { name: 'type', label: 'Tipo Veicolo', type: 'select', options: [
+      { value: 'Auto', label: 'Auto' },
+      { value: 'Furgone', label: 'Furgone' },
+      { value: 'Camion', label: 'Camion' },
+      { value: 'Moto', label: 'Moto' },
+      { value: 'Altro', label: 'Altro' }
+    ]},
+    { name: 'fuel_type', label: 'Carburante', type: 'select', options: [
       { value: 'Benzina', label: 'Benzina' },
       { value: 'Diesel', label: 'Diesel' },
       { value: 'GPL', label: 'GPL' },
@@ -42,43 +50,82 @@ export default function VeicoliPage() {
       { value: 'Elettrico', label: 'Elettrico' },
       { value: 'Ibrido', label: 'Ibrido' }
     ]},
-    { name: 'telaio', label: 'Numero Telaio' },
-    { name: 'km', label: 'Chilometraggio', type: 'number' },
-    { name: 'colore', label: 'Colore' },
-    { name: 'tipo', label: 'Tipo Veicolo', type: 'select', options: [
-      { value: 'Auto', label: 'Auto' },
-      { value: 'Furgone', label: 'Furgone' },
-      { value: 'Camion', label: 'Camion' },
-      { value: 'Moto', label: 'Moto' },
-      { value: 'Altro', label: 'Altro' }
+    { name: 'color', label: 'Colore' },
+    { name: 'odometer', label: 'Chilometraggio', type: 'number' },
+    { name: 'engine_hours', label: 'Ore motore', type: 'number' },
+    { name: 'max_load', label: 'Portata max', type: 'number' },
+    { name: 'chassis_number', label: 'Numero telaio' },
+    { name: 'vin_code', label: 'VIN' },
+    { name: 'engine_capacity', label: 'Cilindrata' },
+    { name: 'engine_code', label: 'Codice motore' },
+    { name: 'engine_serial_number', label: 'Matricola motore' },
+    { name: 'fiscal_horsepower', label: 'Cavalli fiscali' },
+    { name: 'power_kw', label: 'Potenza kW', type: 'number' },
+    { name: 'registration_number', label: 'Numero immatricolazione' },
+    { name: 'euro_classification', label: 'Classe Euro' },
+    { name: 'groups', label: 'Gruppi' },
+    { name: 'assigned_driver', label: 'Autista assegnato' },
+    { name: 'first_registration_date', label: 'Data prima immatricolazione', type: 'date' },
+    { name: 'ownership', label: 'Proprietà' },
+    { name: 'current_profitability', label: 'Redditività attuale' },
+    { name: 'contract_holder', label: 'Intestatario contratto' },
+    { name: 'ownership_type', label: 'Tipo proprietà' },
+    { name: 'rental_type', label: 'Tipo noleggio' },
+    { name: 'advance_paid', label: 'Anticipo pagato', type: 'number' },
+    { name: 'final_installment', label: 'Maxi rata', type: 'number' },
+    { name: 'monthly_fee', label: 'Canone mensile', type: 'number' },
+    { name: 'contract_start_date', label: 'Inizio contratto', type: 'date' },
+    { name: 'contract_end_date', label: 'Fine contratto', type: 'date' },
+    { name: 'monthly_alert', label: 'Allerta mensile' },
+    { name: 'end_alert', label: 'Allerta fine' },
+    { name: 'installment_payment_day', label: 'Giorno rata' },
+    { name: 'supplier', label: 'Fornitore' },
+    { name: 'collection_date', label: 'Data ritiro', type: 'date' },
+    { name: 'contract_duration_months', label: 'Durata contratto (mesi)', type: 'number' },
+    { name: 'contract_kilometers', label: 'Km contratto', type: 'number' },
+    { name: 'invoice_amount_excl_vat', label: 'Fattura (IVA escl.)', type: 'number' },
+    { name: 'invoice_amount_incl_vat', label: 'Fattura (IVA incl.)', type: 'number' },
+    { name: 'contract_equipment', label: 'Dotazioni contratto', type: 'textarea' },
+    { name: 'front_tire_size', label: 'Misura gomme anteriori' },
+    { name: 'rear_tire_size', label: 'Misura gomme posteriori' },
+    { name: 'tomtom', label: 'TomTom' },
+    { name: 'tires', label: 'Gomme' },
+    { name: 'returned_or_redeemed', label: 'Restituito/Riscattato' },
+    { name: 'external_link', label: 'Link esterno', type: 'textarea' },
+    { name: 'status', label: 'Stato', type: 'select', options: [
+      { value: 'operational', label: 'Operativo' },
+      { value: 'maintenance', label: 'In manutenzione' },
+      { value: 'decommissioned', label: 'Disattivato' },
     ]},
-    { name: 'note', label: 'Note', type: 'textarea' }
+    { name: 'notes', label: 'Note', type: 'textarea' },
   ];
-  
-  // Campi per le informazioni amministrative
-  const amministrativiFields = [
-    { name: 'data_immatricolazione', label: 'Data Immatricolazione', type: 'date' },
-    { name: 'data_acquisto', label: 'Data Acquisto', type: 'date' },
-    { name: 'valore_acquisto', label: 'Valore Acquisto', type: 'number' },
-    { name: 'proprietario', label: 'Proprietario' },
-    { name: 'numero_polizza', label: 'Numero Polizza Assicurativa' },
-    { name: 'compagnia_assicurativa', label: 'Compagnia Assicurativa' },
-    { name: 'scadenza_assicurazione', label: 'Scadenza Assicurazione', type: 'date' },
-    { name: 'scadenza_bollo', label: 'Scadenza Bollo', type: 'date' },
-    { name: 'scadenza_revisione', label: 'Scadenza Revisione', type: 'date' },
-    { name: 'note_amministrative', label: 'Note Amministrative', type: 'textarea' }
-  ];
-  
-  // Campi per le manutenzioni
-  const manutenzioniFields = [
-    { name: 'ultima_manutenzione', label: 'Data Ultima Manutenzione', type: 'date' },
-    { name: 'km_ultima_manutenzione', label: 'KM Ultima Manutenzione', type: 'number' },
-    { name: 'tipo_ultima_manutenzione', label: 'Tipo Ultima Manutenzione' },
-    { name: 'officina', label: 'Officina di Riferimento' },
-    { name: 'telefono_officina', label: 'Telefono Officina' },
-    { name: 'prossima_manutenzione', label: 'Data Prossima Manutenzione', type: 'date' },
-    { name: 'km_prossima_manutenzione', label: 'KM Prossima Manutenzione', type: 'number' },
-    { name: 'note_manutenzioni', label: 'Note Manutenzioni', type: 'textarea' }
+
+  // Suddivisione tab logiche per i dettagli veicolo
+  const tabGroups = [
+    {
+      label: 'Generale',
+      fields: veicoloFields.filter(f => [
+        'plate','name','brand','model','year','type','fuel_type','status','color','groups','assigned_driver','notes'
+      ].includes(f.name))
+    },
+    {
+      label: 'Motore/Telaio',
+      fields: veicoloFields.filter(f => [
+        'vin_code','engine_capacity','engine_code','engine_serial_number','fiscal_horsepower','power_kw','chassis_number','odometer','engine_hours','max_load','front_tire_size','rear_tire_size','tomtom','tires'
+      ].includes(f.name))
+    },
+    {
+      label: 'Amministrativi',
+      fields: veicoloFields.filter(f => [
+        'registration_number','euro_classification','ownership','current_profitability','supplier','collection_date','first_registration_date','external_link'
+      ].includes(f.name))
+    },
+    {
+      label: 'Contratto/Noleggio',
+      fields: veicoloFields.filter(f => [
+        'contract_holder','ownership_type','rental_type','advance_paid','final_installment','monthly_fee','contract_start_date','contract_end_date','contract_duration_months','purchase_date','purchase_price','monthly_alert','end_alert','installment_payment_day','contract_kilometers','invoice_amount_excl_vat','invoice_amount_incl_vat','contract_equipment','returned_or_redeemed'
+      ].includes(f.name))
+    }
   ];
 
   useEffect(() => {
@@ -105,8 +152,26 @@ export default function VeicoliPage() {
 
   const loadVeicoli = () => {
     setFetching(true);
-    api.get("/vehicles")
-      .then(res => setVeicoli(res.data))
+    
+    // Ottieni il token da localStorage se disponibile
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    
+    // Usa la rotta standard
+    api.get("/vehicles", {
+      withCredentials: true,
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    })
+      .then(res => {
+        // Gestione robusta della risposta: ordina solo se array
+        let veicoliArr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        if (Array.isArray(veicoliArr)) {
+          veicoliArr = [...veicoliArr].sort((a, b) => (a.targa || '').localeCompare(b.targa || ''));
+        }
+        setVeicoli(veicoliArr);
+        setFetching(false);
+      })
       .catch((err) => {
         console.error("Errore nel caricamento dei veicoli:", err);
         if (err.response && err.response.status === 401) {
@@ -114,8 +179,8 @@ export default function VeicoliPage() {
         } else {
           setError("Errore nel caricamento dei veicoli");
         }
-      })
-      .finally(() => setFetching(false));
+        setFetching(false);
+      });
   };
 
   const handleViewDetails = (veicolo) => {
@@ -133,8 +198,22 @@ export default function VeicoliPage() {
     
     setLoadingActivities(true);
     try {
-      const response = await api.get(`/vehicles/${vehicleId}/activities`);
-      setActivities(response.data);
+      // Ottieni il token da localStorage se disponibile
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      // Usa la rotta standard
+      const response = await api.get(`/vehicles/${vehicleId}/activities`, {
+        withCredentials: true,
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      // Gestione robusta della risposta: ordina solo se array
+      let activitiesArr = Array.isArray(response.data) ? response.data : (Array.isArray(response.data.data) ? response.data.data : []);
+      if (Array.isArray(activitiesArr)) {
+        activitiesArr = [...activitiesArr].sort((a, b) => (a.data_inizio && b.data_inizio ? new Date(b.data_inizio) - new Date(a.data_inizio) : 0));
+      }
+      setActivities(activitiesArr);
     } catch (err) {
       console.error("Errore nel caricamento delle attività:", err);
     } finally {
@@ -147,8 +226,27 @@ export default function VeicoliPage() {
     
     setLoadingDeadlines(true);
     try {
-      const response = await api.get(`/vehicles/${vehicleId}/deadlines`);
-      setDeadlines(response.data);
+      // Ottieni il token da localStorage se disponibile
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      // Usa la rotta standard
+      const response = await api.get(`/vehicles/${vehicleId}/deadlines`, {
+        withCredentials: true,
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      // Gestione robusta della risposta: ordina solo se array
+      let deadlinesArr = Array.isArray(response.data) ? response.data : (Array.isArray(response.data.data) ? response.data.data : []);
+      if (Array.isArray(deadlinesArr)) {
+        deadlinesArr = [...deadlinesArr].sort((a, b) => {
+          if (a.scadenza && b.scadenza) {
+            return new Date(a.scadenza) - new Date(b.scadenza);
+          }
+          return 0;
+        });
+      }
+      setDeadlines(deadlinesArr);
     } catch (err) {
       console.error("Errore nel caricamento delle scadenze:", err);
     } finally {
@@ -168,10 +266,18 @@ export default function VeicoliPage() {
   const handleSaveVeicolo = async (formData) => {
     setIsSaving(true);
     try {
+      // Ottieni il token da localStorage se disponibile
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
       let response;
       if (formData.id) {
         // Aggiornamento
-        response = await api.put(`/vehicles/${formData.id}`, formData);
+        response = await api.put(`/vehicles/${formData.id}`, formData, {
+          withCredentials: true,
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
         
         // Aggiorna la lista dei veicoli
         setVeicoli(prev => 
@@ -182,7 +288,12 @@ export default function VeicoliPage() {
         setSelectedVeicolo(response.data);
       } else {
         // Creazione
-        response = await api.post('/vehicles', formData);
+        response = await api.post('/vehicles', formData, {
+          withCredentials: true,
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
         
         // Aggiorna la lista dei veicoli
         setVeicoli(prev => [...prev, response.data]);
@@ -205,7 +316,15 @@ export default function VeicoliPage() {
     
     setIsDeleting(true);
     try {
-      await api.delete(`/vehicles/${id}`);
+      // Ottieni il token da localStorage se disponibile
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      await api.delete(`/vehicles/${id}`, {
+        withCredentials: true,
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       
       // Rimuovi il veicolo dalla lista
       setVeicoli(prev => prev.filter(v => v.id !== id));
@@ -362,49 +481,21 @@ export default function VeicoliPage() {
         {selectedVeicolo && (
           <TabPanel 
             tabs={[
-              {
-                id: 'details',
-                label: 'Generale',
+              ...tabGroups.map((tab, idx) => ({
+                id: `tab-${idx}`,
+                label: tab.label,
                 content: (
                   <EntityForm
                     data={selectedVeicolo}
-                    fields={veicoloFields}
+                    fields={tab.fields}
                     onSave={handleSaveVeicolo}
-                    onDelete={handleDeleteVeicolo}
+                    onDelete={idx === 0 ? handleDeleteVeicolo : undefined}
                     isEditing={isEditing}
                     setIsEditing={setIsEditing}
                     isLoading={isSaving || isDeleting}
                   />
                 )
-              },
-              {
-                id: 'amministrativi',
-                label: 'Amministrazione',
-                content: (
-                  <EntityForm
-                    data={selectedVeicolo}
-                    fields={amministrativiFields}
-                    onSave={handleSaveVeicolo}
-                    isEditing={isEditing}
-                    setIsEditing={setIsEditing}
-                    isLoading={isSaving}
-                  />
-                )
-              },
-              {
-                id: 'manutenzioni',
-                label: 'Manutenzioni',
-                content: (
-                  <EntityForm
-                    data={selectedVeicolo}
-                    fields={manutenzioniFields}
-                    onSave={handleSaveVeicolo}
-                    isEditing={isEditing}
-                    setIsEditing={setIsEditing}
-                    isLoading={isSaving}
-                  />
-                )
-              },
+              })),
               {
                 id: 'deadlines',
                 label: 'Scadenze',
@@ -476,7 +567,7 @@ export default function VeicoliPage() {
                 )
               }
             ]}
-            defaultTab="details"
+            defaultTab="tab-0"
           />
         )}
       </SidePanel>

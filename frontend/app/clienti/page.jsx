@@ -9,13 +9,17 @@ import PageHeader from "../../components/PageHeader";
 import TabPanel from "../../components/TabPanel";
 import ActivityList from "../../components/ActivityList";
 import SiteList from "../../components/SiteList";
-import OptimizedTable from "../../components/OptimizedTable";
+import DataTable from "../../components/DataTable";
 
 export default function ClientiPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [clienti, setClienti] = useState([]);
   const [fetching, setFetching] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -39,34 +43,51 @@ export default function ClientiPage() {
     { name: 'email', label: 'Email' },
     { name: 'partita_iva', label: 'Partita IVA' },
     { name: 'codice_fiscale', label: 'Codice Fiscale' },
+    { name: 'codice_arca', label: 'Codice Arca' },
     { name: 'note', label: 'Note', type: 'textarea' }
   ];
 
   useEffect(() => {
     if (!loading && user) {
-      loadClienti();
+      fetchClienti();
     } else if (!loading && !user) {
-      // Se non c'è un utente e non sta caricando, imposta fetching a false
       setFetching(false);
     }
-  }, [user, loading]);
+    // eslint-disable-next-line
+  }, [user, loading, currentPage, perPage, searchTerm]);
 
-  // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
     if (isPanelOpen) {
-      // Riduci la larghezza della tabella con un ritardo per l'animazione
       setTimeout(() => {
         setTableWidth('60%');
       }, 50);
     } else {
-      // Ripristina la larghezza della tabella
       setTableWidth('100%');
     }
   }, [isPanelOpen]);
 
-  // Questa funzione non è più necessaria con DataTableServer
-  const loadClienti = () => {
-    setFetching(false); // Impostiamo subito a false perché il caricamento è gestito dal componente
+  const fetchClienti = () => {
+    setFetching(true);
+    api.get(`/clients`, {
+      params: {
+        page: currentPage,
+        perPage: perPage,
+        search: searchTerm
+      }
+    })
+      .then(res => {
+        setClienti(res.data.data || []);
+        setTotal(res.data.total || 0);
+      })
+      .catch((err) => {
+        console.error("Errore nel caricamento dei clienti:", err);
+        if (err.response && err.response.status === 401) {
+          setError("Sessione scaduta. Effettua nuovamente il login.");
+        } else {
+          setError("Errore nel caricamento dei clienti");
+        }
+      })
+      .finally(() => setFetching(false));
   };
 
   const handleViewDetails = (cliente) => {
@@ -194,8 +215,8 @@ export default function ClientiPage() {
           overflow: 'hidden'
         }}
       >
-        <OptimizedTable 
-          endpoint="/clients"
+        <DataTable
+          data={clienti}
           columns={[
             { 
               key: 'nome', 
@@ -274,11 +295,18 @@ export default function ClientiPage() {
           onRowClick={handleViewDetails}
           selectedRow={selectedCliente}
           searchPlaceholder="Cerca clienti..."
-          emptyMessage="Nessun cliente trovato"
+          emptyMessage={fetching ? "Caricamento..." : "Nessun cliente trovato"}
           defaultVisibleColumns={['nome', 'citta', 'telefono', 'partita_iva', 'actions']}
           defaultSortKey="nome"
           defaultSortDirection="asc"
-          refreshInterval={300000} // Aggiorna ogni 5 minuti
+          totalItems={total}
+          itemsPerPage={perPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setPerPage}
+          searchTerm={searchTerm}
+          onSearchTermChange={setSearchTerm}
+          isLoading={fetching}
         />
       </div>
 

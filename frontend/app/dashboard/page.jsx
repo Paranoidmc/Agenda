@@ -12,22 +12,43 @@ export default function DashboardPage() {
   const [activities, setActivities] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
+  const [searchText, setSearchText] = useState("");
   
   // Carica i dati quando la pagina viene caricata
   useEffect(() => {
-    if (loading) return; // Attendi che l'autenticazione sia verificata
+    console.group("[DASHBOARD] Inizializzazione dashboard");
     
-    if (user) {
-      loadData();
-    } else {
+    if (loading) {
+      console.log("[DASHBOARD] Autenticazione in corso, attesa...");
+      console.groupEnd();
+      return; // Attendi che l'autenticazione sia verificata
+    }
+    
+    console.log("[DASHBOARD] Stato autenticazione:", { user: !!user, loading });
+    
+    // Verifica che l'utente sia autenticato
+    if (loading) {
+      // Attendi che l'autenticazione sia verificata
+      return;
+    }
+    if (!user) {
+      console.log("[DASHBOARD] Utente non autenticato, reindirizzamento al login");
       setFetching(false);
       router.replace("/login");
+      return;
     }
+    // Carica i dati
+    console.log("[DASHBOARD] Utente autenticato:", user);
+    loadData();
+    
+    console.groupEnd();
   }, [user, loading, router]);
   
   // Funzione per caricare i dati
   const loadData = async () => {
+    console.group("[DASHBOARD] Caricamento dati");
     try {
+      console.log("[DASHBOARD] Inizio caricamento dati");
       setFetching(true);
       setError("");
       
@@ -39,46 +60,152 @@ export default function DashboardPage() {
       // Formatta le date in formato ISO (YYYY-MM-DD)
       const startDate = today.toISOString().split('T')[0];
       const endDate = thirtyDaysLater.toISOString().split('T')[0];
+      console.log("[DASHBOARD] Intervallo date:", { startDate, endDate });
       
       // Carica le scadenze dei veicoli
-      const deadlinesResponse = await api.get(`/vehicle-deadlines?start_date=${startDate}&end_date=${endDate}`);
-      
-      // Ordina le scadenze per data
-      const sortedDeadlines = deadlinesResponse.data.sort((a, b) => {
-        return new Date(a.data_scadenza) - new Date(b.data_scadenza);
-      });
-      
-      setDeadlines(sortedDeadlines);
+      console.log("[DASHBOARD] Caricamento scadenze veicoli...");
+      try {
+        // Ottieni il token da localStorage se disponibile
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        console.log("[DASHBOARD] Token di autenticazione:", token ? "Presente" : "Non presente");
+        
+        // Log dettagliato della richiesta
+        console.log("[DASHBOARD] Richiesta scadenze veicoli:", {
+          url: `/vehicle-deadlines?start_date=${startDate}&end_date=${endDate}`,
+          withCredentials: true,
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        
+        const deadlinesResponse = await api.get(`/vehicle-deadlines?start_date=${startDate}&end_date=${endDate}`, {
+          withCredentials: true,
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        
+        console.log("[DASHBOARD] Scadenze veicoli caricate:", deadlinesResponse.status);
+        console.log("[DASHBOARD] Numero scadenze:", deadlinesResponse.data.length);
+        console.log("[DASHBOARD] Dati scadenze:", deadlinesResponse.data);
+        
+        // Ordina le scadenze per data
+        // Controllo robusto per array scadenze
+        let deadlinesArr = Array.isArray(deadlinesResponse.data) ? deadlinesResponse.data : [];
+        const sortedDeadlines = deadlinesArr.sort((a, b) => {
+          return new Date(a.data_scadenza) - new Date(b.data_scadenza);
+        });
+        
+        setDeadlines(sortedDeadlines);
+      } catch (deadlinesError) {
+        console.error("[DASHBOARD] Errore nel caricamento delle scadenze:", deadlinesError);
+        if (deadlinesError.response && deadlinesError.response.status === 401) {
+          setError("Sessione scaduta. Effettua nuovamente il login.");
+        } else {
+          setError("Errore nel caricamento delle scadenze. " + (deadlinesError.response?.data?.message || deadlinesError.message));
+        }
+        setFetching(false);
+        console.groupEnd();
+        return;
+      }
       
       // Carica i tipi di attività prima delle attività
-      const activityTypesResponse = await api.get('/activity-types');
-      const activityTypes = activityTypesResponse.data;
-      // Carica le attività recenti
-      const activitiesResponse = await api.get(`/activities?start_date=${startDate}&end_date=${endDate}`);
-      // Ordina le attività per data
-      const sortedActivities = activitiesResponse.data.sort((a, b) => {
-        return new Date(a.data_inizio) - new Date(b.data_inizio);
-      });
-      // Ricostruisci activityType se mancante
-      const activitiesWithType = sortedActivities.map(activity => {
-        if (!activity.activityType && activity.activity_type_id) {
-          const tipo = activityTypes.find(t => t.id === activity.activity_type_id);
-          if (tipo) {
-            activity.activityType = {
-              id: tipo.id,
-              nome: tipo.nome || tipo.name,
-              color: tipo.color || tipo.colore,
-            };
+      console.log("[DASHBOARD] Caricamento tipi di attività...");
+      let activityTypes = [];
+      try {
+        const activityTypesResponse = await api.get('/activity-types', {
+          withCredentials: true,
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
           }
+        });
+        
+        console.log("[DASHBOARD] Tipi di attività caricati:", activityTypesResponse.status);
+        console.log("[DASHBOARD] Numero tipi di attività:", activityTypesResponse.data.length);
+        
+        activityTypes = activityTypesResponse.data;
+      } catch (typesError) {
+        console.error("[DASHBOARD] Errore nel caricamento dei tipi di attività:", typesError);
+        // Continuiamo comunque con il caricamento delle attività
+      }
+      
+      // Carica le attività recenti
+      console.log("[DASHBOARD] Caricamento attività recenti...");
+      try {
+        // Ottieni il token da localStorage se disponibile
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        
+        const activitiesResponse = await api.get(`/activities?start_date=${startDate}&end_date=${endDate}`, {
+          withCredentials: true,
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        
+        console.log("[DASHBOARD] Attività caricate:", activitiesResponse.status);
+        console.log("[DASHBOARD] Numero attività:", activitiesResponse.data.length);
+        
+        // Ordina le attività per data
+        // Controllo robusto per array paginato o array diretto
+        let activitiesArr = [];
+        if (Array.isArray(activitiesResponse.data.data)) {
+          activitiesArr = activitiesResponse.data.data;
+        } else if (Array.isArray(activitiesResponse.data)) {
+          activitiesArr = activitiesResponse.data;
+        } else {
+          activitiesArr = [];
         }
-        return activity;
-      });
-      setActivities(activitiesWithType.slice(0, 5)); // Prendi solo le prime 5 attività
+        const sortedActivities = activitiesArr.sort((a, b) => {
+          return new Date(a.data_inizio) - new Date(b.data_inizio);
+        });
+        
+        // Ricostruisci activityType se mancante
+        console.log("[DASHBOARD] Elaborazione dati attività...");
+        const activitiesWithType = sortedActivities.map(activity => {
+          if (!activity.activityType && activity.activity_type_id) {
+            const tipo = activityTypes.find(t => t.id === activity.activity_type_id);
+            if (tipo) {
+              activity.activityType = {
+                id: tipo.id,
+                nome: tipo.nome || tipo.name,
+                color: tipo.color || tipo.colore,
+              };
+            }
+          }
+          return activity;
+        });
+        
+        // Prendi solo le prime 5 attività
+        setActivities(activitiesWithType.slice(0, 5));
+        console.log("[DASHBOARD] Attività elaborate e salvate nello stato");
+      } catch (activitiesError) {
+        console.error("[DASHBOARD] Errore nel caricamento delle attività:", activitiesError);
+        if (activitiesError.response && activitiesError.response.status === 401) {
+          setError("Sessione scaduta. Effettua nuovamente il login.");
+        } else {
+          setError("Errore nel caricamento delle attività. " + (activitiesError.response?.data?.message || activitiesError.message));
+        }
+      }
+      
+      console.log("[DASHBOARD] Caricamento dati completato con successo");
     } catch (err) {
-      console.error("Errore nel caricamento dei dati:", err);
-      setError("Si è verificato un errore durante il caricamento dei dati. Riprova più tardi.");
+      console.error("[DASHBOARD] Errore generale nel caricamento dei dati:", err);
+      if (err.response && err.response.status === 401) {
+        setError("Sessione scaduta. Effettua nuovamente il login.");
+      } else {
+        setError("Si è verificato un errore durante il caricamento dei dati. Riprova più tardi.");
+      }
     } finally {
       setFetching(false);
+      console.log("[DASHBOARD] Stato fetching impostato a:", false);
+      console.groupEnd();
     }
   };
   
@@ -122,6 +249,7 @@ export default function DashboardPage() {
         <div className="card">
           <h2>Caricamento...</h2>
           <p>Attendere il caricamento dei dati</p>
+          <div className="loader"></div>
         </div>
       </div>
     );
@@ -164,9 +292,20 @@ export default function DashboardPage() {
           marginBottom: '24px' 
         }}>
           {error}
+          <br />
+          <button onClick={loadData} style={{marginTop: 12, padding: '8px 16px', borderRadius: 6, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer'}}>Riprova</button>
         </div>
       )}
       
+      <div style={{margin: '18px 0 12px 0'}}>
+        <input
+          type="text"
+          placeholder="Cerca attività per descrizione o tipo..."
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          style={{padding: 8, borderRadius: 6, border: '1px solid #ccc', width: 300}}
+        />
+      </div>
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
@@ -201,7 +340,7 @@ export default function DashboardPage() {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
           textAlign: 'center' 
         }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>Scadenze Scadute</h3>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>Scadenze</h3>
           <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#ff3b30' }}>
             {deadlines.filter(d => {
               const deadlineDate = new Date(d.data_scadenza);
@@ -297,54 +436,28 @@ export default function DashboardPage() {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
         }}>
           <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>Attività Recenti</h2>
-          
           {activities.length === 0 ? (
-            <p style={{ color: '#666' }}>Nessuna attività recente.</p>
+            <p style={{ color: '#888' }}>Nessuna attività recente trovata.</p>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f5f5f7' }}>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Cantiere</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Data</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Tipo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activities.map((activity) => (
-                    <tr 
-                      key={activity.id} 
-                      style={{ 
-                        borderBottom: '1px solid #ddd', 
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onClick={() => router.push(`/attivita/${activity.id}`)}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f5f5f7'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <td style={{ padding: '8px 16px' }}>{activity.site?.nome || activity.site?.name || 'N/D'}</td>
-                      <td style={{ padding: '8px 16px' }}>{formatDate(activity.data_inizio)}</td>
-                      <td style={{ padding: '8px 16px' }}>
-                        <span 
-                          style={{ 
-                            display: 'inline-block', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px', 
-                            backgroundColor: getActivityColor(activity),
-                            color: 'white',
-                            fontWeight: 'bold',
-                            fontSize: '14px'
-                          }}
-                        >
-                          {activity.activityType?.nome || activity.activityType?.name || 'N/D'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {activities.filter(activity => {
+                const testo = (activity.descrizione || "") + " " + (activity.activityType?.nome || activity.activityType?.name || "");
+                return testo.toLowerCase().includes(searchText.toLowerCase());
+              }).map((activity, idx) => (
+                <li key={activity.id || idx} style={{ 
+                  marginBottom: '12px', 
+                  padding: '8px', 
+                  borderRadius: '6px', 
+                  background: '#f8fafc', 
+                  borderLeft: `6px solid ${getActivityColor(activity)}` 
+                }}>
+                  <div style={{ fontWeight: 600, color: '#222' }}>{activity.descrizione || activity.titolo || 'Attività senza descrizione'}</div>
+                  <div style={{ fontSize: 13, color: '#666' }}>
+                    {formatDate(activity.data_inizio)} - {activity.activityType?.nome || activity.activityType?.name || 'Tipo sconosciuto'}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

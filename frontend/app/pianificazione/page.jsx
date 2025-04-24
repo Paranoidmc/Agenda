@@ -26,6 +26,7 @@ export default function PianificazionePage() {
   const [selectedSiteId, setSelectedSiteId] = useState(null);
   const [selectedDriverId, setSelectedDriverId] = useState(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const [selectedActivityTypeId, setSelectedActivityTypeId] = useState(null);
   const [driversLoading, setDriversLoading] = useState(true);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [sitesLoading, setSitesLoading] = useState(true);
@@ -101,22 +102,45 @@ export default function PianificazionePage() {
       `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : 
       event.driverName || 'N/D';
     
+    // Ottieni la descrizione dell'attività
+    const description = event.data?.descrizione || event.data?.description || event.description || '';
+    
+    // Ottieni il tipo di attività
+    const activityType = event.data?.activityType?.nome || 
+                         event.data?.activityType?.name || 
+                         event.activityTypeName || 
+                         '';
+    
+    // Crea una stringa con tipo di attività e descrizione se disponibili
+    const activityInfo = [
+      activityType ? `[${activityType}]` : '',
+      description ? description : ''
+    ].filter(Boolean).join(' ');
+    
+    // Contenuto base in base alla vista
+    let baseContent = '';
     switch (viewMode) {
       case 'driver':
         // Quando visualizziamo per autista, mostriamo cantiere e veicolo
-        return `${event.siteName || 'N/D'} - ${event.vehicleName || 'N/D'}`;
+        baseContent = `${event.siteName || 'N/D'} - ${event.vehicleName || 'N/D'}`;
+        break;
       
       case 'vehicle':
         // Quando visualizziamo per veicolo, mostriamo autista e cantiere
-        return `${driverFullName} - ${event.siteName || 'N/D'}`;
+        baseContent = `${driverFullName} - ${event.siteName || 'N/D'}`;
+        break;
       
       case 'activity':
         // Quando visualizziamo per cantiere, mostriamo autista e veicolo
-        return `${driverFullName} - ${event.vehicleName || 'N/D'}`;
+        baseContent = `${driverFullName} - ${event.vehicleName || 'N/D'}`;
+        break;
       
       default:
-        return `${driverFullName} - ${event.vehicleName || 'N/D'}`;
+        baseContent = `${driverFullName} - ${event.vehicleName || 'N/D'}`;
     }
+    
+    // Aggiungi le informazioni sull'attività se disponibili
+    return activityInfo ? `${baseContent}\n${activityInfo}` : baseContent;
   };
   
   // Stato per il menu di esportazione
@@ -143,7 +167,8 @@ export default function PianificazionePage() {
     const filters = {
       driverId: selectedDriverId,
       vehicleId: selectedVehicleId,
-      siteId: selectedSiteId
+      siteId: selectedSiteId,
+      activityTypeId: selectedActivityTypeId
     };
     
     // Aggiungi i nomi dei filtri per la visualizzazione
@@ -168,8 +193,15 @@ export default function PianificazionePage() {
       }
     }
     
+    if (selectedActivityTypeId) {
+      const activityType = activityTypes.find(t => t.id === selectedActivityTypeId);
+      if (activityType) {
+        filters.activityTypeName = activityType.nome || activityType.name;
+      }
+    }
+    
     // Aggiungi al nome del file le informazioni sui filtri
-    if (selectedDriverId || selectedVehicleId || selectedSiteId) {
+    if (selectedDriverId || selectedVehicleId || selectedSiteId || selectedActivityTypeId) {
       filename += '_Filtrato';
     }
     
@@ -246,6 +278,13 @@ export default function PianificazionePage() {
     
     if (selectedVehicleId) {
       activityEvents = activityEvents.filter(e => e.vehicleId === selectedVehicleId || e.data?.vehicle?.id === selectedVehicleId);
+    }
+    
+    if (selectedActivityTypeId) {
+      activityEvents = activityEvents.filter(e => 
+        e.data?.activity_type_id === selectedActivityTypeId || 
+        e.data?.activityType?.id === selectedActivityTypeId
+      );
     }
     
     // Determina quali righe mostrare in base alla modalità di visualizzazione e ai filtri
@@ -362,20 +401,29 @@ export default function PianificazionePage() {
 
       // Carica autisti, veicoli, cantieri e tipi di attività
       const [driversResponse, vehiclesResponse, sitesResponse, activityTypesResponse] = await Promise.all([
-        api.get('/drivers'),
+        api.get('/drivers?all=1'),
         api.get('/vehicles'),
         api.get('/sites'),
         api.get('/activity-types')
       ]);
       
-      setDrivers(driversResponse.data);
+      console.log('Risposta API /drivers?all=1:', driversResponse.data);
+      const driversData = Array.isArray(driversResponse.data) ? driversResponse.data : driversResponse.data?.data || [];
+      setDrivers(driversData);
       setDriversLoading(false);
       
-      setVehicles(vehiclesResponse.data);
+      const vehiclesData = Array.isArray(vehiclesResponse.data) ? vehiclesResponse.data : vehiclesResponse.data?.data || [];
+      setVehicles(vehiclesData);
       setVehiclesLoading(false);
       
-      setSites(sitesResponse.data);
-      setSitesLoading(false);
+      if (Array.isArray(sitesResponse.data)) {
+  setSites(sitesResponse.data);
+} else if (sitesResponse.data && Array.isArray(sitesResponse.data.data)) {
+  setSites(sitesResponse.data.data);
+} else {
+  setSites([]);
+}
+setSitesLoading(false);
       
       // Imposta i tipi di attività
       setActivityTypes(activityTypesResponse.data);
@@ -390,7 +438,12 @@ export default function PianificazionePage() {
       // Log dei tipi di attività caricati
       console.log("Tipi di attività caricati:", JSON.stringify(activityTypesResponse.data, null, 2));
       
-      const activities = activitiesResponse.data.map(activity => {
+      const activitiesRaw = Array.isArray(activitiesResponse.data)
+  ? activitiesResponse.data
+  : (activitiesResponse.data && Array.isArray(activitiesResponse.data.data)
+    ? activitiesResponse.data.data
+    : []);
+const activities = activitiesRaw.map(activity => {
         // Assicuriamoci che le date siano valide
         let startDate = new Date(activity.data_inizio);
         let endDate = new Date(activity.data_fine || activity.data_inizio);
@@ -555,6 +608,7 @@ export default function PianificazionePage() {
     setSelectedSiteId(null);
     setSelectedDriverId(null);
     setSelectedVehicleId(null);
+    setSelectedActivityTypeId(null);
   }, [viewMode]);
 
   // Carica i dati quando cambia la settimana o i filtri
@@ -569,7 +623,7 @@ export default function PianificazionePage() {
     } else {
       setActivityTypesError("Devi essere autenticato per visualizzare i dati");
     }
-  }, [currentWeek, user, loading, selectedSiteId, selectedDriverId, selectedVehicleId]);
+  }, [currentWeek, user, loading, selectedSiteId, selectedDriverId, selectedVehicleId, selectedActivityTypeId]);
 
   // Componente per la legenda
   function LegendItem({ color, label }) {
@@ -725,7 +779,7 @@ export default function PianificazionePage() {
             <option value="">
               {sitesLoading ? 'Caricamento cantieri...' : 'Tutti i cantieri'}
             </option>
-            {!sitesLoading && sites.map(site => (
+            {!sitesLoading && (Array.isArray(sites?.data) ? sites.data : (Array.isArray(sites) ? sites : [])).map(site => (
               <option key={site.id} value={site.id}>
                 {site.nome}
               </option>
@@ -783,6 +837,31 @@ export default function PianificazionePage() {
           </select>
         </div>
         
+        <div style={{ flex: '1', minWidth: '200px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Filtra per Tipo Attività
+          </label>
+          <select 
+            value={selectedActivityTypeId || ''} 
+            onChange={(e) => setSelectedActivityTypeId(e.target.value ? Number(e.target.value) : null)}
+            style={{ 
+              width: '100%', 
+              padding: '8px', 
+              borderRadius: '4px', 
+              border: '1px solid #ddd' 
+            }}
+          >
+            <option value="">
+              Tutti i tipi di attività
+            </option>
+            {activityTypes.map(type => (
+              <option key={type.id} value={type.id}>
+                {type.nome || type.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        
         <div style={{ 
           display: 'flex', 
           alignItems: 'flex-end', 
@@ -793,6 +872,7 @@ export default function PianificazionePage() {
               setSelectedSiteId(null);
               setSelectedDriverId(null);
               setSelectedVehicleId(null);
+              setSelectedActivityTypeId(null);
             }}
             style={{ 
               background: '#ff3b30', 

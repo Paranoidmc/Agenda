@@ -28,7 +28,7 @@ export default function SedeDetailPage() {
     { name: 'telefono', label: 'Telefono' },
     { name: 'email', label: 'Email' },
     { name: 'client_id', label: 'Cliente', type: 'select', options: 
-      clienti.map(cliente => ({ value: cliente.id, label: cliente.nome }))
+      (Array.isArray(clienti?.data) ? clienti.data : (Array.isArray(clienti) ? clienti : [])).map(cliente => ({ value: cliente.id, label: cliente.nome }))
     },
     { name: 'note', label: 'Note', type: 'textarea' }
   ];

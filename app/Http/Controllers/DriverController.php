@@ -10,13 +10,68 @@ class DriverController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $drivers = Driver::with('activities')->get();
+        // If 'all' parameter is present, return all drivers (for dropdowns/planning)
+        if ($request->has('all')) {
+            $drivers = Driver::with('activities')->get();
+            $drivers = $drivers->map(function ($driver) {
+                // Assicurati che tutti i campi siano definiti
+                $driver->name = $driver->name ?? '';
+                $driver->surname = $driver->surname ?? '';
+                $driver->phone = $driver->phone ?? '';
+                $driver->address = $driver->address ?? '';
+                $driver->city = $driver->city ?? '';
+                $driver->postal_code = $driver->postal_code ?? '';
+                $driver->province = $driver->province ?? '';
+                $driver->fiscal_code = $driver->fiscal_code ?? '';
+                $driver->license_number = $driver->license_number ?? '';
+                $driver->license_expiry = $driver->license_expiry ?? null;
+                $driver->notes = $driver->notes ?? '';
+                
+                // Aggiungi i campi in italiano
+                $driver->nome = $driver->name;
+                $driver->cognome = $driver->surname;
+                $driver->telefono = $driver->phone;
+                $driver->indirizzo = $driver->address;
+                $driver->citta = $driver->city;
+                $driver->cap = $driver->postal_code;
+                $driver->provincia = $driver->province;
+                $driver->codice_fiscale = $driver->fiscal_code;
+                $driver->patente = $driver->license_number;
+                $driver->scadenza_patente = $driver->license_expiry;
+                $driver->note = $driver->notes;
+                
+                return $driver;
+            });
+            return response()->json($drivers);
+        }
         
-        // Aggiungiamo i campi in italiano per ogni autista
-        $drivers = $drivers->map(function ($driver) {
-            // Aggiungiamo i campi in italiano
+        $perPage = $request->input('perPage', 25);
+        $search = $request->input('search');
+        $query = Driver::with('activities');
+
+        // Search by name, surname, phone, fiscal code, license number, city, etc.
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                  ->orWhere('surname', 'like', "%$search%")
+                  ->orWhere('phone', 'like', "%$search%")
+                  ->orWhere('fiscal_code', 'like', "%$search%")
+                  ->orWhere('license_number', 'like', "%$search%")
+                  ->orWhere('city', 'like', "%$search%")
+                  ->orWhere('address', 'like', "%$search%")
+                  ->orWhere('notes', 'like', "%$search%")
+                  ->orWhere('province', 'like', "%$search%")
+                  ->orWhere('postal_code', 'like', "%$search%")
+                  ;
+            });
+        }
+
+        $drivers = $query->paginate($perPage);
+
+        // Map Italian fields for each driver in the paginated collection
+        $drivers->getCollection()->transform(function ($driver) {
             $driver->nome = $driver->name;
             $driver->cognome = $driver->surname;
             $driver->telefono = $driver->phone;
@@ -28,10 +83,9 @@ class DriverController extends Controller
             $driver->patente = $driver->license_number;
             $driver->scadenza_patente = $driver->license_expiry;
             $driver->note = $driver->notes;
-            
             return $driver;
         });
-        
+
         return response()->json($drivers);
     }
 

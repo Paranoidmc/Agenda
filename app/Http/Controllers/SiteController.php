@@ -10,13 +10,34 @@ class SiteController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $sites = Site::with(['client', 'activities'])->get();
-        
-        // Aggiungiamo i campi in italiano per ogni sede
-        $sites = $sites->map(function ($site) {
-            // Aggiungiamo i campi in italiano
+        $perPage = $request->input('perPage', 25);
+        $search = $request->input('search');
+        $query = Site::with('client');
+
+        // Ricerca base su nome, città, indirizzo, cliente
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                  ->orWhere('city', 'like', "%$search%")
+                  ->orWhere('address', 'like', "%$search%")
+                  ->orWhere('province', 'like', "%$search%")
+                  ->orWhere('postal_code', 'like', "%$search%")
+                  ->orWhere('notes', 'like', "%$search%")
+                ;
+            });
+        }
+
+        // Solo i campi necessari
+        $fields = [
+            'id', 'name', 'address', 'city', 'postal_code', 'province', 'client_id', 'phone', 'email', 'notes'
+        ];
+
+        $sites = $query->orderBy('name')->paginate($perPage);
+
+        // Mappa i campi in italiano per ogni sede
+        $sites->getCollection()->transform(function ($site) {
             $site->nome = $site->name;
             $site->indirizzo = $site->address;
             $site->citta = $site->city;
@@ -24,8 +45,7 @@ class SiteController extends Controller
             $site->provincia = $site->province;
             $site->telefono = $site->phone;
             $site->note = $site->notes;
-            
-            // Aggiungiamo i campi in italiano per il cliente
+            // Campi cliente
             if ($site->client) {
                 $site->client->nome = $site->client->name;
                 $site->client->indirizzo = $site->client->address;
@@ -37,10 +57,9 @@ class SiteController extends Controller
                 $site->client->codice_fiscale = $site->client->fiscal_code;
                 $site->client->note = $site->client->notes;
             }
-            
             return $site;
         });
-        
+
         return response()->json($sites);
     }
 

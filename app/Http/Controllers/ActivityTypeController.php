@@ -16,9 +16,16 @@ class ActivityTypeController extends Controller
         
         // Aggiungiamo i campi in italiano per ogni tipo di attività
         $activityTypes = $activityTypes->map(function ($type) {
+            // Assicurati che tutti i campi siano definiti
+            $type->name = $type->name ?? '';
+            $type->description = $type->description ?? '';
+            $type->color = $type->color ?? '';
+            
+            // Aggiungi i campi in italiano
             $type->nome = $type->name;
             $type->descrizione = $type->description;
             $type->colore = $type->color;
+            
             return $type;
         });
         
@@ -52,6 +59,11 @@ class ActivityTypeController extends Controller
      */
     public function show(ActivityType $activityType)
     {
+        // Assicurati che tutti i campi siano definiti
+        $activityType->name = $activityType->name ?? '';
+        $activityType->description = $activityType->description ?? '';
+        $activityType->color = $activityType->color ?? '';
+        
         // Aggiungiamo i campi in italiano
         $activityType->nome = $activityType->name;
         $activityType->descrizione = $activityType->description;

@@ -318,10 +318,14 @@ export default function WeeklyCalendar({
                           borderLeft: `3px solid ${backgroundColor}`,
                           borderColor: backgroundColor,
                           borderWidth: '2px',
-                          borderStyle: 'solid'
+                          borderStyle: 'solid',
+                          whiteSpace: 'pre-line', // Permette di visualizzare i ritorni a capo
+                          fontSize: '0.85rem', // Riduce leggermente la dimensione del testo per far entrare più contenuto
+                          lineHeight: '1.2', // Riduce l'interlinea
+                          overflow: 'hidden'
                         }}
                         onClick={() => onEventClick?.(event)}
-                        title={getEventContent(event)}
+                        title={getEventContent(event).replace('\n', ' - ')} // Tooltip con testo su una sola riga
                       >
                         {getEventContent(event)}
                       </div>

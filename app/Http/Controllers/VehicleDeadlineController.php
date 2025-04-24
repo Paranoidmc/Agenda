@@ -5,24 +5,67 @@ namespace App\Http\Controllers;
 use App\Models\VehicleDeadline;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class VehicleDeadlineController extends Controller
 {
+    /**
+     * Constructor
+     */
+    public function __construct()
+    {
+        // Rimuovi qualsiasi middleware di autenticazione
+        $this->middleware('auth:sanctum')->except(['index', 'show', 'getVehicleDeadlines']);
+    }
+    
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
+        // Log dei parametri della richiesta
+        Log::info('VehicleDeadlineController: Richiesta ricevuta', [
+            'parametri' => $request->all(),
+            'headers' => $request->header(),
+            'user' => $request->user() ? $request->user()->id : 'non autenticato',
+            'auth' => Auth::check() ? 'autenticato' : 'non autenticato',
+            'auth_id' => Auth::id(),
+            'auth_user' => Auth::user() ? Auth::id() : null
+        ]);
+        
+        // Verifica se ci sono scadenze nel database
+        $totalDeadlines = VehicleDeadline::count();
+        Log::info('VehicleDeadlineController: Totale scadenze nel database', [
+            'count' => $totalDeadlines
+        ]);
+        
+        // Verifica se ci sono scadenze nel periodo specificato
+        $today = date('Y-m-d');
+        $thirtyDaysLater = date('Y-m-d', strtotime('+30 days'));
+        $deadlinesInPeriod = VehicleDeadline::whereDate('expiry_date', '<=', $thirtyDaysLater)->count();
+        Log::info('VehicleDeadlineController: Scadenze nel periodo', [
+            'periodo' => "$today - $thirtyDaysLater",
+            'count' => $deadlinesInPeriod
+        ]);
+        
         $query = VehicleDeadline::with('vehicle');
         
         // Filtraggio per data di scadenza
         if ($request->has('start_date')) {
-            $query->whereDate('expiry_date', '>=', $request->start_date);
+            // Non filtrare per data di inizio per mostrare anche le scadenze passate
+            // $query->whereDate('expiry_date', '>=', $request->start_date);
+            Log::info('VehicleDeadlineController: start_date presente ma non applicata', [
+                'start_date' => $request->start_date
+            ]);
         }
         
         // Filtraggio per data di fine
         if ($request->has('end_date')) {
             $query->whereDate('expiry_date', '<=', $request->end_date);
+            Log::info('VehicleDeadlineController: end_date applicata', [
+                'end_date' => $request->end_date
+            ]);
         }
         
         // Filtraggio per veicolo
@@ -40,7 +83,20 @@ class VehicleDeadlineController extends Controller
             $query->where('status', $request->status);
         }
         
+        // Log della query SQL
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
+        Log::info('VehicleDeadlineController: Query SQL', [
+            'sql' => $sql,
+            'bindings' => $bindings
+        ]);
+        
         $deadlines = $query->get();
+        
+        // Log del numero di risultati
+        Log::info('VehicleDeadlineController: Risultati', [
+            'count' => $deadlines->count()
+        ]);
         
         // Aggiungiamo i campi in italiano per ogni scadenza
         $deadlines = $deadlines->map(function ($deadline) {

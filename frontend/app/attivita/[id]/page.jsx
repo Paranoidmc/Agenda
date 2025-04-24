@@ -105,7 +105,10 @@ export default function AttivitaDetailPage() {
         type: 'select', 
         isNumeric: true, 
         required: true,
-        options: clienti.map(cliente => ({ value: cliente.id, label: cliente.nome })),
+        options: Array.isArray(clienti) ? clienti.map(cliente => ({ 
+          value: cliente.id, 
+          label: cliente.nome || cliente.name || '' 
+        })) : [],
         onChange: handleClienteChange
       },
       { 
@@ -123,7 +126,10 @@ export default function AttivitaDetailPage() {
         type: 'select', 
         isNumeric: true, 
         required: true,
-        options: autisti.map(autista => ({ value: autista.id, label: `${autista.nome} ${autista.cognome}` }))
+        options: Array.isArray(autisti) ? autisti.map(autista => ({ 
+          value: autista.id, 
+          label: `${autista.nome || ''} ${autista.cognome || ''}`.trim() 
+        })) : []
       },
       { 
         name: 'vehicle_id', 
@@ -131,7 +137,10 @@ export default function AttivitaDetailPage() {
         type: 'select', 
         isNumeric: true, 
         required: true,
-        options: veicoli.map(veicolo => ({ value: veicolo.id, label: `${veicolo.targa} - ${veicolo.marca} ${veicolo.modello}` }))
+        options: Array.isArray(veicoli) ? veicoli.map(veicolo => ({ 
+          value: veicolo.id, 
+          label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() 
+        })) : []
       },
       { 
         name: 'activity_type_id', 
@@ -139,7 +148,10 @@ export default function AttivitaDetailPage() {
         type: 'select', 
         isNumeric: true, 
         required: true,
-        options: tipiAttivita.map(tipo => ({ value: tipo.id, label: tipo.nome }))
+        options: Array.isArray(tipiAttivita) ? tipiAttivita.map(tipo => ({ 
+          value: tipo.id, 
+          label: tipo.nome || tipo.name || '' 
+        })) : []
       },
       { 
         name: 'stato', 
@@ -192,20 +204,26 @@ export default function AttivitaDetailPage() {
   
   // Carica le sedi quando cambia il cliente selezionato
   const handleClienteChange = (name, value) => {
-    console.log("Cliente cambiato:", value);
-    if (value) {
+    console.log("Cliente cambiato:", value, typeof value);
+    
+    // Assicurati che il valore sia un numero
+    const clientId = value ? Number(value) : null;
+    
+    console.log("Cliente ID convertito:", clientId, typeof clientId);
+    
+    if (clientId) {
       // Aggiorna il cliente nell'attività selezionata
       if (attivita) {
         setAttivita(prev => ({
           ...prev,
-          client_id: value,
+          client_id: clientId,
           // Reset della sede quando cambia il cliente
           site_id: ""
         }));
       }
       
       // Carica le sedi per questo cliente
-      loadSediPerCliente(value);
+      loadSediPerCliente(clientId);
     }
   };
 
@@ -250,50 +268,144 @@ export default function AttivitaDetailPage() {
 
 
   const loadClienti = () => {
+    console.log("Caricamento clienti...");
     api.get("/clients")
-      .then(res => setClienti(res.data))
-      .catch(err => console.error("Errore nel caricamento dei clienti:", err));
+      .then(res => {
+        console.log("Clienti caricati:", res.data);
+        // Verifica che la risposta sia un array
+        if (Array.isArray(res.data)) {
+          setClienti(res.data);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          // Alcuni endpoint potrebbero restituire i dati in un oggetto con una proprietà 'data'
+          setClienti(res.data.data);
+        } else {
+          console.error("La risposta non è un array:", res.data);
+          setClienti([]);
+        }
+      })
+      .catch(err => {
+        console.error("Errore nel caricamento dei clienti:", err);
+        // In caso di errore, imposta un array vuoto per evitare errori
+        setClienti([]);
+      });
   };
 
   const loadVeicoli = () => {
+    console.log("Caricamento veicoli...");
     api.get("/vehicles")
-      .then(res => setVeicoli(res.data))
-      .catch(err => console.error("Errore nel caricamento dei veicoli:", err));
+      .then(res => {
+        console.log("Veicoli caricati:", res.data);
+        if (Array.isArray(res.data)) {
+          setVeicoli(res.data);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setVeicoli(res.data.data);
+        } else {
+          console.error("La risposta non è un array:", res.data);
+          setVeicoli([]);
+        }
+      })
+      .catch(err => {
+        console.error("Errore nel caricamento dei veicoli:", err);
+        setVeicoli([]);
+      });
   };
 
   const loadAutisti = () => {
+    console.log("Caricamento autisti...");
     api.get("/drivers")
-      .then(res => setAutisti(res.data))
-      .catch(err => console.error("Errore nel caricamento degli autisti:", err));
+      .then(res => {
+        console.log("Autisti caricati:", res.data);
+        if (Array.isArray(res.data)) {
+          setAutisti(res.data);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setAutisti(res.data.data);
+        } else {
+          console.error("La risposta non è un array:", res.data);
+          setAutisti([]);
+        }
+      })
+      .catch(err => {
+        console.error("Errore nel caricamento degli autisti:", err);
+        setAutisti([]);
+      });
   };
 
   const loadTipiAttivita = () => {
+    console.log("Caricamento tipi attività...");
     api.get("/activity-types")
-      .then(res => setTipiAttivita(res.data))
-      .catch(err => console.error("Errore nel caricamento dei tipi di attività:", err));
+      .then(res => {
+        console.log("Tipi attività caricati:", res.data);
+        if (Array.isArray(res.data)) {
+          setTipiAttivita(res.data);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setTipiAttivita(res.data.data);
+        } else {
+          console.error("La risposta non è un array:", res.data);
+          setTipiAttivita([]);
+        }
+      })
+      .catch(err => {
+        console.error("Errore nel caricamento dei tipi di attività:", err);
+        setTipiAttivita([]);
+      });
   };
   
   const loadSedi = () => {
+    console.log("Caricamento sedi...");
     api.get("/sites")
-      .then(res => setSedi(res.data))
-      .catch(err => console.error("Errore nel caricamento delle sedi:", err));
+      .then(res => {
+        console.log("Sedi caricate:", res.data);
+        if (Array.isArray(res.data)) {
+          setSedi(res.data);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setSedi(res.data.data);
+        } else {
+          console.error("La risposta non è un array:", res.data);
+          setSedi([]);
+        }
+      })
+      .catch(err => {
+        console.error("Errore nel caricamento delle sedi:", err);
+        setSedi([]);
+      });
   };
   
   const loadSediPerCliente = (clientId) => {
-    if (!clientId) return;
+    if (!clientId) {
+      console.log("loadSediPerCliente: clientId non valido", clientId);
+      return;
+    }
     
-    console.log("Caricamento sedi per cliente:", clientId);
+    // Assicurati che clientId sia un numero
+    const numericClientId = Number(clientId);
+    if (isNaN(numericClientId)) {
+      console.error("loadSediPerCliente: clientId non è un numero valido", clientId);
+      return;
+    }
+    
+    console.log("Caricamento sedi per cliente:", numericClientId);
     
     // Carica sempre le sedi per assicurarsi di avere i dati più aggiornati
-    api.get(`/clients/${clientId}/sites`)
+    api.get(`/clients/${numericClientId}/sites`)
       .then(res => {
-        console.log("Sedi caricate per cliente:", clientId, res.data);
+        console.log("Sedi caricate per cliente:", numericClientId, res.data);
+        if (Array.isArray(res.data)) {
+          setSediPerCliente(prev => ({
+            ...prev,
+            [numericClientId]: res.data
+          }));
+        } else {
+          console.error("La risposta non è un array:", res.data);
+        }
+      })
+      .catch(err => {
+        console.error(`Errore nel caricamento delle sedi per il cliente ${numericClientId}:`, err);
+        // In caso di errore, imposta un array vuoto per evitare errori
         setSediPerCliente(prev => ({
           ...prev,
-          [clientId]: res.data
+          [numericClientId]: []
         }));
-      })
-      .catch(err => console.error(`Errore nel caricamento delle sedi per il cliente ${clientId}:`, err));
+      });
   };
   
   const loadAvailableResources = () => {

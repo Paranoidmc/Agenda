@@ -20,6 +20,7 @@ class Client extends Model
         'province',
         'vat_number',
         'fiscal_code',
+        'codice_arca',
         'notes',
         // Campi in italiano
         'nome',

@@ -3,6 +3,21 @@
         Options -MultiViews -Indexes
     </IfModule>
 
+    # Aggiungi header CORS
+    <IfModule mod_headers.c>
+        # Imposta l'origine specifica invece di *
+        SetEnvIf Origin "^(http://localhost:3000)$" CORS_ORIGIN=$1
+        Header always set Access-Control-Allow-Origin "%{CORS_ORIGIN}e" env=CORS_ORIGIN
+        Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        Header always set Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With, X-XSRF-TOKEN, X-CSRF-TOKEN, Accept"
+        Header always set Access-Control-Allow-Credentials "true"
+        
+        # Gestisci le richieste OPTIONS
+        RewriteEngine On
+        RewriteCond %{REQUEST_METHOD} OPTIONS
+        RewriteRule ^(.*)$ $1 [R=200,L]
+    </IfModule>
+
     RewriteEngine On
 
     # Handle Authorization Header
@@ -31,6 +46,11 @@
     RewriteCond %{REQUEST_URI} ^/css [OR]
     RewriteCond %{REQUEST_URI} ^/js [OR]
     RewriteCond %{REQUEST_URI} \.php$
+    RewriteRule ^ index.php [L]
+
+    # Se la richiesta è POST su /login, vai su index.php (Laravel)
+    RewriteCond %{REQUEST_METHOD} POST
+    RewriteCond %{REQUEST_URI} ^/Agenda/public/login$
     RewriteRule ^ index.php [L]
 
     # Altrimenti, tutte le altre richieste vanno su index.html (SPA React)

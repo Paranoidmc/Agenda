@@ -15,6 +15,10 @@ export default function SediPage() {
   const { user, loading } = useAuth();
   const [sedi, setSedi] = useState([]);
   const [fetching, setFetching] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedSede, setSelectedSede] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -33,8 +37,6 @@ export default function SediPage() {
     { name: 'citta', label: 'Città', required: true },
     { name: 'cap', label: 'CAP' },
     { name: 'provincia', label: 'Provincia' },
-    { name: 'telefono', label: 'Telefono' },
-    { name: 'email', label: 'Email' },
     { name: 'client_id', label: 'Cliente', type: 'select', options: 
       clienti.map(cliente => ({ value: cliente.id, label: cliente.nome }))
     },
@@ -43,13 +45,13 @@ export default function SediPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      loadSedi();
+      fetchSedi();
       loadClienti();
     } else if (!loading && !user) {
-      // Se non c'è un utente e non sta caricando, imposta fetching a false
       setFetching(false);
     }
-  }, [user, loading]);
+    // eslint-disable-next-line
+  }, [user, loading, currentPage, perPage, searchTerm]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -64,10 +66,19 @@ export default function SediPage() {
     }
   }, [isPanelOpen]);
 
-  const loadSedi = () => {
+  const fetchSedi = () => {
     setFetching(true);
-    api.get("/sites")
-      .then(res => setSedi(res.data))
+    api.get(`/sites`, {
+      params: {
+        page: currentPage,
+        perPage: perPage,
+        search: searchTerm
+      }
+    })
+      .then(res => {
+        setSedi(res.data.data || []);
+        setTotal(res.data.total || 0);
+      })
       .catch((err) => {
         console.error("Errore nel caricamento delle sedi:", err);
         if (err.response && err.response.status === 401) {
@@ -81,7 +92,7 @@ export default function SediPage() {
 
   const loadClienti = () => {
     api.get("/clients")
-      .then(res => setClienti(res.data))
+      .then(res => setClienti(res.data.data || []))
       .catch(err => console.error("Errore nel caricamento dei clienti:", err));
   };
 
@@ -247,14 +258,7 @@ export default function SediPage() {
               key: 'provincia', 
               label: 'Provincia'
             },
-            { 
-              key: 'telefono', 
-              label: 'Telefono'
-            },
-            { 
-              key: 'email', 
-              label: 'Email'
-            },
+
             { 
               key: 'client.nome', 
               label: 'Cliente'
@@ -322,8 +326,16 @@ export default function SediPage() {
           onRowClick={handleViewDetails}
           selectedRow={selectedSede}
           searchPlaceholder="Cerca sedi..."
-          emptyMessage="Nessuna sede trovata"
-          defaultVisibleColumns={['nome', 'indirizzo', 'citta', 'telefono', 'client.nome', 'actions']}
+          emptyMessage={fetching ? "Caricamento..." : "Nessuna sede trovata"}
+          defaultVisibleColumns={['nome', 'indirizzo', 'citta', 'provincia', 'client.nome', 'actions']}
+          totalItems={total}
+          itemsPerPage={perPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setPerPage}
+          searchTerm={searchTerm}
+          onSearchTermChange={setSearchTerm}
+          isLoading={fetching}
         />
       </div>
 

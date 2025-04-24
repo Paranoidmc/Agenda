@@ -1,49 +1,35 @@
+// LoginForm ora usa useAuth/AuthContext per gestire login centralizzato, nessuna chiamata diretta ad api.js o localStorage
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
 
 const LoginForm = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const { login, loading } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
         try {
-            console.log('[LOGIN] Avvio login...');
-            
-            // 1. Ottieni il token CSRF
-            await axios.get('http://localhost:8000/sanctum/csrf-cookie', {
-                withCredentials: true
-            });
-            console.log('[LOGIN] CSRF token ottenuto');
-            
-            // 2. Prova login
-            const loginResponse = await axios.post('http://localhost:8000/login', {
-                email,
-                password
-            }, {
-                withCredentials: true,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            console.log('[LOGIN] Risposta login:', loginResponse.data);
-            
-            // Salva il token e i dati utente
-            localStorage.setItem('token', loginResponse.data.token);
-            localStorage.setItem('user', JSON.stringify(loginResponse.data.user));
-            
-            // Reindirizza alla dashboard
-            navigate('/dashboard');
+            const result = await login(email, password);
+            if (result && (result.user || result.id)) {
+                navigate('/dashboard');
+            } else {
+                setError('Login fallita: nessun utente restituito dalla risposta. Controlla le credenziali o contatta l’amministratore.');
+            }
         } catch (error) {
-            console.error('[LOGIN] Errore:', error.response?.data || error.message);
-            setError(error.response?.data?.error || 'Errore durante il login');
+            if (error.response && error.response.status === 419) {
+                setError('Sessione scaduta o token CSRF mancante. Ricarica la pagina e riprova.');
+            } else if (error.response && error.response.data && error.response.data.error) {
+                setError(error.response.data.error);
+            } else if (error.message) {
+                setError(error.message);
+            } else {
+                setError('Errore durante il login.');
+            }
         }
     };
 
@@ -94,8 +80,9 @@ const LoginForm = () => {
                         <button
                             type="submit"
                             className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            disabled={loading}
                         >
-                            Accedi
+                            {loading ? "Caricamento..." : "Accedi"}
                         </button>
                     </div>
                 </form>

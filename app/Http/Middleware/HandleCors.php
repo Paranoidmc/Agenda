@@ -22,16 +22,47 @@ class HandleCors extends Middleware
             $response = response('', 200);
             
             // Add CORS headers manually for OPTIONS requests
-            $response->header('Access-Control-Allow-Origin', $request->header('Origin'));
-            $response->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-            $response->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-XSRF-TOKEN');
-            $response->header('Access-Control-Allow-Credentials', 'true');
-            $response->header('Access-Control-Max-Age', '86400'); // 24 hours
+            if ($request->header('Origin') && $this->isAllowedOrigin($request->header('Origin'))) {
+                $response->header('Access-Control-Allow-Origin', $request->header('Origin'));
+                $response->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+                $response->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-XSRF-TOKEN, X-CSRF-TOKEN, Accept');
+                $response->header('Access-Control-Allow-Credentials', 'true');
+                $response->header('Access-Control-Max-Age', '86400'); // 24 hours
+            }
             
             return $response;
         }
         
         // For non-OPTIONS requests, use the parent middleware
-        return parent::handle($request, $next);
+        $response = parent::handle($request, $next);
+        
+        // Ensure CORS headers are set on the response
+        if ($request->header('Origin') && $this->isAllowedOrigin($request->header('Origin'))) {
+            $response->header('Access-Control-Allow-Origin', $request->header('Origin'));
+            $response->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            $response->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-XSRF-TOKEN, X-CSRF-TOKEN, Accept');
+            $response->header('Access-Control-Allow-Credentials', 'true');
+        }
+        
+        return $response;
+    }
+    
+    /**
+     * Verifica se l'origine è consentita
+     * 
+     * @param string $origin
+     * @return bool
+     */
+    protected function isAllowedOrigin($origin)
+    {
+        $allowedOrigins = [
+            'http://localhost:3000',
+            'http://localhost:8000',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:8000',
+            'http://localhost',
+        ];
+        
+        return in_array($origin, $allowedOrigins);
     }
 }

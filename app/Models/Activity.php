@@ -15,31 +15,27 @@ class Activity extends Model
         'descrizione',
         'data_inizio',
         'data_fine',
-        'date',
         'time_slot',
-        'start_time',
-        'end_time',
+        'ora_inizio',
+        'ora_fine',
         'driver_id',
         'vehicle_id',
         'client_id',
         'site_id',
         'activity_type_id',
-        'status',
         'stato',
-        'start_location',
-        'end_location',
-        'notes',
+        'luogo_partenza',
+        'luogo_arrivo',
         'note',
-        'completed_at',
+        'completato_il'
     ];
 
     protected $casts = [
-        'date' => 'date',
-        'data_inizio' => 'date',
-        'data_fine' => 'date',
-        'completed_at' => 'datetime',
-        'start_time' => 'datetime',
-        'end_time' => 'datetime',
+        'data_inizio' => 'datetime',
+        'data_fine' => 'datetime',
+        'ora_inizio' => 'datetime',
+        'ora_fine' => 'datetime',
+        'completato_il' => 'datetime',
     ];
     
     protected static function booted()

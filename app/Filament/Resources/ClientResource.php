@@ -69,6 +69,9 @@ class ClientResource extends Resource
                         Forms\Components\TextInput::make('fiscal_code')
                             ->label('Codice Fiscale')
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('codice_arca')
+                            ->label('Codice Arca')
+                            ->maxLength(255),
                     ])->columns(2),
                 
                 Forms\Components\Section::make('Note')
@@ -96,6 +99,9 @@ class ClientResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('codice_arca')
+                    ->label('Codice Arca')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Data Creazione')

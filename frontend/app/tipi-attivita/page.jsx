@@ -10,6 +10,7 @@ import DataTable from "../../components/DataTable";
 export default function TipiAttivitaPage() {
   const { user, loading } = useAuth();
   const [tipiAttivita, setTipiAttivita] = useState([]);
+const [searchText, setSearchText] = useState("");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [selectedTipo, setSelectedTipo] = useState(null);
@@ -66,7 +67,10 @@ export default function TipiAttivitaPage() {
   const loadTipiAttivita = () => {
     setFetching(true);
     api.get("/activity-types")
-      .then(res => setTipiAttivita(res.data))
+      .then(res => {
+        let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        setTipiAttivita(arr);
+      })
       .catch((err) => {
         console.error("Errore nel caricamento dei tipi di attività:", err);
         if (err.response && err.response.status === 401) {
@@ -154,16 +158,35 @@ export default function TipiAttivitaPage() {
     setIsPanelOpen(true);
   };
 
-  if (loading || fetching) return <div className="centered">Caricamento...</div>;
-  if (error) return <div className="centered">{error}</div>;
+  if (loading || fetching) return <div className="centered"><span className="loader" style={{display:'inline-block', width:32, height:32, border:'4px solid #ddd', borderTop:'4px solid var(--primary)', borderRadius:'50%', animation:'spin 1s linear infinite'}}></span> Caricamento tipi di attività...</div>;
+  if (error) return (
+    <div className="centered">
+      {error}
+      <br />
+      <button onClick={loadTipiAttivita} style={{marginTop: 12, padding: '8px 16px', borderRadius: 6, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer'}}>Riprova</button>
+    </div>
+  );
 
   return (
     <div style={{ padding: 32 }}>
       <PageHeader 
         title="Tipi di Attività" 
         buttonLabel="Nuovo Tipo" 
-        onAddClick={handleCreateNew} 
+        onAddClick={() => {
+          setSelectedTipo({});
+          setIsEditing(true);
+          setIsPanelOpen(true);
+        }}
       />
+      <div style={{margin: '18px 0 12px 0'}}>
+        <input
+          type="text"
+          placeholder="Cerca per nome o descrizione..."
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          style={{padding: 8, borderRadius: 6, border: '1px solid #ccc', width: 240}}
+        />
+      </div>
       <div 
         style={{ 
           transition: 'width 0.3s ease-in-out',
@@ -172,7 +195,10 @@ export default function TipiAttivitaPage() {
         }}
       >
         <DataTable 
-          data={tipiAttivita}
+          data={tipiAttivita.filter(tipo => {
+            const testo = (tipo.nome || "") + " " + (tipo.descrizione || "");
+            return testo.toLowerCase().includes(searchText.toLowerCase());
+          })}
           columns={[
             { 
               key: 'nome', 

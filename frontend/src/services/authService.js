@@ -1,8 +1,9 @@
 import api from '../../lib/api';
 
 /**
- * Servizio per la gestione dell'autenticazione
- * Utilizza l'istanza API configurata con cache e gestione degli errori
+ * Servizio legacy per la gestione dell'autenticazione
+ * Ora la login/logout/checkUser va gestita tramite AuthContext/useAuth
+ * Questo modulo va usato solo per utility o refactoring futuro
  */
 const authService = {
     /**
@@ -13,24 +14,33 @@ const authService = {
      */
     login: async (email, password) => {
         try {
-            // Ottieni il token CSRF (senza usare la cache)
-            await api.get('/sanctum/csrf-cookie', { 
+            // 1. Ottieni il token CSRF (senza usare la cache)
+            await api.get('/sanctum/csrf-cookie', {
                 useCache: false,
                 retry: true,
                 maxRetries: 3
             });
 
-            // Effettua il login
+            // 2. Effettua il login
             const response = await api.post('/login', {
                 email,
                 password
             });
 
-            // Dopo un login riuscito, invalida la cache per garantire dati freschi
             api.clearCache();
+
+            // Login riuscito solo se arriva 'user'
+            if (response.data && response.data.user) {
+                localStorage.setItem('user', JSON.stringify(response.data.user));
+            }
 
             return response.data;
         } catch (error) {
+            // Gestione errore CSRF (419)
+            if (error.response && error.response.status === 419) {
+                throw new Error('Sessione scaduta o token CSRF mancante. Riprova a effettuare il login.');
+            }
+            // Altri errori
             console.error('Errore durante il login:', error.message);
             throw error;
         }
@@ -45,7 +55,8 @@ const authService = {
      */
     getUser: async (options = {}) => {
         try {
-            const response = await api.get('/api/user', {
+            // Ora usa la route session-based
+            const response = await api.get('/user', {
                 useCache: options.useCache !== false,
                 cacheTTL: options.cacheTTL || 5 * 60 * 1000, // 5 minuti di default
                 retry: true
@@ -86,7 +97,8 @@ const authService = {
      * @returns {boolean} True se l'utente è autenticato
      */
     isAuthenticated: () => {
-        return !!localStorage.getItem('token');
+        // Considera autenticato solo se esiste 'user' in localStorage
+        return !!localStorage.getItem('user');
     },
 
     /**
@@ -94,8 +106,15 @@ const authService = {
      * @param {Object} userData - Nuovi dati dell'utente
      */
     updateUserData: (userData) => {
-        if (userData) {
-            localStorage.setItem('user', JSON.stringify(userData));
+        if (userData && typeof userData === 'object') {
+            try {
+                localStorage.setItem('user', JSON.stringify(userData));
+            } catch (error) {
+                console.error('Errore nel salvataggio dei dati utente:', error);
+            }
+        } else if (userData === null) {
+            // Se userData è null, rimuovi i dati utente
+            localStorage.removeItem('user');
         }
     },
 
@@ -106,9 +125,14 @@ const authService = {
     getUserData: () => {
         try {
             const userData = localStorage.getItem('user');
-            return userData ? JSON.parse(userData) : null;
+            if (!userData || userData === 'undefined' || userData === 'null') {
+                return null;
+            }
+            return JSON.parse(userData);
         } catch (error) {
             console.error('Errore nel parsing dei dati utente:', error);
+            // Rimuovi i dati utente non validi
+            localStorage.removeItem('user');
             return null;
         }
     }

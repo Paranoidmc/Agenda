@@ -12,6 +12,13 @@ Route::get('/test-api', function () {
     return ['status' => 'ok'];
 });
 
+// Rotte senza autenticazione per i veicoli
+Route::get('/vehicles', [App\Http\Controllers\VehicleController::class, 'index']);
+Route::get('/vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'show']);
+Route::get('/vehicles/{vehicle}/activities', [App\Http\Controllers\ActivityController::class, 'getVehicleActivities']);
+Route::get('/vehicles/{vehicle}/deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'getVehicleDeadlines']);
+Route::get('/vehicle-deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'index']);
+
 // Test route for CORS
 Route::get('/cors-test', function (Request $request) {
     return response()->json([
@@ -26,32 +33,51 @@ Route::get('/cors-test', function (Request $request) {
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show']);
 
-// Rotta per il login spostata più in basso con middleware e logging
+// LOGIN API SESSION
+Route::post('/login', [App\Http\Controllers\AuthController::class, 'login']);
 
-Route::middleware('web')->post('/logout', function (Request $request) {
+// LOGOUT API SESSION
+Route::middleware(['auth:sanctum'])->post('/logout', function (Request $request) {
+    // Revoca il token corrente se presente
+    if ($request->user()) {
+        $request->user()->currentAccessToken()->delete();
+    }
+    
+    // Logout dalla sessione web
     Auth::logout();
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-    return response()->json(['message' => 'Logout ok']);
+    
+    // Invalida la sessione e rigenera il token CSRF
+    if ($request->hasSession()) {
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+    }
+    
+    return response()->json(['message' => 'Logout effettuato con successo']);
 });
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    // Log per debug
-    \Log::info('GET su /api/user', [
+// USER API SESSION
+Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
+    Log::info('GET su /api/user', [
         'ip' => request()->ip(),
         'user-agent' => request()->userAgent(),
         'referer' => request()->headers->get('referer'),
         'full_url' => request()->fullUrl(),
         'headers' => $request->headers->all(),
         'user' => $request->user() ? $request->user()->id : null,
+        // DEBUG avanzato sessione
+        'session_driver' => config('session.driver'),
+        'session_files_path' => config('session.files'),
+        'session_id' => $request->hasSession() ? $request->session()->getId() : null,
+        'session_started' => $request->hasSession() ? $request->session()->isStarted() : null,
+        'session_file_exists' => $request->hasSession() ? file_exists(config('session.files') . '/' . $request->session()->getId()) : null,
+        'session_file_path' => $request->hasSession() ? config('session.files') . '/' . $request->session()->getId() : null,
     ]);
-    
     return $request->user();
 });
 
 // DEBUG: Log tutte le richieste GET sospette a /api/login
 Route::get('/login', function () {
-    \Log::info('GET su /api/login', [
+    Log::info('GET su /api/login', [
         'ip' => request()->ip(),
         'user-agent' => request()->userAgent(),
         'referer' => request()->headers->get('referer'),
@@ -60,15 +86,21 @@ Route::get('/login', function () {
     abort(405, 'Solo POST consentito');
 });
 
-// Log tutte le richieste POST a /api/login per debug
-// Login Sanctum: sessione/cookie
-Route::post('/login', [App\Http\Controllers\AuthController::class, 'login']);
+// Login API con token
+Route::post('/token-login', [ApiAuthController::class, 'login']);
 Route::middleware('api')->post('/refresh', [AuthController::class, 'refresh']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     // Le route reali restano sotto
     Route::apiResource('drivers', App\Http\Controllers\DriverController::class);
-    Route::apiResource('vehicles', App\Http\Controllers\VehicleController::class);
+    Route::get('/activities/new', [App\Http\Controllers\ActivityController::class, 'create']);
+    
+    // Per i veicoli, solo le operazioni di modifica richiedono autenticazione
+    Route::post('vehicles', [App\Http\Controllers\VehicleController::class, 'store']);
+    Route::put('vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'update']);
+    Route::patch('vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'update']);
+    Route::delete('vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'destroy']);
+    
     Route::apiResource('activities', App\Http\Controllers\ActivityController::class);
     Route::apiResource('clients', App\Http\Controllers\ClientController::class);
     Route::apiResource('sites', App\Http\Controllers\SiteController::class);
@@ -76,11 +108,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('vehicle-deadlines', App\Http\Controllers\VehicleDeadlineController::class);
     
     // Rotte aggiuntive per le relazioni
-    Route::get('vehicles/{vehicle}/deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'getVehicleDeadlines']);
     Route::get('clients/{client}/sites', [App\Http\Controllers\SiteController::class, 'getClientSites']);
     Route::get('sites/{site}/activities', [App\Http\Controllers\ActivityController::class, 'getSiteActivities']);
     Route::get('clients/{client}/activities', [App\Http\Controllers\ActivityController::class, 'getClientActivities']);
     Route::get('drivers/{driver}/activities', [App\Http\Controllers\ActivityController::class, 'getDriverActivities']);
-    Route::get('vehicles/{vehicle}/activities', [App\Http\Controllers\ActivityController::class, 'getVehicleActivities']);
     Route::get('available-resources', [App\Http\Controllers\ActivityController::class, 'getAvailableResources']);
 });

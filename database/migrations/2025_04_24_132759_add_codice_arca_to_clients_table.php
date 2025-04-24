@@ -11,11 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Migration vuota: tutti i campi sono già presenti nella tabella vehicles
-        // (commentato per evitare errori di duplicato)
-        // Schema::table('vehicles', function (Blueprint $table) {
-        //     ...
-        // });
+        Schema::table('clients', function (Blueprint $table) {
+            $table->string('codice_arca')->nullable()->after('fiscal_code'); // Aggiunge il campo dopo codice_fiscale
+        });
     }
 
     /**
@@ -23,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Migrazione vuota
+        Schema::table('clients', function (Blueprint $table) {
+            $table->dropColumn('codice_arca');
+        });
     }
 };
