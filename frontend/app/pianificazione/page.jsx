@@ -5,6 +5,7 @@ import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
+import DailyActivitiesModal from "../../components/DailyActivitiesModal";
 import { exportCalendarToExcel } from "../../lib/excelExport";
 import { exportCalendarToHTML } from "../../lib/htmlExport";
 import "./page.css";
@@ -19,10 +20,21 @@ export default function PianificazionePage() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [currentWeek, setCurrentWeek] = useState(getWeekDates(new Date()));
-  const [viewMode, setViewMode] = useState("activity"); // 'driver', 'vehicle', 'activity'
+  const [viewMode, setViewMode] = useState("activity"); // 'driver', 'vehicle', 'activity', 'day'
   const [drivers, setDrivers] = useState([]);
+  const [showDailyModal, setShowDailyModal] = useState(false);
+  const [dailyModalDate, setDailyModalDate] = useState(() => {
+    // Di default oggi (locale, non UTC)
+    const today = new Date();
+    const pad = n => n.toString().padStart(2, '0');
+    const yyyy = today.getFullYear();
+    const mm = pad(today.getMonth() + 1);
+    const dd = pad(today.getDate());
+    return `${yyyy}-${mm}-${dd}`;
+  });
   const [vehicles, setVehicles] = useState([]);
   const [sites, setSites] = useState([]);
+  const [clients, setClients] = useState([]);
   const [selectedSiteId, setSelectedSiteId] = useState(null);
   const [selectedDriverId, setSelectedDriverId] = useState(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
@@ -32,6 +44,29 @@ export default function PianificazionePage() {
   const [sitesLoading, setSitesLoading] = useState(true);
 
   // --- Utility Functions ---
+  const activityStates = ["non assegnato", "assegnato", "doc emesso", "completato", "annullato"];
+
+  // Restituisce solo le attività del giorno selezionato
+  const getDailyActivities = (date) => {
+    return events.filter(e => e.type === 'activity' && e.data?.data_inizio?.startsWith(date));
+  };
+
+  // Salva attività (creazione o update)
+  const handleSaveActivity = async (activityData) => {
+    try {
+      // Se esiste un id, aggiorna, altrimenti crea
+      if (activityData.id) {
+        await api.put(`/activities/${activityData.id}`, activityData, { withCredentials: true });
+      } else {
+        await api.post('/activities', activityData, { withCredentials: true });
+      }
+      // Refresca eventi dopo salvataggio
+      setFetching(true);
+    } catch (e) {
+      alert('Errore nel salvataggio attività: ' + (e?.message || e));
+    }
+  };
+
   function getWeekDates(date) {
     const day = date.getDay();
     const diff = date.getDate() - day + (day === 0 ? -6 : 1);
@@ -264,6 +299,14 @@ export default function PianificazionePage() {
   }, [showExportMenu]);
 
   const getRows = () => {
+    if (viewMode === 'day') {
+      // Una sola riga che contiene tutte le attività del giorno selezionato
+      return [{
+        id: 'attivita-giornaliere',
+        name: 'Attività del giorno',
+        events: events.filter(e => e.type === 'activity' && e.data?.data_inizio?.startsWith(dailyModalDate))
+      }];
+    }
     // Filtra solo gli eventi di tipo 'activity'
     let activityEvents = events.filter(e => e.type === 'activity');
     
@@ -400,12 +443,30 @@ export default function PianificazionePage() {
       const endDate = formatDateISO(currentWeek[6]);
 
       // Carica autisti, veicoli, cantieri e tipi di attività
-      const [driversResponse, vehiclesResponse, sitesResponse, activityTypesResponse] = await Promise.all([
+      const [driversResponse, vehiclesResponse, sitesResponse, activityTypesResponse, clientsResponse] = await Promise.all([
         api.get('/drivers?all=1'),
         api.get('/vehicles'),
         api.get('/sites'),
-        api.get('/activity-types')
+        api.get('/activity-types'),
+        api.get('/clients?all=1'),
       ]);
+
+      // DEBUG: Logga la risposta dei clienti
+      console.log('[DEBUG] Risposta API /clients?all=1:', clientsResponse.data);
+      let clientsData = [];
+      if (Array.isArray(clientsResponse.data)) {
+        clientsData = clientsResponse.data;
+      } else if (clientsResponse.data && Array.isArray(clientsResponse.data.data)) {
+        clientsData = clientsResponse.data.data;
+      } else {
+        clientsData = [];
+        console.warn('[DEBUG] Nessun cliente trovato o struttura inattesa:', clientsResponse.data);
+      }
+      setClients(clientsData);
+      // DEBUG: Logga i dati clienti dopo il set
+      setTimeout(() => {
+        console.log('[DEBUG] Stato clients dopo setClients:', clientsData);
+      }, 0);
       
       console.log('Risposta API /drivers?all=1:', driversResponse.data);
       const driversData = Array.isArray(driversResponse.data) ? driversResponse.data : driversResponse.data?.data || [];
@@ -417,13 +478,13 @@ export default function PianificazionePage() {
       setVehiclesLoading(false);
       
       if (Array.isArray(sitesResponse.data)) {
-  setSites(sitesResponse.data);
-} else if (sitesResponse.data && Array.isArray(sitesResponse.data.data)) {
-  setSites(sitesResponse.data.data);
-} else {
-  setSites([]);
-}
-setSitesLoading(false);
+        setSites(sitesResponse.data);
+      } else if (sitesResponse.data && Array.isArray(sitesResponse.data.data)) {
+        setSites(sitesResponse.data.data);
+      } else {
+        setSites([]);
+      }
+      setSitesLoading(false);
       
       // Imposta i tipi di attività
       setActivityTypes(activityTypesResponse.data);
@@ -639,6 +700,17 @@ const activities = activitiesRaw.map(activity => {
     <div className="container mx-auto px-4 py-8">
       <div className="page-header">
         <h1 className="page-title">Pianificazione</h1>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <button
+            style={{ background: '#007aff', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}
+            onClick={() => {
+              setDailyModalDate(new Date().toISOString().split('T')[0]);
+              setShowDailyModal(true);
+            }}
+          >
+            Attività giornaliere
+          </button>
+        </div>
         <div className="nav-buttons">
           <button
             onClick={() => setViewMode('driver')}
@@ -903,16 +975,32 @@ const activities = activitiesRaw.map(activity => {
           </button>
         </div>
       ) : (
-        <WeeklyCalendar
-          events={events}
-          currentWeek={currentWeek}
-          onPrevWeek={goToPreviousWeek}
-          onNextWeek={goToNextWeek}
-          viewMode={viewMode}
-          onEventClick={handleEventClick}
-          getEventContent={getEventContent}
-          rows={getRows()}
-        />
+        <div>
+          <div className="calendar-mode-buttons" style={{ marginBottom: 12, display: 'flex', gap: 10 }}>
+            <button className={viewMode === 'activity' ? 'active' : ''} onClick={() => setViewMode('activity')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Settimana</button>
+            <button className={viewMode === 'day' ? 'active' : ''} onClick={() => setViewMode('day')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Giorno</button>
+            <button className={viewMode === 'driver' ? 'active' : ''} onClick={() => setViewMode('driver')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Autista</button>
+            <button className={viewMode === 'vehicle' ? 'active' : ''} onClick={() => setViewMode('vehicle')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6 }}>Veicolo</button>
+          </div>
+          <WeeklyCalendar
+            events={events}
+            currentWeek={currentWeek}
+            onPrevWeek={goToPreviousWeek}
+            onNextWeek={goToNextWeek}
+            viewMode={viewMode}
+            onEventClick={event => {
+              if (event && event.data && event.data.data_inizio) {
+                const dateStr = event.data.data_inizio.substring(0, 10);
+                setDailyModalDate(dateStr);
+              }
+              handleEventClick(event);
+            }}
+            getEventContent={getEventContent}
+            rows={getRows()}
+            onDayClick={dateStr => setDailyModalDate(dateStr)}
+            selectedDate={dailyModalDate}
+          />
+        </div>
       )}
       
       {error && !loading && user && (
@@ -950,6 +1038,32 @@ const activities = activitiesRaw.map(activity => {
           </div>
         </div>
       )}
+      <DailyActivitiesModal
+        isOpen={showDailyModal}
+        onClose={() => setShowDailyModal(false)}
+        date={dailyModalDate}
+        onChangeDate={setDailyModalDate}
+        sites={sites}
+        drivers={drivers}
+        vehicles={vehicles}
+        clients={clients}
+        activityTypes={activityTypes || []}
+        activityStates={activityStates}
+        onSaveActivity={handleSaveActivity}
+        initialRows={getDailyActivities(dailyModalDate).map(e => ({
+          id: e.data?.id || e.id,
+          titolo: e.data?.titolo || '',
+          descrizione: e.data?.descrizione || '',
+          client_id: e.data?.client_id || e.data?.cliente_id || e.data?.client?.id || '',
+          site_id: e.data?.site?.id || e.data?.site_id || '',
+          ora: e.data?.data_inizio ? e.data.data_inizio.substring(11,16) : '',
+          data_fine: e.data?.data_fine ? e.data.data_fine.substring(11,16) : '',
+          driver_id: e.data?.driver?.id || e.data?.driver_id || '',
+          vehicle_id: e.data?.vehicle?.id || e.data?.vehicle_id || '',
+          stato: e.data?.stato || '',
+          activity_type_id: e.data?.activityType?.id || e.data?.activity_type_id || '',
+        }))}
+      />
     </div>
   );
 }

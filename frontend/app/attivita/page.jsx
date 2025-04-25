@@ -30,22 +30,23 @@ export default function AttivitaPage() {
   const [sediPerCliente, setSediPerCliente] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
 
-  // Gestisce il cambio di data o fascia oraria
-  const handleDateOrTimeSlotChange = (name, value) => {
-    console.log(`Campo ${name} cambiato a ${value}`);
-    
-    // Aggiorna l'attività selezionata
-    setSelectedAttivita(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Se è cambiata la data o la fascia oraria, carica le risorse disponibili
+  // Handler unico per tutte le modifiche ai campi del form
+  const handleFieldChange = (name, value) => {
+    setSelectedAttivita(prev => {
+      let newState = { ...prev, [name]: value };
+      // Reset della sede se cambio cliente
+      if (name === 'client_id') {
+        newState.site_id = '';
+      }
+      return newState;
+    });
+    // Caricamento risorse disponibili su cambio data/fascia oraria
     if (name === 'data_inizio' || name === 'time_slot') {
-      // Aspetta che lo stato sia aggiornato prima di caricare le risorse
-      setTimeout(() => {
-        loadAvailableResources();
-      }, 100);
+      setTimeout(() => loadAvailableResources(), 100);
+    }
+    // Caricamento sedi per cliente
+    if (name === 'client_id') {
+      loadSediPerCliente(value);
     }
   };
 
@@ -84,7 +85,7 @@ export default function AttivitaPage() {
         label: 'Data Inizio', 
         type: 'datetime-local', 
         required: true,
-        onChange: handleDateOrTimeSlotChange
+        onChange: handleFieldChange
       },
       { 
         name: 'data_fine', 
@@ -102,7 +103,7 @@ export default function AttivitaPage() {
           { value: 'afternoon', label: 'Pomeriggio' },
           { value: 'full_day', label: 'Giornata intera' }
         ],
-        onChange: handleDateOrTimeSlotChange
+        onChange: handleFieldChange
       },
       { 
         name: 'client_id', 
@@ -114,8 +115,7 @@ export default function AttivitaPage() {
           value: cliente.id, 
           label: cliente.nome || cliente.name || '' 
         })) : [],
-
-        onChange: handleClienteChange
+        onChange: handleFieldChange
       },
       { 
         name: 'site_id', 
@@ -224,30 +224,7 @@ export default function AttivitaPage() {
     }
   }, [selectedAttivita?.data_inizio, selectedAttivita?.time_slot]);
   
-  // Carica le sedi quando cambia il cliente selezionato
-  const handleClienteChange = (name, value) => {
-    console.log("Cliente cambiato:", value, typeof value);
-    
-    // Assicurati che il valore sia un numero
-    const clientId = value ? Number(value) : null;
-    
-    console.log("Cliente ID convertito:", clientId, typeof clientId);
-    
-    if (clientId) {
-      // Aggiorna il cliente nell'attività selezionata
-      if (selectedAttivita) {
-        setSelectedAttivita(prev => ({
-          ...prev,
-          client_id: clientId,
-          // Reset della sede quando cambia il cliente
-          site_id: ""
-        }));
-      }
-      
-      // Carica le sedi per questo cliente
-      loadSediPerCliente(clientId);
-    }
-  };
+  // Handler specifici rimossi: ora si usa solo handleFieldChange
 
   const fetchAttivita = async () => {
     setFetching(true);
@@ -312,7 +289,7 @@ export default function AttivitaPage() {
           console.error("Formato dati clienti non valido:", res.data);
         }
         
-        console.log("Clienti caricati:", clientiData.length);
+        // console.log("Clienti caricati:", clientiData.length);
         setClienti(clientiData);
         return clientiData;
       })
@@ -335,7 +312,7 @@ export default function AttivitaPage() {
           console.error("Formato dati veicoli non valido:", res.data);
         }
         
-        console.log("Veicoli caricati:", veicoliData.length);
+        // console.log("Veicoli caricati:", veicoliData.length);
         setVeicoli(veicoliData);
         return veicoliData;
       })
@@ -358,7 +335,7 @@ export default function AttivitaPage() {
           console.error("Formato dati autisti non valido:", res.data);
         }
         
-        console.log("Autisti caricati:", autistiData.length);
+        // console.log("Autisti caricati:", autistiData.length);
         setAutisti(autistiData);
         return autistiData;
       })
@@ -381,7 +358,7 @@ export default function AttivitaPage() {
           console.error("Formato dati tipi attività non valido:", res.data);
         }
         
-        console.log("Tipi di attività caricati:", tipiData.length);
+        // console.log("Tipi di attività caricati:", tipiData.length);
         setTipiAttivita(tipiData);
         return tipiData; // Restituisce i dati per poterli usare in una Promise chain
       })
@@ -404,7 +381,7 @@ export default function AttivitaPage() {
           console.error("Formato dati sedi non valido:", res.data);
         }
         
-        console.log("Sedi caricate:", sediData.length);
+        // console.log("Sedi caricate:", sediData.length);
         setSedi(sediData);
         return sediData;
       })
@@ -430,7 +407,11 @@ export default function AttivitaPage() {
     console.log("Caricamento sedi per cliente:", numericClientId);
     
     // Carica sempre le sedi per assicurarsi di avere i dati più aggiornati
-    api.get(`/clients/${numericClientId}/sites`)
+    // Aggiungiamo un parametro per evitare la cache e impostiamo useCache a false
+    api.get(`/clients/${numericClientId}/sites`, {
+      params: { _t: new Date().getTime() },
+      useCache: false
+    })
       .then(res => {
         console.log("Risposta sedi per cliente:", numericClientId, res.data);
         
@@ -452,6 +433,20 @@ export default function AttivitaPage() {
       })
       .catch(err => {
         console.error(`Errore nel caricamento delle sedi per il cliente ${numericClientId}:`, err);
+        
+        // Log dettagliato dell'errore
+        if (err.response) {
+          console.error("Dettagli errore:", {
+            status: err.response.status,
+            data: err.response.data,
+            headers: err.response.headers
+          });
+        } else if (err.request) {
+          console.error("Nessuna risposta ricevuta:", err.request);
+        } else {
+          console.error("Errore di configurazione:", err.message);
+        }
+        
         // In caso di errore, imposta un array vuoto per evitare errori
         setSediPerCliente(prev => ({
           ...prev,
@@ -765,7 +760,7 @@ export default function AttivitaPage() {
               key: 'activityType',
               label: 'Tipo Attività',
               render: (item) => {
-                console.log("Rendering tipo attività per:", item);
+                // console.log("Rendering tipo attività per:", item);
                 
                 // Verifica se l'attività ha un tipo di attività
                 if (!item.activityType && item.activity_type_id) {
@@ -796,7 +791,7 @@ export default function AttivitaPage() {
                 const color = tipo.colore || tipo.color || '#007aff';
                 const nome = tipo.nome || tipo.name || 'N/D';
                 
-                console.log(`Rendering tipo attività: ${nome} con colore ${color}`);
+                // console.log(`Rendering tipo attività: ${nome} con colore ${color}`);
                 
                 return (
                   <span style={{ 
@@ -924,6 +919,7 @@ export default function AttivitaPage() {
             data={selectedAttivita}
             fields={getAttivitaFields(selectedAttivita).map(field => ({
               ...field,
+              onChange: handleFieldChange,
               error: validationErrors[field.name] ? validationErrors[field.name][0] : null
             }))}
             onSave={handleSaveAttivita}

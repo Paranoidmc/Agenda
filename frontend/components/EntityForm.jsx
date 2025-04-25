@@ -1,18 +1,19 @@
 "use client";
 import { useState, useEffect } from 'react';
 
-export default function EntityForm({ 
-  data, 
-  fields, 
-  onSave, 
-  onDelete, 
+export default function EntityForm({
+  data,
+  fields,
+  onSave,
+  onDelete,
   onCancel,
-  isEditing = false, 
-  setIsEditing, 
+  isEditing = false,
+  setIsEditing,
   isLoading = false,
   isSaving = false,
   errors = {}
 }) {
+  console.log('[DEBUG][EntityForm] Component mount');
   const [formData, setFormData] = useState(data || {});
   
   // Aggiorna i dati del form quando cambiano i dati esterni
@@ -92,9 +93,8 @@ export default function EntityForm({
             formattedData[fieldName] = '';
           }
         }
-        // Gestisci i campi select
+        // Gestisci i campi select (assicurati che il valore sia sempre una stringa)
         else if (field.type === 'select') {
-          // Assicurati che il valore sia una stringa
           formattedData[fieldName] = String(fieldValue);
         }
         // Gestisci i campi numerici
@@ -414,38 +414,58 @@ export default function EntityForm({
               }}
             />
           ) : field.type === 'select' ? (
-            <select
-              id={field.name}
-              name={field.name}
-              value={formData[field.name] !== undefined ? String(formData[field.name]) : ''}
-              onChange={handleChange}
-              disabled={!isEditing || isLoading || isSaving || field.disabled}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
-                fontSize: '1rem',
-                backgroundColor: isEditing ? '#fff' : '#f9f9fa',
-                appearance: 'none',
-                backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007aff%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 12px top 50%',
-                backgroundSize: '12px auto',
-                paddingRight: '30px'
-              }}
-            >
-              <option value="">Seleziona...</option>
-              {field.options?.map(option => {
-                // Converti sia il valore dell'opzione che il valore del form in stringhe per il confronto
-                const optionValue = String(option.value);
-                return (
-                  <option key={optionValue} value={optionValue}>
-                    {option.label}
-                  </option>
-                );
-              })}
-            </select>
+            <>
+              {/* Mostra PRIMA/DOPO per autista e veicolo */}
+              {field.name === 'driver_id' && data.driver && (
+                <div style={{fontSize:'0.85em',color:'#888',marginBottom:'4px'}}>
+                  Autista precedente: {data.driver.nome} {data.driver.cognome}
+                </div>
+              )}
+              {field.name === 'vehicle_id' && data.vehicle && (
+                <div style={{fontSize:'0.85em',color:'#888',marginBottom:'4px'}}>
+                  Veicolo precedente: {data.vehicle.targa} - {data.vehicle.marca} {data.vehicle.modello}
+                </div>
+              )}
+              <select
+                id={field.name}
+                name={field.name}
+                value={formData[field.name] !== undefined ? String(formData[field.name]) : ''}
+                onChange={handleChange}
+                disabled={!isEditing || isLoading || isSaving || field.disabled}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
+                  fontSize: '1rem',
+                  backgroundColor: isEditing ? '#fff' : '#f9f9fa',
+                  appearance: 'none',
+                  backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007aff%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px top 50%',
+                  backgroundSize: '12px auto',
+                  paddingRight: '30px'
+                }}
+              >
+                <option value="">Seleziona...</option>
+                {field.options?.map(option => {
+                  // Converti sia il valore dell'opzione che il valore del form in stringhe per il confronto
+                  const optionValue = String(option.value);
+                  const formValue = String(formData[field.name]);
+
+                  // Log per debug
+                  if (field.name === 'driver_id' || field.name === 'vehicle_id') {
+                    console.log(`[DEBUG][EntityForm][render] Campo: ${field.name}, formValue: ${formValue}, optionValue: ${optionValue}, typeof formValue: ${typeof formValue}, typeof optionValue: ${typeof optionValue}`);
+                  }
+
+                  return (
+                    <option key={optionValue} value={optionValue}>
+                      {option.label}
+                    </option>
+                  );
+                })}
+              </select>
+            </>
           ) : (
             <input
               type={field.type || 'text'}

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Site;
+use App\Models\Client;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class SiteController extends Controller
 {
@@ -282,7 +284,36 @@ class SiteController extends Controller
      */
     public function getClientSites($clientId)
     {
-        $sites = Site::where('client_id', $clientId)->get();
+        // Log per debug
+        Log::info('Richiesta sedi per cliente', [
+            'client_id' => $clientId,
+            'headers' => request()->headers->all(),
+            'ip' => request()->ip()
+        ]);
+        
+        // Verifica se il client_id è valido
+        $clientExists = \App\Models\Client::where('id', $clientId)->exists();
+        
+        if (!$clientExists) {
+            Log::warning('Cliente non trovato', ['client_id' => $clientId]);
+            return response()->json(['error' => 'Cliente non trovato'], 404);
+        }
+        
+        $query = Site::where('client_id', $clientId);
+        
+        // Log della query per debug
+        Log::info('Query sedi', [
+            'query_sql' => $query->toSql(),
+            'query_bindings' => $query->getBindings()
+        ]);
+        
+        $sites = $query->get();
+        
+        // Log del risultato
+        Log::info('Sedi trovate per il cliente', [
+            'client_id' => $clientId,
+            'count' => $sites->count()
+        ]);
         
         // Aggiungiamo i campi in italiano per ogni sede
         $sites = $sites->map(function ($site) {

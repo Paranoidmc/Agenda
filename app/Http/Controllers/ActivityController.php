@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ActivityController extends Controller
 {
@@ -316,7 +317,7 @@ class ActivityController extends Controller
             $activity->activityType->colore = $activity->activityType->color;
         }
         
-        return response()->json($activity);
+        return response()->json($activity)->header('Cache-Control', 'no-store');
     }
 
     /**
@@ -324,6 +325,7 @@ class ActivityController extends Controller
      */
     public function update(Request $request, Activity $activity)
     {
+        \Log::info('ActivityController@update - dati ricevuti', ['all' => $request->all()]);
         $validated = $request->validate([
             'titolo' => 'sometimes|required|string|max:255',
             'descrizione' => 'nullable|string',
@@ -420,6 +422,14 @@ class ActivityController extends Controller
             $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
             return response()->json($activity);
         } catch (\Exception $e) {
+            \Log::error('ActivityController@update - Errore durante update', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'data' => $data,
+            ]);
             // Check if it's a scheduling conflict
             if (strpos($e->getMessage(), "L'autista è già impegnato") !== false) {
                 return response()->json([
@@ -498,11 +508,11 @@ class ActivityController extends Controller
         $startTime = $request->start_time;
         $endTime = $request->end_time;
         
-        // Get all active drivers
-        $allDrivers = \App\Models\Driver::where('is_active', true)->get();
+        // Get all drivers (senza filtri per status)
+        $allDrivers = \App\Models\Driver::all();
         
-        // Get all active vehicles
-        $allVehicles = \App\Models\Vehicle::where('is_active', true)->get();
+        // Get all vehicles (senza filtri per status)
+        $allVehicles = \App\Models\Vehicle::all();
         
         // Find busy drivers for the specified date and time slot
         $busyDriverIds = Activity::whereDate('data_inizio', $date)

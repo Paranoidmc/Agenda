@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkUser = async () => {
       setLoading(true);
-      console.log("[AUTH] Verificando stato autenticazione...");
+      // console.log("[AUTH] Verificando stato autenticazione...");
       
       // Controlla se abbiamo un utente in localStorage
       let userFromStorage = null;
@@ -22,12 +22,12 @@ export const AuthProvider = ({ children }) => {
           const userJson = localStorage.getItem('user');
           if (userJson) {
             userFromStorage = JSON.parse(userJson);
-            console.log("[AUTH] Utente trovato in localStorage");
+            // console.log("[AUTH] Utente trovato in localStorage");
           }
           
           tokenFromStorage = localStorage.getItem('token');
           if (tokenFromStorage) {
-            console.log("[AUTH] Token trovato in localStorage");
+            // console.log("[AUTH] Token trovato in localStorage");
           }
         } catch (error) {
           console.error("[AUTH] Errore nel parsing dei dati utente da localStorage:", error);
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
         });
         
         if (res.data) {
-          console.log("[AUTH] Utente autenticato confermato dal server");
+          // console.log("[AUTH] Utente autenticato confermato dal server");
           setUser(res.data);
           
           // Aggiorna i dati utente in localStorage

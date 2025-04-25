@@ -108,6 +108,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('vehicle-deadlines', App\Http\Controllers\VehicleDeadlineController::class);
     
     // Rotte aggiuntive per le relazioni
+    // Rotta principale per le sedi dei clienti (accessibile sia con che senza autenticazione)
     Route::get('clients/{client}/sites', [App\Http\Controllers\SiteController::class, 'getClientSites']);
     Route::get('sites/{site}/activities', [App\Http\Controllers\ActivityController::class, 'getSiteActivities']);
     Route::get('clients/{client}/activities', [App\Http\Controllers\ActivityController::class, 'getClientActivities']);

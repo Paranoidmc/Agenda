@@ -107,12 +107,14 @@ api.interceptors.request.use(config => {
   
   // Log per debug solo in development
   if (process.env.NODE_ENV === 'development') {
-    console.log('Richiesta in uscita:', {
-      url: config.url,
-      method: config.method,
-      params: config.params,
-      headers: config.headers
-    });
+    /*
+console.log('Richiesta in uscita:', {
+  url: config.url,
+  method: config.method,
+  params: config.params,
+  headers: config.headers
+});
+*/
   }
   
   return config;
@@ -128,12 +130,14 @@ api.interceptors.response.use(
     
     // Log per debug solo in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('Risposta ricevuta:', {
-        url: response.config.url,
-        method: response.config.method,
-        status: response.status,
-        data: response.data
-      });
+      /*
+console.log('Risposta ricevuta:', {
+  url: response.config.url,
+  method: response.config.method,
+  status: response.status,
+  data: response.data
+});
+*/
     }
     
     // Memorizza la risposta nella cache se è una GET
@@ -177,7 +181,7 @@ api.interceptors.response.use(
         const delay = Math.pow(2, retryConfig.retryCount) * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
         
-        console.log(`Riprovo richiesta (${retryConfig.retryCount}/${maxRetries}):`, retryConfig.url);
+        // console.log(`Riprovo richiesta (${retryConfig.retryCount}/${maxRetries}):`, retryConfig.url);
         return api(retryConfig);
       }
     }

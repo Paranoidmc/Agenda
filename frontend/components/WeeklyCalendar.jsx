@@ -8,8 +8,10 @@ export default function WeeklyCalendar({
   onPrevWeek,
   onNextWeek,
   viewMode = 'activity',
+  onChangeViewMode,
   getEventContent,
-  rows
+  rows,
+  selectedDate
 }) {
   const cellHeight = 48; // Altezza in pixel per ogni cella oraria
 
@@ -31,6 +33,14 @@ export default function WeeklyCalendar({
   // Data corrente per evidenziare il giorno attuale
   const today = new Date();
   
+  // --- PULSANTI CAMBIO VISTA ---
+  const viewButtons = [
+    { mode: 'activity', label: 'Settimana' },
+    { mode: 'day', label: 'Giorno' },
+    { mode: 'driver', label: 'Autista' },
+    { mode: 'vehicle', label: 'Veicolo' },
+  ];
+
   // Genera gli slot orari per la visualizzazione
   useEffect(() => {
     const slots = [];
@@ -229,18 +239,24 @@ export default function WeeklyCalendar({
       <div className="calendar-grid">
         {/* Header delle colonne */}
         <div className="time-column header">
-          {viewMode === 'driver' ? 'Autista' : viewMode === 'vehicle' ? 'Veicolo' : 'Cantiere'}
+          {viewMode === 'driver' ? 'Autista' : viewMode === 'vehicle' ? 'Veicolo' : viewMode === 'day' ? 'Attività' : 'Cantiere'}
         </div>
-        {currentWeek.map((day, index) => (
-          <div 
-            key={index} 
-            className="day-header"
-          >
-            <span className="day-name">{formatDate(day).dayName}</span>
-            <span className="day-number">{formatDate(day).dayNumber}</span>
-            <span className="month">{formatDate(day).month}</span>
-          </div>
-        ))}
+        {viewMode === 'day'
+          ? [<div key={selectedDate} className="day-header">
+              <span className="day-name">{formatDate(new Date(selectedDate)).dayName}</span>
+              <span className="day-number">{formatDate(new Date(selectedDate)).dayNumber}</span>
+              <span className="month">{formatDate(new Date(selectedDate)).month}</span>
+            </div>]
+          : currentWeek.map((day, index) => (
+              <div 
+                key={index} 
+                className="day-header"
+              >
+                <span className="day-name">{formatDate(day).dayName}</span>
+                <span className="day-number">{formatDate(day).dayNumber}</span>
+                <span className="month">{formatDate(day).month}</span>
+              </div>
+            ))}
 
         {/* Righe per ogni elemento */}
         {rows.map((row, rowIndex) => (
@@ -250,90 +266,107 @@ export default function WeeklyCalendar({
               {row.name || row.label}
             </div>
 
-            {/* Celle per ogni giorno */}
-            {currentWeek.map((day, dayIndex) => {
-              const cellEvents = getCellEvents(row, day);
-              return (
-                <div
-                  key={`${rowIndex}-${dayIndex}`}
-                  className="calendar-cell"
-                >
-                  {cellEvents.map((event, eventIndex) => {
-                    // Determine the color to use
-                    let backgroundColor = '#007aff'; // Default color
-                    
-                    if (event.type === 'activity') {
-                      console.log(`Rendering event ${event.id}:`, JSON.stringify(event, null, 2));
-                      
-                      // Usa il colore dell'evento che è stato già preparato nella pagina
-                      if (event.color && event.color.startsWith('#')) {
-                        backgroundColor = event.color;
-                        console.log(`Usando colore dell'evento: ${backgroundColor}`);
-                      } else if (event.backgroundColor && event.backgroundColor.startsWith('#')) {
-                        backgroundColor = event.backgroundColor;
-                        console.log(`Usando backgroundColor dell'evento: ${backgroundColor}`);
-                      } else if (event.activityTypeColor && event.activityTypeColor.startsWith('#')) {
-                        backgroundColor = event.activityTypeColor;
-                        console.log(`Usando activityTypeColor dell'evento: ${backgroundColor}`);
-                      } else if (event.data && event.data.activityType) {
-                        console.log(`L'evento ha un activityType:`, JSON.stringify(event.data.activityType, null, 2));
-                        
-                        // Prova a prendere il colore dal tipo di attività
-                        if (event.data.activityType.colore && event.data.activityType.colore.startsWith('#')) {
-                          backgroundColor = event.data.activityType.colore;
-                          console.log(`Usando colore italiano dal tipo di attività: ${backgroundColor}`);
-                        } else if (event.data.activityType.color && event.data.activityType.color.startsWith('#')) {
-                          backgroundColor = event.data.activityType.color;
-                          console.log(`Usando colore inglese dal tipo di attività: ${backgroundColor}`);
-                        } else {
-                          console.warn(`Il tipo di attività non ha un colore valido:`, event.data.activityType);
-                        }
-                      } else if (event.data && event.data.activity_type_id) {
-                        console.log(`L'evento ha solo activity_type_id: ${event.data.activity_type_id}`);
-                      } else {
-                        console.warn(`L'evento non ha informazioni sul tipo di attività:`, event);
-                      }
-                    } else if (event.type === 'deadline') {
-                      backgroundColor = event.color || '#ff3b30';
-                      console.log(`Usando colore per scadenza: ${backgroundColor}`);
-                    }
-                    
-                    // Assicuriamoci che il colore sia valido
-                    if (!backgroundColor || !backgroundColor.startsWith('#')) {
-                      backgroundColor = '#007aff'; // Colore predefinito se non valido
-                      console.warn(`Colore non valido, usando predefinito: ${backgroundColor}`);
-                    }
-                    
-                    console.log(`Rendering event ${event.id} with final color ${backgroundColor}`);
-                    
-                    const textColor = getContrastColor(backgroundColor);
-                    
-                    return (
-                      <div
-                        key={`${event.id}-${eventIndex}`}
-                        className={`event`}
-                        style={{
-                          backgroundColor: backgroundColor,
-                          color: textColor,
-                          borderLeft: `3px solid ${backgroundColor}`,
-                          borderColor: backgroundColor,
-                          borderWidth: '2px',
-                          borderStyle: 'solid',
-                          whiteSpace: 'pre-line', // Permette di visualizzare i ritorni a capo
-                          fontSize: '0.85rem', // Riduce leggermente la dimensione del testo per far entrare più contenuto
-                          lineHeight: '1.2', // Riduce l'interlinea
-                          overflow: 'hidden'
-                        }}
-                        onClick={() => onEventClick?.(event)}
-                        title={getEventContent(event).replace('\n', ' - ')} // Tooltip con testo su una sola riga
-                      >
-                        {getEventContent(event)}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+            {/* Celle per ogni giorno o solo per il giorno selezionato */}
+            {viewMode === 'day'
+              ? (() => {
+                  const day = new Date(selectedDate);
+                  const cellEvents = getCellEvents(row, day);
+                  return (
+                    <div
+                      key={`${rowIndex}-selected`}
+                      className="calendar-cell"
+                      style={{ display: 'flex', flexDirection: 'column', minHeight: 60 }}
+                    >
+                      {cellEvents.length === 0 ? (
+                        <span style={{ color: '#bbb', fontSize: '0.95em', padding: 8 }}>Nessuna attività</span>
+                      ) : (
+                        cellEvents.map((event, eventIndex) => {
+                          let backgroundColor = '#007aff';
+                          if (event.type === 'activity') {
+                            if (event.color && event.color.startsWith('#')) backgroundColor = event.color;
+                            else if (event.backgroundColor && event.backgroundColor.startsWith('#')) backgroundColor = event.backgroundColor;
+                            else if (event.activityTypeColor && event.activityTypeColor.startsWith('#')) backgroundColor = event.activityTypeColor;
+                            else if (event.data && event.data.activityType && event.data.activityType.colore && event.data.activityType.colore.startsWith('#')) backgroundColor = event.data.activityType.colore;
+                          } else if (event.type === 'deadline') {
+                            backgroundColor = event.color || '#ff3b30';
+                          }
+                          if (!backgroundColor || !backgroundColor.startsWith('#')) backgroundColor = '#007aff';
+                          const textColor = getContrastColor(backgroundColor);
+                          return (
+                            <div
+                              key={`${event.id}-${eventIndex}`}
+                              className={`event`}
+                              style={{
+                                backgroundColor: backgroundColor,
+                                color: textColor,
+                                borderLeft: `3px solid ${backgroundColor}`,
+                                borderColor: backgroundColor,
+                                borderWidth: '2px',
+                                borderStyle: 'solid',
+                                whiteSpace: 'pre-line',
+                                fontSize: '0.85rem',
+                                lineHeight: '1.2',
+                                overflow: 'hidden',
+                                marginBottom: 6
+                              }}
+                              onClick={() => onEventClick?.(event)}
+                              title={getEventContent(event).replace('\n', ' - ')}
+                            >
+                              {getEventContent(event)}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  );
+                })()
+              : currentWeek.map((day, dayIndex) => {
+                  const cellEvents = getCellEvents(row, day);
+                  return (
+                    <div
+                      key={`${rowIndex}-${dayIndex}`}
+                      className="calendar-cell"
+                    >
+                      {cellEvents.map((event, eventIndex) => {
+                          let backgroundColor = '#007aff';
+                          if (event.type === 'activity') {
+                            if (event.color && event.color.startsWith('#')) backgroundColor = event.color;
+                            else if (event.backgroundColor && event.backgroundColor.startsWith('#')) backgroundColor = event.backgroundColor;
+                            else if (event.activityTypeColor && event.activityTypeColor.startsWith('#')) backgroundColor = event.activityTypeColor;
+                            else if (event.data && event.data.activityType && event.data.activityType.colore && event.data.activityType.colore.startsWith('#')) backgroundColor = event.data.activityType.colore;
+                          } else if (event.type === 'deadline') {
+                            backgroundColor = event.color || '#ff3b30';
+                          }
+                          if (!backgroundColor || !backgroundColor.startsWith('#')) backgroundColor = '#007aff';
+                          const textColor = getContrastColor(backgroundColor);
+                          return (
+                            <div
+                              key={`${event.id}-${eventIndex}`}
+                              className={`event`}
+                              style={{
+                                backgroundColor: backgroundColor,
+                                color: textColor,
+                                borderLeft: `3px solid ${backgroundColor}`,
+                                borderColor: backgroundColor,
+                                borderWidth: '2px',
+                                borderStyle: 'solid',
+                                whiteSpace: 'pre-line',
+                                fontSize: '0.85rem',
+                                lineHeight: '1.2',
+                                overflow: 'hidden',
+                                marginBottom: 6
+                              }}
+                              onClick={() => onEventClick?.(event)}
+                              title={getEventContent(event).replace('\n', ' - ')}
+                            >
+                              {getEventContent(event)}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  );
+                })
+            }
           </React.Fragment>
         ))}
       </div>

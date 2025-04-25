@@ -11,15 +11,6 @@ use Illuminate\Support\Facades\Auth;
 class VehicleDeadlineController extends Controller
 {
     /**
-     * Constructor
-     */
-    public function __construct()
-    {
-        // Rimuovi qualsiasi middleware di autenticazione
-        $this->middleware('auth:sanctum')->except(['index', 'show', 'getVehicleDeadlines']);
-    }
-    
-    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)

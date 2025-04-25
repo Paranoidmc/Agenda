@@ -7,7 +7,11 @@ import SidePanel from "../../../components/SidePanel";
 import EntityForm from "../../../components/EntityForm";
 import PageHeader from "../../../components/PageHeader";
 
-export default function AttivitaDetailPage() {
+export default function AttivitaDetailPage({ params }) {
+  // DEBUG LOG: solo questo log rimane
+  if (typeof window !== 'undefined') {
+    console.log('[DEBUG][COMPONENT] AttivitaDetailPage mount, params:', params);
+  }
   const { id } = useParams();
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -25,22 +29,23 @@ export default function AttivitaDetailPage() {
   const [sediPerCliente, setSediPerCliente] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
 
-  // Gestisce il cambio di data o fascia oraria
-  const handleDateOrTimeSlotChange = (name, value) => {
-    console.log(`Campo ${name} cambiato a ${value}`);
-    
-    // Aggiorna l'attività selezionata
-    setAttivita(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Se è cambiata la data o la fascia oraria, carica le risorse disponibili
+  // Handler unico per tutte le modifiche ai campi del form
+  const handleFieldChange = (name, value) => {
+    setAttivita(prev => {
+      let newState = { ...prev, [name]: value };
+      // Reset della sede se cambio cliente
+      if (name === 'client_id') {
+        newState.site_id = '';
+      }
+      return newState;
+    });
+    // Caricamento risorse disponibili su cambio data/fascia oraria
     if (name === 'data_inizio' || name === 'time_slot') {
-      // Aspetta che lo stato sia aggiornato prima di caricare le risorse
-      setTimeout(() => {
-        loadAvailableResources();
-      }, 100);
+      setTimeout(() => loadAvailableResources(), 100);
+    }
+    // Caricamento sedi per cliente
+    if (name === 'client_id') {
+      loadSediPerCliente(value);
     }
   };
 
@@ -50,27 +55,31 @@ export default function AttivitaDetailPage() {
     let sediOptions = [];
     const clienteId = selectedAttivita?.client_id;
     
-    console.log("getAttivitaFields - clienteId:", clienteId);
-    console.log("getAttivitaFields - sediPerCliente:", sediPerCliente);
+    // // console.log("getAttivitaFields - clienteId:", clienteId);
+    // // console.log("getAttivitaFields - sediPerCliente:", sediPerCliente);
     
+    // // console.log('[DEBUG] getAttivitaFields - attivita.client_id:', clienteId);
+    // // console.log('[DEBUG] getAttivitaFields - sediPerCliente:', sediPerCliente);
     if (clienteId && sediPerCliente[clienteId]) {
       // Se abbiamo le sedi per questo cliente, le utilizziamo
       sediOptions = sediPerCliente[clienteId].map(sede => ({ 
-        value: sede.id, 
+        value: String(sede.id), 
         label: sede.nome || sede.name 
       }));
-      console.log("Usando sedi specifiche per il cliente:", sediOptions);
+      // // console.log('[DEBUG] Usando sedi specifiche per il cliente:', sediOptions);
     } else if (!clienteId) {
       // Se non c'è un cliente selezionato, non mostriamo sedi
       sediOptions = [];
-      console.log("Nessun cliente selezionato, nessuna sede disponibile");
+      // // console.log('[DEBUG] Nessun cliente selezionato, nessuna sede disponibile');
     } else {
       // Se abbiamo un cliente ma non abbiamo ancora le sue sedi, carichiamole
-      console.log("Cliente selezionato ma sedi non ancora caricate, caricamento in corso...");
+      // // console.log('[DEBUG] Cliente selezionato ma sedi non ancora caricate, caricamento in corso...');
       loadSediPerCliente(clienteId);
       // Mostriamo un messaggio di caricamento
       sediOptions = [{ value: "", label: "Caricamento sedi..." }];
     }
+    // // console.log('[DEBUG] attivita.site_id:', selectedAttivita?.site_id);
+    // // console.log('[DEBUG] sediOptions:', sediOptions);
     
     return [
       { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
@@ -79,7 +88,7 @@ export default function AttivitaDetailPage() {
         label: 'Data Inizio', 
         type: 'datetime-local', 
         required: true,
-        onChange: handleDateOrTimeSlotChange
+        onChange: handleFieldChange
       },
       { 
         name: 'data_fine', 
@@ -97,7 +106,7 @@ export default function AttivitaDetailPage() {
           { value: 'afternoon', label: 'Pomeriggio' },
           { value: 'full_day', label: 'Giornata intera' }
         ],
-        onChange: handleDateOrTimeSlotChange
+        onChange: handleFieldChange
       },
       { 
         name: 'client_id', 
@@ -106,10 +115,10 @@ export default function AttivitaDetailPage() {
         isNumeric: true, 
         required: true,
         options: Array.isArray(clienti) ? clienti.map(cliente => ({ 
-          value: cliente.id, 
+          value: String(cliente.id), 
           label: cliente.nome || cliente.name || '' 
         })) : [],
-        onChange: handleClienteChange
+        onChange: handleFieldChange
       },
       { 
         name: 'site_id', 
@@ -127,7 +136,7 @@ export default function AttivitaDetailPage() {
         isNumeric: true, 
         required: true,
         options: Array.isArray(autisti) ? autisti.map(autista => ({ 
-          value: autista.id, 
+          value: String(autista.id), 
           label: `${autista.nome || ''} ${autista.cognome || ''}`.trim() 
         })) : []
       },
@@ -137,19 +146,19 @@ export default function AttivitaDetailPage() {
         type: 'select', 
         isNumeric: true, 
         required: true,
-        options: Array.isArray(veicoli) ? veicoli.map(veicolo => ({ 
-          value: veicolo.id, 
-          label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() 
-        })) : []
+        options: Array.isArray(veicoli) ? veicoli.map(veicolo => ({
+          value: String(veicolo.id),
+          label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim()
+        })) : [],
       },
-      { 
-        name: 'activity_type_id', 
-        label: 'Tipo Attività', 
+      {
+        name: 'activity_type_id',
+        label: 'Tipo Attività',
         type: 'select', 
         isNumeric: true, 
         required: true,
         options: Array.isArray(tipiAttivita) ? tipiAttivita.map(tipo => ({ 
-          value: tipo.id, 
+          value: String(tipo.id), 
           label: tipo.nome || tipo.name || '' 
         })) : []
       },
@@ -202,30 +211,7 @@ export default function AttivitaDetailPage() {
     }
   }, [attivita?.data_inizio, attivita?.time_slot]);
   
-  // Carica le sedi quando cambia il cliente selezionato
-  const handleClienteChange = (name, value) => {
-    console.log("Cliente cambiato:", value, typeof value);
-    
-    // Assicurati che il valore sia un numero
-    const clientId = value ? Number(value) : null;
-    
-    console.log("Cliente ID convertito:", clientId, typeof clientId);
-    
-    if (clientId) {
-      // Aggiorna il cliente nell'attività selezionata
-      if (attivita) {
-        setAttivita(prev => ({
-          ...prev,
-          client_id: clientId,
-          // Reset della sede quando cambia il cliente
-          site_id: ""
-        }));
-      }
-      
-      // Carica le sedi per questo cliente
-      loadSediPerCliente(clientId);
-    }
-  };
+  // Handler specifici rimossi: ora si usa solo handleFieldChange
 
   const loadAttivita = async () => {
     setFetching(true);
@@ -251,7 +237,20 @@ export default function AttivitaDetailPage() {
           };
         }
       }
-      setAttivita(att);
+      const attivitaObj = {
+        ...att,
+        client_id: att.client_id ? String(att.client_id) : '',
+        site_id: att.site_id ? String(att.site_id) : '',
+        driver_id: att.driver_id ? String(att.driver_id) : '',
+        vehicle_id: att.vehicle_id ? String(att.vehicle_id) : '',
+        activity_type_id: att.activity_type_id ? String(att.activity_type_id) : '',
+        descrizione: att.descrizione ? String(att.descrizione) : '',
+        note: att.note ? String(att.note) : '',
+        driver: att.driver || null,
+        vehicle: att.vehicle || null,
+      };
+      console.log('[DEBUG][loadAttivita] attivitaObj:', attivitaObj);
+      setAttivita(attivitaObj);
     } catch (err) {
       console.error("Errore nel caricamento dell'attività:", err);
       if (err.response && err.response.status === 401) {
@@ -268,10 +267,10 @@ export default function AttivitaDetailPage() {
 
 
   const loadClienti = () => {
-    console.log("Caricamento clienti...");
+    // // console.log("Caricamento clienti...");
     api.get("/clients")
       .then(res => {
-        console.log("Clienti caricati:", res.data);
+        // // console.log("Clienti caricati:", res.data);
         // Verifica che la risposta sia un array
         if (Array.isArray(res.data)) {
           setClienti(res.data);
@@ -291,10 +290,10 @@ export default function AttivitaDetailPage() {
   };
 
   const loadVeicoli = () => {
-    console.log("Caricamento veicoli...");
+    // // console.log("Caricamento veicoli...");
     api.get("/vehicles")
       .then(res => {
-        console.log("Veicoli caricati:", res.data);
+        // // console.log("Veicoli caricati:", res.data);
         if (Array.isArray(res.data)) {
           setVeicoli(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -311,10 +310,10 @@ export default function AttivitaDetailPage() {
   };
 
   const loadAutisti = () => {
-    console.log("Caricamento autisti...");
+    // // console.log("Caricamento autisti...");
     api.get("/drivers")
       .then(res => {
-        console.log("Autisti caricati:", res.data);
+        // // console.log("Autisti caricati:", res.data);
         if (Array.isArray(res.data)) {
           setAutisti(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -331,10 +330,10 @@ export default function AttivitaDetailPage() {
   };
 
   const loadTipiAttivita = () => {
-    console.log("Caricamento tipi attività...");
+    // // console.log("Caricamento tipi attività...");
     api.get("/activity-types")
       .then(res => {
-        console.log("Tipi attività caricati:", res.data);
+        // // console.log("Tipi attività caricati:", res.data);
         if (Array.isArray(res.data)) {
           setTipiAttivita(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -351,10 +350,10 @@ export default function AttivitaDetailPage() {
   };
   
   const loadSedi = () => {
-    console.log("Caricamento sedi...");
+    // // console.log("Caricamento sedi...");
     api.get("/sites")
       .then(res => {
-        console.log("Sedi caricate:", res.data);
+        // // console.log("Sedi caricate:", res.data);
         if (Array.isArray(res.data)) {
           setSedi(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -372,38 +371,63 @@ export default function AttivitaDetailPage() {
   
   const loadSediPerCliente = (clientId) => {
     if (!clientId) {
-      console.log("loadSediPerCliente: clientId non valido", clientId);
+      // // console.log("loadSediPerCliente: clientId non valido", clientId);
       return;
     }
     
-    // Assicurati che clientId sia un numero
-    const numericClientId = Number(clientId);
-    if (isNaN(numericClientId)) {
-      console.error("loadSediPerCliente: clientId non è un numero valido", clientId);
-      return;
-    }
-    
-    console.log("Caricamento sedi per cliente:", numericClientId);
-    
-    // Carica sempre le sedi per assicurarsi di avere i dati più aggiornati
-    api.get(`/clients/${numericClientId}/sites`)
+    const clientKey = String(clientId);
+    // // console.log("Caricamento sedi per cliente:", clientKey);
+    // // console.log("Token di autenticazione presente:", localStorage.getItem('token') ? 'Sì' : 'No');
+    api.get(`/clients/${clientKey}/sites`, {
+      params: { _t: new Date().getTime() },
+      useCache: false,
+      headers: {
+        'X-Debug-Client-Sites': 'true' // Header personalizzato per tracciare questa richiesta specifica
+      }
+    })
       .then(res => {
-        console.log("Sedi caricate per cliente:", numericClientId, res.data);
+        // // console.log("Sedi per cliente - Risposta completa:", res);
+        // // console.log("Sedi per cliente caricate:", res.data);
+        
+        // Estrai i dati dalla risposta
+        let clientSites = [];
         if (Array.isArray(res.data)) {
-          setSediPerCliente(prev => ({
-            ...prev,
-            [numericClientId]: res.data
-          }));
+          clientSites = res.data;
+        } else if (res.data && Array.isArray(res.data.data)) {
+          // Se i dati sono annidati sotto 'data'
+          clientSites = res.data.data;
         } else {
-          console.error("La risposta non è un array:", res.data);
+          console.error("Formato risposta sedi non valido:", res.data);
+          clientSites = []; // Imposta un array vuoto se il formato non è riconosciuto
         }
+        
+        // Aggiorna lo stato con le sedi caricate
+        setSediPerCliente(prev => ({
+          ...prev,
+          [clientKey]: clientSites
+        }));
       })
       .catch(err => {
-        console.error(`Errore nel caricamento delle sedi per il cliente ${numericClientId}:`, err);
+        console.error("Errore nel caricamento delle sedi per il cliente:", err);
+        
+        // Log dettagliato dell'errore
+        if (err.response) {
+          console.error("Dettagli errore:", {
+            status: err.response.status,
+            data: err.response.data,
+            headers: err.response.headers,
+            config: err.config
+          });
+        } else if (err.request) {
+          console.error("Nessuna risposta ricevuta:", err.request);
+        } else {
+          console.error("Errore di configurazione:", err.message);
+        }
+        
         // In caso di errore, imposta un array vuoto per evitare errori
         setSediPerCliente(prev => ({
           ...prev,
-          [numericClientId]: []
+          [clientKey]: []
         }));
       });
   };
@@ -415,11 +439,11 @@ export default function AttivitaDetailPage() {
     const date = attivita.data_inizio.split('T')[0];
     const timeSlot = attivita.time_slot || 'full_day';
     
-    console.log("Caricamento risorse disponibili per:", { date, timeSlot });
+    // // console.log("Caricamento risorse disponibili per:", { date, timeSlot });
     
     api.get(`/available-resources?date=${date}&time_slot=${timeSlot}`)
       .then(res => {
-        console.log("Risorse disponibili:", res.data);
+        // // console.log("Risorse disponibili:", res.data);
         
         // Aggiorna gli autisti e i veicoli disponibili
         if (res.data.drivers) {
@@ -435,6 +459,10 @@ export default function AttivitaDetailPage() {
         // In caso di errore, carica tutti gli autisti e veicoli
         loadAutisti();
         loadVeicoli();
+      })
+      .finally(() => {
+        console.log('[DEBUG][loadAvailableResources] Autisti caricati:', autisti);
+        console.log('[DEBUG][loadAvailableResources] Veicoli caricati:', veicoli);
       });
   };
 
@@ -482,15 +510,15 @@ export default function AttivitaDetailPage() {
       const clienteNome = clienti.find(c => c.id === Number(preparedData.client_id))?.nome || '';
       const dataFormattata = new Date(preparedData.data_inizio).toLocaleDateString();
       preparedData.titolo = `${clienteNome} - ${dataFormattata}`;
-      console.log('Titolo generato automaticamente:', preparedData.titolo);
+      // // console.log('Titolo generato automaticamente:', preparedData.titolo);
       
       // Log per debug
-      console.log('Dati attività da salvare:', preparedData);
+      // // console.log('Dati attività da salvare:', preparedData);
       
       // Aggiornamento
-      console.log(`Invio richiesta PUT a /activities/${id}`);
+      // // console.log(`Invio richiesta PUT a /activities/${id}`);
       const response = await api.put(`/activities/${id}`, preparedData);
-      console.log('Risposta aggiornamento attività:', response.data);
+      // // console.log('Risposta aggiornamento attività:', response.data);
       
       // Aggiorna l'attività
       setAttivita(response.data);
@@ -600,14 +628,23 @@ export default function AttivitaDetailPage() {
   if (!attivita) return <div className="centered">Attività non trovata</div>;
 
   return (
-    <div style={{ padding: 32 }}>
-      <PageHeader 
-        title={`Attività: ${attivita.titolo}`} 
-        buttonLabel="Torna alla lista" 
+    <div key={id} style={{ padding: 32 }}>
+      <PageHeader
+        title={`Attività: ${attivita.titolo}`}
+        buttonLabel="Torna alla lista"
         onAddClick={() => router.push('/attivita')} 
       />
       
       <div className="activity-details">
+        <h2>Dettaglio Attività</h2>
+        {/* DEBUG VISIVO: mostra sempre lo stato attivita/driver/vehicle in UI */}
+        <div style={{background:'#ffeeba',color:'#333',padding:'8px',fontSize:'0.85em',marginBottom:'10px'}}>
+          <b>DEBUG attivita:</b> <pre>{JSON.stringify(attivita,null,2)}</pre>
+          <b>DEBUG typeof attivita.driver:</b> <pre>{typeof attivita.driver}</pre>
+          <b>DEBUG attivita.driver:</b> <pre>{JSON.stringify(attivita.driver,null,2)}</pre>
+          <b>DEBUG typeof attivita.vehicle:</b> <pre>{typeof attivita.vehicle}</pre>
+          <b>DEBUG attivita.vehicle:</b> <pre>{JSON.stringify(attivita.vehicle,null,2)}</pre>
+        </div>
         <div className="detail-row">
           <div className="detail-label">Cliente:</div>
           <div className="detail-value">{attivita.client?.nome || 'N/D'}</div>
@@ -624,14 +661,38 @@ export default function AttivitaDetailPage() {
           <div className="detail-label">Data Fine:</div>
           <div className="detail-value">{formatDate(attivita.data_fine)}</div>
         </div>
-        <div className="detail-row">
-          <div className="detail-label">Autista:</div>
-          <div className="detail-value">{attivita.driver ? `${attivita.driver.nome} ${attivita.driver.cognome}` : 'N/D'}</div>
-        </div>
-        <div className="detail-row">
-          <div className="detail-label">Veicolo:</div>
-          <div className="detail-value">{attivita.vehicle ? `${attivita.vehicle.targa} - ${attivita.vehicle.marca} ${attivita.vehicle.modello}` : 'N/D'}</div>
-        </div>
+          <div className="detail-row">
+            <div className="detail-label">Autista:</div>
+            <div className="detail-value">
+              {attivita.driver && (
+                <div>
+                  {attivita.driver.nome || attivita.driver.name || ''}
+                  {' '}
+                  {attivita.driver.cognome || attivita.driver.surname || ''}
+                  {attivita.driver.id || attivita.driver_id ? ` (ID: ${attivita.driver.id || attivita.driver_id})` : ''}
+                </div>
+              )}
+              {(!attivita.driver && attivita.driver_id) && `ID: ${attivita.driver_id}`}
+              {(!attivita.driver && !attivita.driver_id) && 'N/D'}
+            </div>
+          </div>
+          <div className="detail-row">
+            <div className="detail-label">Veicolo:</div>
+            <div className="detail-value">
+              {attivita.vehicle && (
+                <div>
+                  {attivita.vehicle.targa || attivita.vehicle.plate || ''}
+                  {' - '}
+                  {attivita.vehicle.marca || attivita.vehicle.brand || ''}
+                  {' '}
+                  {attivita.vehicle.modello || attivita.vehicle.model || ''}
+                  {attivita.vehicle.id || attivita.vehicle_id ? ` (ID: ${attivita.vehicle.id || attivita.vehicle_id})` : '')}
+                </div>
+              )}
+              {(!attivita.vehicle && attivita.vehicle_id) && `ID: ${attivita.vehicle_id}`}
+              {(!attivita.vehicle && !attivita.vehicle_id) && 'N/D'}
+            </div>
+          </div>
         <div className="detail-row">
           <div className="detail-label">Tipo Attività:</div>
           <div className="detail-value">{attivita.activityType?.nome || 'N/D'}</div>
@@ -676,13 +737,19 @@ export default function AttivitaDetailPage() {
           isOpen={isEditing}
           onClose={() => setIsEditing(false)}
         >
-          <EntityForm 
-            fields={getAttivitaFields(attivita)}
+          
+          
+          <EntityForm
+            fields={getAttivitaFields(attivita).map(field => ({
+              ...field,
+              onChange: handleFieldChange
+            }))}
             data={attivita}
             onSave={handleSaveAttivita}
             onCancel={() => setIsEditing(false)}
             isSaving={isSaving}
             errors={validationErrors}
+            key={attivita.updated_at} // Forza un nuovo rendering quando l'attività viene aggiornata
           />
         </SidePanel>
       )}

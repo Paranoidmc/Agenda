@@ -18,11 +18,46 @@ export default function SiteList({ clientId, onSiteClick }) {
       setLoading(true);
       setError(null);
       
+      console.log("SiteList - Caricamento sedi per cliente:", clientId);
+      
       try {
-        const response = await api.get(`/clients/${clientId}/sites`);
-        setSites(response.data);
+        console.log("SiteList - Iniziando chiamata API per il cliente:", clientId);
+        
+        // Aggiungiamo un parametro per evitare la cache
+        const response = await api.get(`/clients/${clientId}/sites`, {
+          params: { _t: new Date().getTime() },
+          useCache: false
+        });
+        
+        console.log("SiteList - Risposta API completa:", response);
+        console.log("SiteList - Risposta API data:", response.data);
+        
+        if (Array.isArray(response.data)) {
+          setSites(response.data);
+        } else if (response.data && Array.isArray(response.data.data)) {
+          setSites(response.data.data);
+        } else {
+          console.error("SiteList - Formato dati non valido:", response.data);
+          setSites([]);
+          setError("Formato dati non valido");
+        }
       } catch (err) {
-        console.error("Errore nel caricamento delle sedi:", err);
+        console.error("SiteList - Errore nel caricamento delle sedi:", err);
+        
+        // Log dettagliato dell'errore
+        if (err.response) {
+          console.error("SiteList - Dettagli errore:", {
+            status: err.response.status,
+            data: err.response.data,
+            headers: err.response.headers,
+            config: err.config
+          });
+        } else if (err.request) {
+          console.error("SiteList - Nessuna risposta ricevuta:", err.request);
+        } else {
+          console.error("SiteList - Errore di configurazione:", err.message);
+        }
+        
         setError("Errore nel caricamento delle sedi");
       } finally {
         setLoading(false);

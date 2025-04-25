@@ -74,7 +74,7 @@ class Activity extends Model
         
         // Check for driver schedule conflicts
         $driverQuery = static::where('driver_id', $activity->driver_id)
-            ->where('date', $activity->date)
+            ->where('data_inizio', $activity->data_inizio)
             ->where('id', '!=', $activity->id)
             ->where('status', '!=', 'cancelled');
             
@@ -130,7 +130,7 @@ class Activity extends Model
         
         // Check for vehicle schedule conflicts
         $vehicleQuery = static::where('vehicle_id', $activity->vehicle_id)
-            ->where('date', $activity->date)
+            ->where('data_inizio', $activity->data_inizio)
             ->where('id', '!=', $activity->id)
             ->where('status', '!=', 'cancelled');
             

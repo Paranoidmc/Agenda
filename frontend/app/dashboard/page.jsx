@@ -62,42 +62,68 @@ export default function DashboardPage() {
       const endDate = thirtyDaysLater.toISOString().split('T')[0];
       console.log("[DASHBOARD] Intervallo date:", { startDate, endDate });
       
-      // Carica le scadenze dei veicoli
-      console.log("[DASHBOARD] Caricamento scadenze veicoli...");
+      // Carica i veicoli e poi le scadenze per ogni veicolo
+      console.log("[DASHBOARD] Caricamento veicoli...");
       try {
         // Ottieni il token da localStorage se disponibile
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         console.log("[DASHBOARD] Token di autenticazione:", token ? "Presente" : "Non presente");
         
-        // Log dettagliato della richiesta
-        console.log("[DASHBOARD] Richiesta scadenze veicoli:", {
-          url: `/vehicle-deadlines?start_date=${startDate}&end_date=${endDate}`,
+        // Carica tutti i veicoli
+        const vehiclesResponse = await api.get('/vehicles', {
           withCredentials: true,
           headers: {
             'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            'X-Requested-With': 'XMLHttpRequest'
           }
         });
         
-        const deadlinesResponse = await api.get(`/vehicle-deadlines?start_date=${startDate}&end_date=${endDate}`, {
-          withCredentials: true,
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        console.log("[DASHBOARD] Veicoli caricati:", vehiclesResponse.status);
+        console.log("[DASHBOARD] Numero veicoli:", vehiclesResponse.data.length);
+        
+        // Array per raccogliere tutte le scadenze
+        let allDeadlines = [];
+        
+        // Per ogni veicolo, carica le scadenze
+        console.log("[DASHBOARD] Caricamento scadenze per ogni veicolo...");
+        for (const vehicle of vehiclesResponse.data) {
+          try {
+            const vehicleDeadlinesResponse = await api.get(`/vehicles/${vehicle.id}/deadlines`, {
+              withCredentials: true,
+              headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+              }
+            });
+            
+            console.log(`[DASHBOARD] Scadenze per veicolo ${vehicle.id} caricate:`, vehicleDeadlinesResponse.status);
+            console.log(`[DASHBOARD] Numero scadenze per veicolo ${vehicle.id}:`, vehicleDeadlinesResponse.data.length);
+            
+            // Aggiungi le scadenze di questo veicolo all'array di tutte le scadenze
+            if (Array.isArray(vehicleDeadlinesResponse.data)) {
+              allDeadlines = [...allDeadlines, ...vehicleDeadlinesResponse.data];
+            }
+          } catch (vehicleDeadlinesError) {
+            console.error(`[DASHBOARD] Errore nel caricamento delle scadenze per il veicolo ${vehicle.id}:`, vehicleDeadlinesError);
           }
+        }
+        
+        console.log("[DASHBOARD] Tutte le scadenze caricate:", allDeadlines.length);
+        
+        // Filtra le scadenze per il periodo specificato
+        const filteredDeadlines = allDeadlines.filter(deadline => {
+          const deadlineDate = new Date(deadline.data_scadenza || deadline.expiry_date);
+          const endDateObj = new Date(endDate);
+          return deadlineDate <= endDateObj;
         });
         
-        console.log("[DASHBOARD] Scadenze veicoli caricate:", deadlinesResponse.status);
-        console.log("[DASHBOARD] Numero scadenze:", deadlinesResponse.data.length);
-        console.log("[DASHBOARD] Dati scadenze:", deadlinesResponse.data);
+        console.log("[DASHBOARD] Scadenze filtrate per periodo:", filteredDeadlines.length);
         
         // Ordina le scadenze per data
-        // Controllo robusto per array scadenze
-        let deadlinesArr = Array.isArray(deadlinesResponse.data) ? deadlinesResponse.data : [];
-        const sortedDeadlines = deadlinesArr.sort((a, b) => {
-          return new Date(a.data_scadenza) - new Date(b.data_scadenza);
+        const sortedDeadlines = filteredDeadlines.sort((a, b) => {
+          const dateA = new Date(a.data_scadenza || a.expiry_date);
+          const dateB = new Date(b.data_scadenza || b.expiry_date);
+          return dateA - dateB;
         });
         
         setDeadlines(sortedDeadlines);
