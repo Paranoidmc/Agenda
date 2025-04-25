@@ -13,7 +13,6 @@ export default function EntityForm({
   isSaving = false,
   errors = {}
 }) {
-  console.log('[DEBUG][EntityForm] Component mount');
   const [formData, setFormData] = useState(data || {});
   
   // Aggiorna i dati del form quando cambiano i dati esterni
@@ -400,34 +399,30 @@ export default function EntityForm({
               wordBreak: 'break-word', // Per testi lunghi
             }}>
               {(() => {
-                const value = formData[field.name];
-                if (value === undefined || value === null || value === '') {
-                  return <span style={{ color: '#8e8e93' }}>N/D</span>; // Mostra N/D per valori vuoti
-                }
+                let displayValue = formData[field.name] ?? 'N/D';
 
-                if (field.type === 'select' && field.options) {
-                  const option = field.options.find(opt => String(opt.value) === String(value));
-                  return option ? option.label : <span style={{ color: '#ff3b30' }}>Valore non trovato</span>; // Mostra etichetta o errore
-                }
-
-                if (field.type === 'checkbox') {
-                  return value ? 'Sì' : 'No';
-                }
-
-                if (field.type === 'date' && value) {
+                // Handle specific display logic for read-only mode
+                if (field.name === 'driver_id') {
+                  // Directly use driver object if available
+                  displayValue = formData.driver ? `${formData.driver.name} ${formData.driver.surname}` : 'Valore non trovato';
+                } else if (field.name === 'vehicle_id') {
+                  // Directly use vehicle object if available
+                  displayValue = formData.vehicle ? `${formData.vehicle.marca} ${formData.vehicle.modello} (${formData.vehicle.targa})` : 'Valore non trovato';
+                } else if (field.type === 'select') {
+                  const selectedOption = field.options?.find(option => String(option.value) === String(formData[field.name]));
+                  displayValue = selectedOption ? selectedOption.label : 'Valore non trovato';
+                } else if (field.type === 'datetime-local' && displayValue !== 'N/D') {
                   try {
-                    return new Date(value).toLocaleDateString('it-IT'); // Formato data locale
-                  } catch { return value; } // Fallback al valore grezzo
-                }
-
-                if (field.type === 'datetime-local' && value) {
+                    displayValue = new Date(displayValue).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
+                  } catch { displayValue = 'Data non valida'; } // Fallback
+                } else if (field.type === 'date' && displayValue !== 'N/D') {
                   try {
-                    return new Date(value).toLocaleString('it-IT'); // Formato data/ora locale
-                  } catch { return value; } // Fallback
+                    displayValue = new Date(displayValue).toLocaleDateString('it-IT'); // Formato data locale
+                  } catch { displayValue = 'Data non valida'; } // Fallback
                 }
 
                 // Per altri tipi (text, textarea, number), mostra il valore
-                return String(value);
+                return <span>{displayValue}</span>;
               })()}
             </div>
           ) : (

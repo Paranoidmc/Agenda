@@ -160,7 +160,7 @@ export default function AttivitaPage() {
         })) : []
       },
       { 
-        name: 'stato', 
+        name: 'status', 
         label: 'Stato', 
         type: 'select', 
         required: true,
@@ -406,7 +406,7 @@ export default function AttivitaPage() {
     
     console.log("Caricamento sedi per cliente:", numericClientId);
     
-    // Carica sempre le sedi per assicurarsi di avere i dati più aggiornati
+    // Carica sempre le sedi per assicurarti di avere i dati più aggiornati
     // Aggiungiamo un parametro per evitare la cache e impostiamo useCache a false
     api.get(`/clients/${numericClientId}/sites`, {
       params: { _t: new Date().getTime() },
@@ -832,7 +832,7 @@ export default function AttivitaPage() {
               label: 'Veicolo'
             },
             { 
-              key: 'stato', 
+              key: 'status', 
               label: 'Stato',
               render: (item) => (
                 <span style={{ 
@@ -842,9 +842,9 @@ export default function AttivitaPage() {
                   fontSize: 12,
                   fontWeight: 500,
                   color: '#fff',
-                  backgroundColor: getStatusColor(item.status) // Modificato da item.stato a item.status
+                  backgroundColor: getStatusColor(item.status)
                 }}>
-                  {item.status || 'N/D'} {/* Modificato da item.stato a item.status */}
+                  {item.status || 'N/D'}
                 </span>
               )
             },
@@ -884,7 +884,7 @@ export default function AttivitaPage() {
               filterType: 'text'
             },
             { 
-              key: 'stato', 
+              key: 'status', 
               label: 'Stato',
               filterType: 'select',
               filterOptions: [
@@ -914,13 +914,6 @@ export default function AttivitaPage() {
         onClose={handleClosePanel} 
         title={isEditing ? "Modifica Attività" : "Dettagli Attività"}
       >
-        {selectedAttivita && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `console.log('[DEBUG][AttivitaPage][SidePanel] Dati passati a EntityForm:', ${JSON.stringify(selectedAttivita, null, 2)}); console.log('[DEBUG][AttivitaPage][SidePanel] Campi passati a EntityForm:', ${JSON.stringify(getAttivitaFields(selectedAttivita), (key, value) => (key === 'options' && Array.isArray(value) && value.length > 10) ? `Array(${value.length})` : value , 2)});`
-            }}
-          />
-        )}
         {selectedAttivita && (
           <EntityForm
             data={selectedAttivita}
