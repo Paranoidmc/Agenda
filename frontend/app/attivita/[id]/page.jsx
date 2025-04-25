@@ -686,7 +686,7 @@ export default function AttivitaDetailPage({ params }) {
                   {attivita.vehicle.marca || attivita.vehicle.brand || ''}
                   {' '}
                   {attivita.vehicle.modello || attivita.vehicle.model || ''}
-                  {attivita.vehicle.id || attivita.vehicle_id ? ` (ID: ${attivita.vehicle.id || attivita.vehicle_id})` : '')}
+                  {attivita.vehicle.id || attivita.vehicle_id ? ` (ID: ${attivita.vehicle.id || attivita.vehicle_id})` : ''}
                 </div>
               )}
               {(!attivita.vehicle && attivita.vehicle_id) && `ID: ${attivita.vehicle_id}`}

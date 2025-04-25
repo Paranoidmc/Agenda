@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "../../../lib/api";
 import { useAuth } from "../../../context/AuthContext";
 import PageHeader from "../../../components/PageHeader";
 
-export default function NewSitePage() {
+// Client component that uses searchParams
+function NewSiteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clientId = searchParams.get('client_id');
@@ -204,5 +205,14 @@ export default function NewSitePage() {
         </form>
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense
+export default function NewSitePage() {
+  return (
+    <Suspense fallback={<div className="centered">Caricamento...</div>}>
+      <NewSiteContent />
+    </Suspense>
   );
 }
