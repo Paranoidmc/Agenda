@@ -1,32 +1,100 @@
-# dependencies
+/.phpunit.cache
 /node_modules
-/.pnp
-.pnp.js
+/frontend/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/auth.json
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+/backup_jsx
 
-# testing
-/coverage
+# Next.js specific
+/frontend/.next/
+/frontend/out/
+/frontend/build/
 
-# next.js
-/.next/
-/out/
+# Laravel environment files
+.env
+.env.*
 
-# production
-/build
+# Laravel cache, logs, sessions, compiled, vendor
+/storage/app/public
+/storage/framework/cache
+/storage/framework/sessions
+/storage/framework/views
+storage/logs
+/bootstrap/cache
+/vendor/
 
-# misc
+# Node modules
+/node_modules/
+/frontend/node_modules/
+
+# Laravel build
+/public/build/
+/public/hot/
+public/storage/
+
+# Composer & npm logs
+npm-debug.log
+yarn-error.log
+composer.lock
+package-lock.json
+
+# IDE/editor/project files
+/.idea/
+/.vscode/
+/.fleet/
+/.nova/
+/.zed/
+.phpactor.json
+Homestead.json
+Homestead.yaml
+
+# System files
 .DS_Store
+Thumbs.db
 *.pem
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Editor swap/backup/temp files
+*.swp
+*.swo
+*.bak
+*.tmp
+*~
 
-# local env files
+# Auth & backup
+/auth.json
+/backup_jsx
 
-# vercel
-.vercel
+# PHP Unit
+.phpunit.cache
+.phpunit.result.cache
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Misc
+/storage/*.key
+/storage/pail
+
+# Next.js build output
+/frontend/.next/
+/frontend/out/
+/frontend/build/
+
+# Misc
+.DS_Store
+*.pem

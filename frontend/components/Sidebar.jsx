@@ -8,6 +8,7 @@ const navItems = [
     label: "Pianificazione",
     submenu: [
       { href: "/pianificazione", label: "Agenda Settimanale" },
+      { href: "/agenda-giornaliera", label: "Agenda Giornaliera" },
       { href: "/attivita", label: "Attività" },
       { href: "/scadenze", label: "Scadenze" },
     ]
@@ -33,7 +34,8 @@ const protectedPaths = [
   "/sedi",
   "/autisti",
   "/tipi-attivita",
-  "/pianificazione"
+  "/pianificazione",
+  "/agenda-giornaliera"
 ];
 
 export default function Sidebar() {

@@ -977,8 +977,6 @@ const activities = activitiesRaw.map(activity => {
       ) : (
         <div>
           <div className="calendar-mode-buttons" style={{ marginBottom: 12, display: 'flex', gap: 10 }}>
-            <button className={viewMode === 'activity' ? 'active' : ''} onClick={() => setViewMode('activity')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Settimana</button>
-            <button className={viewMode === 'day' ? 'active' : ''} onClick={() => setViewMode('day')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Giorno</button>
             <button className={viewMode === 'driver' ? 'active' : ''} onClick={() => setViewMode('driver')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Autista</button>
             <button className={viewMode === 'vehicle' ? 'active' : ''} onClick={() => setViewMode('vehicle')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6 }}>Veicolo</button>
           </div>

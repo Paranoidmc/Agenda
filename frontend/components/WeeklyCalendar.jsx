@@ -35,8 +35,6 @@ export default function WeeklyCalendar({
   
   // --- PULSANTI CAMBIO VISTA ---
   const viewButtons = [
-    { mode: 'activity', label: 'Settimana' },
-    { mode: 'day', label: 'Giorno' },
     { mode: 'driver', label: 'Autista' },
     { mode: 'vehicle', label: 'Veicolo' },
   ];
