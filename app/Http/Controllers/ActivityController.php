@@ -188,7 +188,7 @@ class ActivityController extends Controller
         ]);
 
         Log::info('Validated data for activity store:', $validated); // Log dati validati
-        Log::info('Value of stato received:', $validated['stato'] ?? 'Not provided/Null'); // Log specifico per stato
+        Log::info('Value of stato received:', ['stato' => $validated['stato'] ?? 'Not provided/Null']); // Log specifico per stato
 
         try {
             Log::info('Dati validati:', $validated);

@@ -701,15 +701,7 @@ const activities = activitiesRaw.map(activity => {
       <div className="page-header">
         <h1 className="page-title">Pianificazione</h1>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button
-            style={{ background: '#007aff', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}
-            onClick={() => {
-              setDailyModalDate(new Date().toISOString().split('T')[0]);
-              setShowDailyModal(true);
-            }}
-          >
-            Attività giornaliere
-          </button>
+          
         </div>
         <div className="nav-buttons">
           <button

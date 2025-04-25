@@ -15,6 +15,7 @@ import "./page.css";
  * Pagina dell'agenda giornaliera che mostra le attività di un singolo giorno
  */
 export default function AgendaGiornalieraPage() {
+  const [showDailyModal, setShowDailyModal] = useState(false);
   const router = useRouter();
   const { user, loading } = useAuth();
   const [events, setEvents] = useState([]);
@@ -375,35 +376,85 @@ export default function AgendaGiornalieraPage() {
         const activitiesResponse = await api.get(`/activities?date=${formattedDate}`, { withCredentials: true });
         
         // Trasforma le attività in eventi per il calendario
-        const activityEvents = activitiesResponse.data.map(activity => {
-          // Estrai l'ora di inizio e fine
-          const startTime = activity.ora_inizio || '08:00';
-          const endTime = activity.ora_fine || '09:00';
-          
-          // Crea la data di inizio e fine
-          const startDate = new Date(`${activity.data_inizio}T${startTime}`);
-          const endDate = new Date(`${activity.data_inizio}T${endTime}`);
-          
-          return {
-            id: `activity-${activity.id}`,
-            title: activity.descrizione || 'Attività',
-            start: startDate,
-            end: endDate,
-            type: 'activity',
-            color: activity.activityType?.colore || '#007aff',
-            backgroundColor: activity.activityType?.colore || '#007aff',
-            activityTypeColor: activity.activityType?.colore,
-            driverId: activity.driver?.id,
-            driverName: `${activity.driver?.nome || ''} ${activity.driver?.cognome || ''}`.trim(),
-            vehicleId: activity.vehicle?.id,
-            vehicleName: activity.vehicle?.targa || activity.vehicle?.modello || 'N/D',
-            siteId: activity.site?.id,
-            siteName: activity.site?.nome || 'N/D',
-            clientId: activity.site?.client?.id,
-            clientName: activity.site?.client?.nome || 'N/D',
-            data: activity
-          };
-        });
+        const activitiesRaw = Array.isArray(activitiesResponse.data)
+  ? activitiesResponse.data
+  : (activitiesResponse.data && Array.isArray(activitiesResponse.data.data)
+    ? activitiesResponse.data.data
+    : []);
+const activityEvents = activitiesRaw.map(activity => {
+  // Assicuriamoci che le date siano valide
+  let startDate = new Date(activity.data_inizio);
+  let endDate = new Date(activity.data_fine || activity.data_inizio);
+
+  // Se le date non sono valide, usa dei valori predefiniti
+  if (isNaN(startDate.getTime())) {
+    startDate = new Date();
+    startDate.setHours(9, 0, 0);
+  }
+
+  if (isNaN(endDate.getTime())) {
+    endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 ora
+  }
+
+  // Se non abbiamo un'ora specifica, impostiamo un'ora predefinita
+  if (startDate.getHours() === 0 && startDate.getMinutes() === 0) {
+    startDate.setHours(9, 0, 0); // Imposta alle 9:00
+  }
+
+  // Se la data di fine è uguale alla data di inizio, aggiungiamo un'ora
+  if (endDate.getTime() === startDate.getTime()) {
+    endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 ora
+  }
+
+  // Assicuriamoci di avere il colore corretto
+  let activityColor = '#007aff'; // Colore predefinito
+  let activityTypeName = 'Attività';
+
+  // Verifica se l'attività ha un tipo di attività
+  if (!activity.activityType && activity.activity_type_id && Array.isArray(window.activityTypes)) {
+    const tipoAttivita = window.activityTypes.find(tipo => tipo.id === activity.activity_type_id);
+    if (tipoAttivita) {
+      activity.activityType = {
+        id: tipoAttivita.id,
+        name: tipoAttivita.name || tipoAttivita.nome,
+        color: tipoAttivita.color || tipoAttivita.colore,
+        nome: tipoAttivita.nome || tipoAttivita.name,
+        colore: tipoAttivita.colore || tipoAttivita.color
+      };
+    }
+  }
+
+  if (activity.activityType) {
+    if (activity.activityType.colore && activity.activityType.colore.startsWith('#')) {
+      activityColor = activity.activityType.colore;
+    } else if (activity.activityType.color && activity.activityType.color.startsWith('#')) {
+      activityColor = activity.activityType.color;
+    }
+    if (activity.activityType.nome || activity.activityType.name) {
+      activityTypeName = activity.activityType.nome || activity.activityType.name;
+    }
+  }
+
+  return {
+    id: `activity-${activity.id}`,
+    title: activity.descrizione || activity.description || activityTypeName,
+    start: startDate,
+    end: endDate,
+    type: 'activity',
+    color: activityColor,
+    backgroundColor: activityColor,
+    activityTypeColor: activityColor,
+    driverId: activity.driver?.id,
+    driverName: `${activity.driver?.nome || activity.driver?.name || ''} ${activity.driver?.cognome || activity.driver?.surname || ''}`.trim(),
+    vehicleId: activity.vehicle?.id,
+    vehicleName: activity.vehicle?.targa || activity.vehicle?.plate || activity.vehicle?.modello || activity.vehicle?.model || 'N/D',
+    siteId: activity.site?.id,
+    siteName: activity.site?.nome || activity.site?.name || 'N/D',
+    clientId: activity.site?.client?.id,
+    clientName: activity.site?.client?.nome || activity.site?.client?.name || 'N/D',
+    data: activity
+  };
+});
         
         // Carica le scadenze per il giorno corrente
         const deadlinesResponse = await api.get(`/vehicle-deadlines?date=${formattedDate}`, { withCredentials: true });
@@ -440,10 +491,12 @@ export default function AgendaGiornalieraPage() {
     // Carica i dati degli autisti
     async function fetchDrivers() {
       if (!driversLoading) return;
-      
       try {
         const response = await api.get('/drivers', { withCredentials: true });
-        setDrivers(response.data);
+        console.log('API /drivers response', response.data);
+        const normalized = Array.isArray(response.data) ? response.data : (response.data && Array.isArray(response.data.data) ? response.data.data : []);
+        console.log('Normalized drivers:', normalized);
+        setDrivers(normalized);
         setDriversLoading(false);
       } catch (error) {
         console.error('Errore nel caricamento degli autisti:', error);
@@ -468,10 +521,12 @@ export default function AgendaGiornalieraPage() {
     // Carica i dati dei cantieri
     async function fetchSites() {
       if (!sitesLoading) return;
-      
       try {
         const response = await api.get('/sites', { withCredentials: true });
-        setSites(response.data);
+        console.log('API /sites response', response.data);
+        const normalized = Array.isArray(response.data) ? response.data : (response.data && Array.isArray(response.data.data) ? response.data.data : []);
+        console.log('Normalized sites:', normalized);
+        setSites(normalized);
         setSitesLoading(false);
       } catch (error) {
         console.error('Errore nel caricamento dei cantieri:', error);
@@ -498,6 +553,19 @@ export default function AgendaGiornalieraPage() {
     fetchVehicles();
     fetchSites();
     fetchActivityTypes();
+    // Carica i clienti
+    async function fetchClients() {
+      try {
+        const response = await api.get('/clients', { withCredentials: true });
+        console.log('API /clients response', response.data);
+        const normalized = Array.isArray(response.data) ? response.data : (response.data && Array.isArray(response.data.data) ? response.data.data : []);
+        console.log('Normalized clients:', normalized);
+        setClients(normalized);
+      } catch (error) {
+        console.error('Errore nel caricamento dei clienti:', error);
+      }
+    }
+    fetchClients();
   }, [user, loading, router, fetching, currentDate, driversLoading, vehiclesLoading, sitesLoading, activityTypesLoading]);
 
   // Formatta la data in formato leggibile
@@ -584,18 +652,37 @@ export default function AgendaGiornalieraPage() {
       </div>
       
       {error && <div className="error-message">{error}</div>}
+
+      {/* Pulsante Attività giornaliere */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button
+          style={{ background: '#007aff', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}
+          onClick={() => setShowDailyModal(true)}
+        >
+          Attività giornaliere
+        </button>
+      </div>
+
+      {/* Modale attività giornaliere */}
+      <DailyActivitiesModal
+        isOpen={showDailyModal}
+        onClose={() => setShowDailyModal(false)}
+        date={formatDateISO(currentDate)}
+        drivers={drivers}
+        vehicles={vehicles}
+        sites={sites}
+        clients={clients}
+        activityTypes={activityTypes}
+        activityStates={activityStates}
+        onSaveActivity={handleSaveActivity}
+        initialRows={getDailyActivities()}
+      />
       
       <div className="calendar-container">
         <div className="calendar-header">
           <div className="calendar-navigation">
-            <button onClick={goToPreviousDay} className="nav-button">
-              ← Giorno Precedente
-            </button>
             <button onClick={goToCurrentDay} className="nav-button current">
               Oggi
-            </button>
-            <button onClick={goToNextDay} className="nav-button">
-              Giorno Successivo →
             </button>
           </div>
           

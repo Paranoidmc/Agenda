@@ -15,20 +15,49 @@ export default function DailyActivitiesModal({
   onSaveActivity,
   initialRows = [],
 }) {
+  // Normalizza tutte le props a array veri (anche se passate come Map)
+  drivers = Array.isArray(drivers) ? drivers : (drivers && typeof drivers.values === 'function' ? Array.from(drivers.values()) : []);
+  vehicles = Array.isArray(vehicles) ? vehicles : (vehicles && typeof vehicles.values === 'function' ? Array.from(vehicles.values()) : []);
+  sites = Array.isArray(sites) ? sites : (sites && typeof sites.values === 'function' ? Array.from(sites.values()) : []);
+  clients = Array.isArray(clients) ? clients : (clients && typeof clients.values === 'function' ? Array.from(clients.values()) : []);
+  // DEBUG: Log dettagliati
+  console.log('[DEBUG][DailyActivitiesModal] typeof drivers:', typeof drivers, 'isArray:', Array.isArray(drivers), 'len:', drivers.length, drivers);
+  console.log('[DEBUG][DailyActivitiesModal] typeof sites:', typeof sites, 'isArray:', Array.isArray(sites), 'len:', sites.length, sites);
+  console.log('[DEBUG][DailyActivitiesModal] typeof clients:', typeof clients, 'isArray:', Array.isArray(clients), 'len:', clients.length, clients);
   // DEBUG: Logga la prop clients ogni volta che la modale viene renderizzata
   console.log('[DEBUG][DailyActivitiesModal] clients:', clients);
   // Stato delle righe della tabella (sia esistenti che nuove)
+// Mapping robusto: supporta sia struttura piatta che nidificata (es. row.data)
+function mapRow(r) {
+  const data = r.data || {};
+  return {
+    ...r,
+    titolo: r.titolo || data.titolo || data.title || '',
+    descrizione: r.descrizione || data.descrizione || data.description || '',
+    client_id: r.client_id || data.client_id || data.site?.client?.id || '',
+    site_id: r.site_id || data.site_id || data.site?.id || '',
+    driver_id: r.driver_id || data.driver_id || data.driver?.id || '',
+    vehicle_id: r.vehicle_id || data.vehicle_id || data.vehicle?.id || '',
+    ora: r.ora || (data.data_inizio ? (data.data_inizio.split('T')[1] || '').slice(0,5) : ''),
+    data_fine: r.data_fine || (data.data_fine ? (data.data_fine.split('T')[1] || '').slice(0,5) : ''),
+    stato: r.stato || data.stato || '',
+    activity_type_id: r.activity_type_id || data.activity_type_id || data.activityType?.id || '',
+    _isNew: false,
+  };
+}
+
   const [rows, setRows] = useState(
     initialRows.length > 0
-      ? initialRows.map(r => ({ ...r, _isNew: false }))
+      ? initialRows.map(mapRow)
       : []
   );
+
 
   // Sync rows con initialRows quando cambia la data o initialRows
   React.useEffect(() => {
     setRows(
       initialRows.length > 0
-        ? initialRows.map(r => ({ ...r, _isNew: false }))
+        ? initialRows.map(mapRow)
         : []
     );
   }, [initialRows]);
@@ -143,7 +172,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "client_id", e.target.value)}
                   >
                     <option value="">Seleziona...</option>
-                    {clients.map(client => (
+                    {(Array.isArray(clients) ? clients : []).map(client => (
                       <option key={client.id} value={client.id}>{client.nome}</option>
                     ))}
                   </select>
@@ -154,7 +183,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "site_id", e.target.value)}
                   >
                     <option value="">Seleziona...</option>
-                    {sites.map(site => (
+                    {(Array.isArray(sites) ? sites : []).map(site => (
                       <option key={site.id} value={site.id}>{site.nome}</option>
                     ))}
                   </select>
@@ -179,7 +208,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "vehicle_id", e.target.value)}
                   >
                     <option value="">Seleziona...</option>
-                    {vehicles.map(vehicle => (
+                    {(Array.isArray(vehicles) ? vehicles : []).map(vehicle => (
                       <option key={vehicle.id} value={vehicle.id}>{vehicle.targa} - {vehicle.marca} {vehicle.modello}</option>
                     ))}
                   </select>
@@ -190,7 +219,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "driver_id", e.target.value)}
                   >
                     <option value="">Seleziona...</option>
-                    {drivers.map(driver => (
+                    {(Array.isArray(drivers) ? drivers : []).map(driver => (
                       <option key={driver.id} value={driver.id}>{driver.nome} {driver.cognome}</option>
                     ))}
                   </select>
@@ -242,7 +271,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "client_id", e.target.value, true)}
                   >
                     <option value="">Seleziona...</option>
-                    {clients.map(client => (
+                    {(Array.isArray(clients) ? clients : []).map(client => (
                       <option key={client.id} value={client.id}>{client.nome}</option>
                     ))}
                   </select>
@@ -253,7 +282,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "site_id", e.target.value, true)}
                   >
                     <option value="">Seleziona...</option>
-                    {sites.map(site => (
+                    {(Array.isArray(sites) ? sites : []).map(site => (
                       <option key={site.id} value={site.id}>{site.nome}</option>
                     ))}
                   </select>
@@ -278,7 +307,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "vehicle_id", e.target.value, true)}
                   >
                     <option value="">Seleziona...</option>
-                    {vehicles.map(vehicle => (
+                    {(Array.isArray(vehicles) ? vehicles : []).map(vehicle => (
                       <option key={vehicle.id} value={vehicle.id}>{vehicle.targa} - {vehicle.marca} {vehicle.modello}</option>
                     ))}
                   </select>
@@ -289,7 +318,7 @@ export default function DailyActivitiesModal({
                     onChange={e => handleFieldChange(idx, "driver_id", e.target.value, true)}
                   >
                     <option value="">Seleziona...</option>
-                    {drivers.map(driver => (
+                    {(Array.isArray(drivers) ? drivers : []).map(driver => (
                       <option key={driver.id} value={driver.id}>{driver.nome} {driver.cognome}</option>
                     ))}
                   </select>

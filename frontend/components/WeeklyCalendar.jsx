@@ -227,10 +227,10 @@ export default function WeeklyCalendar({
     <div className="weekly-calendar">
       <div className="calendar-header">
         <button onClick={onPrevWeek}>
-          ← Settimana Precedente
+          ← Giornata Precedente
         </button>
         <button onClick={onNextWeek}>
-          Settimana Successiva →
+          Giornata Successiva →
         </button>
       </div>
 
