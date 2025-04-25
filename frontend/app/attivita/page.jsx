@@ -56,23 +56,17 @@ export default function AttivitaPage() {
     let sediOptions = [];
     const clienteId = selectedAttivita?.client_id;
     
-    console.log("getAttivitaFields - clienteId:", clienteId);
-    console.log("getAttivitaFields - sediPerCliente:", sediPerCliente);
-    
     if (clienteId && sediPerCliente[clienteId]) {
       // Se abbiamo le sedi per questo cliente, le utilizziamo
       sediOptions = sediPerCliente[clienteId].map(sede => ({ 
         value: sede.id, 
         label: sede.nome || sede.name 
       }));
-      console.log("Usando sedi specifiche per il cliente:", sediOptions);
     } else if (!clienteId) {
       // Se non c'è un cliente selezionato, non mostriamo sedi
       sediOptions = [];
-      console.log("Nessun cliente selezionato, nessuna sede disponibile");
     } else {
       // Se abbiamo un cliente ma non abbiamo ancora le sue sedi, carichiamole
-      console.log("Cliente selezionato ma sedi non ancora caricate, caricamento in corso...");
       loadSediPerCliente(clienteId);
       // Mostriamo un messaggio di caricamento
       sediOptions = [{ value: "", label: "Caricamento sedi..." }];
@@ -760,7 +754,6 @@ export default function AttivitaPage() {
               key: 'activityType',
               label: 'Tipo Attività',
               render: (item) => {
-                // console.log("Rendering tipo attività per:", item);
                 
                 // Verifica se l'attività ha un tipo di attività
                 if (!item.activityType && item.activity_type_id) {
@@ -775,7 +768,6 @@ export default function AttivitaPage() {
                       nome: tipoAttivita.nome || tipoAttivita.name,
                       colore: tipoAttivita.colore || tipoAttivita.color
                     };
-                    console.log("Tipo attività recuperato durante il rendering:", item.activityType);
                   } else {
                     console.warn(`Tipo attività con ID ${item.activity_type_id} non trovato durante il rendering`);
                     return `ID: ${item.activity_type_id}`;
@@ -790,8 +782,6 @@ export default function AttivitaPage() {
                 
                 const color = tipo.colore || tipo.color || '#007aff';
                 const nome = tipo.nome || tipo.name || 'N/D';
-                
-                // console.log(`Rendering tipo attività: ${nome} con colore ${color}`);
                 
                 return (
                   <span style={{ 
