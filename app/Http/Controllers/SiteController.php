@@ -45,7 +45,7 @@ class SiteController extends Controller
             $site->citta = $site->city;
             $site->cap = $site->postal_code;
             $site->provincia = $site->province;
-            $site->telefono = $site->phone;
+            //$site->telefono = $site->phone;
             $site->note = $site->notes;
             // Campi cliente
             if ($site->client) {
@@ -54,7 +54,7 @@ class SiteController extends Controller
                 $site->client->citta = $site->client->city;
                 $site->client->cap = $site->client->postal_code;
                 $site->client->provincia = $site->client->province;
-                $site->client->telefono = $site->client->phone;
+               // $site->client->telefono = $site->client->phone;
                 $site->client->partita_iva = $site->client->vat_number;
                 $site->client->codice_fiscale = $site->client->fiscal_code;
                 $site->client->note = $site->client->notes;
@@ -77,7 +77,7 @@ class SiteController extends Controller
             'postal_code' => 'nullable|string|max:10',
             'province' => 'nullable|string|max:50',
             'client_id' => 'required|exists:clients,id',
-            'phone' => 'nullable|string|max:20',
+            //'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'notes' => 'nullable|string',
             'status' => 'nullable|string|max:20',
@@ -87,7 +87,7 @@ class SiteController extends Controller
             'citta' => 'sometimes|required|string|max:100',
             'cap' => 'nullable|string|max:10',
             'provincia' => 'nullable|string|max:50',
-            'telefono' => 'nullable|string|max:20',
+            //'telefono' => 'nullable|string|max:20',
             'note' => 'nullable|string',
         ]);
 
@@ -101,7 +101,7 @@ class SiteController extends Controller
         $data['postal_code'] = $validated['postal_code'] ?? $validated['cap'] ?? null;
         $data['province'] = $validated['province'] ?? $validated['provincia'] ?? null;
         $data['client_id'] = $validated['client_id'];
-        $data['phone'] = $validated['phone'] ?? $validated['telefono'] ?? null;
+       // $data['phone'] = $validated['phone'] ?? $validated['telefono'] ?? null;
         $data['notes'] = $validated['notes'] ?? $validated['note'] ?? null;
         
         // Fields that only exist in English
@@ -137,7 +137,7 @@ class SiteController extends Controller
         $site->citta = $site->city;
         $site->cap = $site->postal_code;
         $site->provincia = $site->province;
-        $site->telefono = $site->phone;
+       // $site->telefono = $site->phone;
         $site->note = $site->notes;
         
         // Aggiungiamo i campi in italiano per il cliente
@@ -147,7 +147,7 @@ class SiteController extends Controller
             $site->client->citta = $site->client->city;
             $site->client->cap = $site->client->postal_code;
             $site->client->provincia = $site->client->province;
-            $site->client->telefono = $site->client->phone;
+          //  $site->client->telefono = $site->client->phone;
             $site->client->partita_iva = $site->client->vat_number;
             $site->client->codice_fiscale = $site->client->fiscal_code;
             $site->client->note = $site->client->notes;
@@ -202,7 +202,7 @@ class SiteController extends Controller
             'postal_code' => 'nullable|string|max:10',
             'province' => 'nullable|string|max:50',
             'client_id' => 'sometimes|required|exists:clients,id',
-            'phone' => 'nullable|string|max:20',
+            //'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'notes' => 'nullable|string',
             'status' => 'nullable|string|max:20',
@@ -212,7 +212,7 @@ class SiteController extends Controller
             'citta' => 'sometimes|required|string|max:100',
             'cap' => 'nullable|string|max:10',
             'provincia' => 'nullable|string|max:50',
-            'telefono' => 'nullable|string|max:20',
+           // 'telefono' => 'nullable|string|max:20',
             'note' => 'nullable|string',
         ]);
 
@@ -244,9 +244,9 @@ class SiteController extends Controller
             $data['client_id'] = $validated['client_id'];
         }
         
-        if (isset($validated['phone']) || isset($validated['telefono'])) {
-            $data['phone'] = $validated['phone'] ?? $validated['telefono'];
-        }
+      //  if (isset($validated['phone']) || isset($validated['telefono'])) {
+       //     $data['phone'] = $validated['phone'] ?? $validated['telefono'];
+      //  }
         
         if (isset($validated['notes']) || isset($validated['note'])) {
             $data['notes'] = $validated['notes'] ?? $validated['note'];
@@ -264,7 +264,7 @@ class SiteController extends Controller
         $site->citta = $site->city;
         $site->cap = $site->postal_code;
         $site->provincia = $site->province;
-        $site->telefono = $site->phone;
+        //$site->telefono = $site->phone;
         $site->note = $site->notes;
         
         return response()->json($site);
@@ -323,7 +323,7 @@ class SiteController extends Controller
             $site->citta = $site->city;
             $site->cap = $site->postal_code;
             $site->provincia = $site->province;
-            $site->telefono = $site->phone;
+          //  $site->telefono = $site->phone;
             $site->note = $site->notes;
             
             return $site;

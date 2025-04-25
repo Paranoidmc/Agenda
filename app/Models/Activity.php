@@ -11,23 +11,11 @@ class Activity extends Model
     use HasFactory;
 
     protected $fillable = [
-        'titolo',
-        'descrizione',
-        'data_inizio',
-        'data_fine',
-        'time_slot',
-        'ora_inizio',
-        'ora_fine',
-        'driver_id',
-        'vehicle_id',
-        'client_id',
-        'site_id',
-        'activity_type_id',
-        'stato',
-        'luogo_partenza',
-        'luogo_arrivo',
-        'note',
-        'completato_il'
+        'titolo', 'descrizione', 'data_inizio', 'data_fine', 
+        'time_slot', 'ora_inizio', 'ora_fine', 
+        'driver_id', 'vehicle_id', 'client_id', 'site_id', 
+        'activity_type_id', 'status', 'start_location', 
+        'end_location', 'note', 'completato_il', 'date'
     ];
 
     protected $casts = [

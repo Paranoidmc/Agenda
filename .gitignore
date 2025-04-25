@@ -37,7 +37,7 @@ yarn-error.log
 /storage/framework/cache
 /storage/framework/sessions
 /storage/framework/views
-/storage/logs
+#/storage/logs
 /bootstrap/cache
 /vendor/
 
@@ -48,7 +48,7 @@ yarn-error.log
 # Laravel build
 /public/build/
 /public/hot/
-/public/storage/
+#/public/storage/
 
 # Composer & npm logs
 npm-debug.log

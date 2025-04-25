@@ -441,17 +441,17 @@ export default function AttivitaPage() {
             data: err.response.data,
             headers: err.response.headers
           });
+        
+          // In caso di errore, imposta un array vuoto per evitare errori
+          setSediPerCliente(prev => ({
+            ...prev,
+            [numericClientId]: []
+          }));
         } else if (err.request) {
           console.error("Nessuna risposta ricevuta:", err.request);
         } else {
           console.error("Errore di configurazione:", err.message);
         }
-        
-        // In caso di errore, imposta un array vuoto per evitare errori
-        setSediPerCliente(prev => ({
-          ...prev,
-          [numericClientId]: []
-        }));
       });
   };
   
@@ -842,9 +842,9 @@ export default function AttivitaPage() {
                   fontSize: 12,
                   fontWeight: 500,
                   color: '#fff',
-                  backgroundColor: getStatusColor(item.stato)
+                  backgroundColor: getStatusColor(item.status) // Modificato da item.stato a item.status
                 }}>
-                  {item.stato || 'N/D'}
+                  {item.status || 'N/D'} {/* Modificato da item.stato a item.status */}
                 </span>
               )
             },
@@ -914,6 +914,13 @@ export default function AttivitaPage() {
         onClose={handleClosePanel} 
         title={isEditing ? "Modifica Attività" : "Dettagli Attività"}
       >
+        {selectedAttivita && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `console.log('[DEBUG][AttivitaPage][SidePanel] Dati passati a EntityForm:', ${JSON.stringify(selectedAttivita, null, 2)}); console.log('[DEBUG][AttivitaPage][SidePanel] Campi passati a EntityForm:', ${JSON.stringify(getAttivitaFields(selectedAttivita), (key, value) => (key === 'options' && Array.isArray(value) && value.length > 10) ? `Array(${value.length})` : value , 2)});`
+            }}
+          />
+        )}
         {selectedAttivita && (
           <EntityForm
             data={selectedAttivita}

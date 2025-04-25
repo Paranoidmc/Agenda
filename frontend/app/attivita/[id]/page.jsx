@@ -29,6 +29,9 @@ export default function AttivitaDetailPage({ params }) {
   const [sediPerCliente, setSediPerCliente] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Log all'inizio del render
+  console.log("RENDER - Stato attivita:", attivita);
+
   // Handler unico per tutte le modifiche ai campi del form
   const handleFieldChange = (name, value) => {
     setAttivita(prev => {
@@ -55,31 +58,29 @@ export default function AttivitaDetailPage({ params }) {
     let sediOptions = [];
     const clienteId = selectedAttivita?.client_id;
     
-    // // console.log("getAttivitaFields - clienteId:", clienteId);
-    // // console.log("getAttivitaFields - sediPerCliente:", sediPerCliente);
+    // console.log('[DEBUG] getAttivitaFields - attivita.client_id:', clienteId);
+    // console.log('[DEBUG] getAttivitaFields - sediPerCliente:', sediPerCliente);
     
-    // // console.log('[DEBUG] getAttivitaFields - attivita.client_id:', clienteId);
-    // // console.log('[DEBUG] getAttivitaFields - sediPerCliente:', sediPerCliente);
     if (clienteId && sediPerCliente[clienteId]) {
       // Se abbiamo le sedi per questo cliente, le utilizziamo
       sediOptions = sediPerCliente[clienteId].map(sede => ({ 
         value: String(sede.id), 
         label: sede.nome || sede.name 
       }));
-      // // console.log('[DEBUG] Usando sedi specifiche per il cliente:', sediOptions);
+      // console.log('[DEBUG] Usando sedi specifiche per il cliente:', sediOptions);
     } else if (!clienteId) {
       // Se non c'è un cliente selezionato, non mostriamo sedi
       sediOptions = [];
-      // // console.log('[DEBUG] Nessun cliente selezionato, nessuna sede disponibile');
+      // console.log('[DEBUG] Nessun cliente selezionato, nessuna sede disponibile');
     } else {
       // Se abbiamo un cliente ma non abbiamo ancora le sue sedi, carichiamole
-      // // console.log('[DEBUG] Cliente selezionato ma sedi non ancora caricate, caricamento in corso...');
+      // console.log('[DEBUG] Cliente selezionato ma sedi non ancora caricate, caricamento in corso...');
       loadSediPerCliente(clienteId);
       // Mostriamo un messaggio di caricamento
       sediOptions = [{ value: "", label: "Caricamento sedi..." }];
     }
-    // // console.log('[DEBUG] attivita.site_id:', selectedAttivita?.site_id);
-    // // console.log('[DEBUG] sediOptions:', sediOptions);
+    // console.log('[DEBUG] attivita.site_id:', selectedAttivita?.site_id);
+    // console.log('[DEBUG] sediOptions:', sediOptions);
     
     return [
       { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
@@ -192,6 +193,12 @@ export default function AttivitaDetailPage({ params }) {
     }
   }, [user, loading, id]);
 
+  useEffect(() => {
+    if (params.id) {
+      loadAttivita();
+    }
+  }, [params.id]);
+
   // Reset degli errori di validazione quando si cambia modalità di editing
   useEffect(() => {
     setValidationErrors({});
@@ -214,6 +221,13 @@ export default function AttivitaDetailPage({ params }) {
   // Handler specifici rimossi: ora si usa solo handleFieldChange
 
   const loadAttivita = async () => {
+    console.log(`[DEBUG][loadAttivita] Chiamata con id: ${id}`);
+    if (!id) { // Aggiungo un controllo per sicurezza
+      console.warn('[DEBUG][loadAttivita] Tentativo di caricamento senza ID.');
+      setError("ID attività mancante per il caricamento.");
+      setFetching(false);
+      return;
+    }
     setFetching(true);
     try {
       // Carica i tipi di attività prima di caricare l'attività
@@ -226,6 +240,7 @@ export default function AttivitaDetailPage({ params }) {
       // Carica l'attività
       const res = await api.get(`/activities/${id}`);
       let att = res.data;
+      console.log('[DEBUG][loadAttivita] Raw API response:', res.data);
       // Ricostruisci activityType se mancante
       if (!att.activityType && att.activity_type_id) {
         const tipo = tipi.find(t => t.id === att.activity_type_id);
@@ -238,7 +253,7 @@ export default function AttivitaDetailPage({ params }) {
         }
       }
       const attivitaObj = {
-        ...att,
+        ...att, // <- Assicurati che tutti i campi originali siano inclusi
         client_id: att.client_id ? String(att.client_id) : '',
         site_id: att.site_id ? String(att.site_id) : '',
         driver_id: att.driver_id ? String(att.driver_id) : '',
@@ -246,13 +261,17 @@ export default function AttivitaDetailPage({ params }) {
         activity_type_id: att.activity_type_id ? String(att.activity_type_id) : '',
         descrizione: att.descrizione ? String(att.descrizione) : '',
         note: att.note ? String(att.note) : '',
-        driver: att.driver || null,
+        driver: att.driver || null, // Assicurati che siano null se non presenti
         vehicle: att.vehicle || null,
       };
       console.log('[DEBUG][loadAttivita] attivitaObj:', attivitaObj);
       setAttivita(attivitaObj);
+      // Log subito dopo setAttivita (nota: React aggiorna lo stato in modo asincrono,
+      // quindi 'attivita' potrebbe non essere aggiornato immediatamente qui,
+      // ma logghiamo comunque l'oggetto che abbiamo passato)
+      console.log("Oggetto PASSATO a setAttivita:", attivitaObj);
     } catch (err) {
-      console.error("Errore nel caricamento dell'attività:", err);
+      console.error("Errore nel caricamento dell'attività o risorse correlate:", err);
       if (err.response && err.response.status === 401) {
         setError("Sessione scaduta. Effettua nuovamente il login.");
       } else if (err.response && err.response.status === 404) {
@@ -267,10 +286,10 @@ export default function AttivitaDetailPage({ params }) {
 
 
   const loadClienti = () => {
-    // // console.log("Caricamento clienti...");
+    // console.log("Caricamento clienti...");
     api.get("/clients")
       .then(res => {
-        // // console.log("Clienti caricati:", res.data);
+        // console.log("Clienti caricati:", res.data);
         // Verifica che la risposta sia un array
         if (Array.isArray(res.data)) {
           setClienti(res.data);
@@ -290,10 +309,10 @@ export default function AttivitaDetailPage({ params }) {
   };
 
   const loadVeicoli = () => {
-    // // console.log("Caricamento veicoli...");
+    // console.log("Caricamento veicoli...");
     api.get("/vehicles")
       .then(res => {
-        // // console.log("Veicoli caricati:", res.data);
+        // console.log("Veicoli caricati:", res.data);
         if (Array.isArray(res.data)) {
           setVeicoli(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -310,10 +329,10 @@ export default function AttivitaDetailPage({ params }) {
   };
 
   const loadAutisti = () => {
-    // // console.log("Caricamento autisti...");
+    // console.log("Caricamento autisti...");
     api.get("/drivers")
       .then(res => {
-        // // console.log("Autisti caricati:", res.data);
+        // console.log("Autisti caricati:", res.data);
         if (Array.isArray(res.data)) {
           setAutisti(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -330,10 +349,10 @@ export default function AttivitaDetailPage({ params }) {
   };
 
   const loadTipiAttivita = () => {
-    // // console.log("Caricamento tipi attività...");
+    // console.log("Caricamento tipi attività...");
     api.get("/activity-types")
       .then(res => {
-        // // console.log("Tipi attività caricati:", res.data);
+        // console.log("Tipi attività caricati:", res.data);
         if (Array.isArray(res.data)) {
           setTipiAttivita(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -350,10 +369,10 @@ export default function AttivitaDetailPage({ params }) {
   };
   
   const loadSedi = () => {
-    // // console.log("Caricamento sedi...");
+    // console.log("Caricamento sedi...");
     api.get("/sites")
       .then(res => {
-        // // console.log("Sedi caricate:", res.data);
+        // console.log("Sedi caricate:", res.data);
         if (Array.isArray(res.data)) {
           setSedi(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
@@ -371,13 +390,13 @@ export default function AttivitaDetailPage({ params }) {
   
   const loadSediPerCliente = (clientId) => {
     if (!clientId) {
-      // // console.log("loadSediPerCliente: clientId non valido", clientId);
+      // console.log("loadSediPerCliente: clientId non valido", clientId);
       return;
     }
     
     const clientKey = String(clientId);
-    // // console.log("Caricamento sedi per cliente:", clientKey);
-    // // console.log("Token di autenticazione presente:", localStorage.getItem('token') ? 'Sì' : 'No');
+    // console.log("Caricamento sedi per cliente:", clientKey);
+    // console.log("Token di autenticazione presente:", localStorage.getItem('token') ? 'Sì' : 'No');
     api.get(`/clients/${clientKey}/sites`, {
       params: { _t: new Date().getTime() },
       useCache: false,
@@ -386,8 +405,8 @@ export default function AttivitaDetailPage({ params }) {
       }
     })
       .then(res => {
-        // // console.log("Sedi per cliente - Risposta completa:", res);
-        // // console.log("Sedi per cliente caricate:", res.data);
+        // console.log("Sedi per cliente - Risposta completa:", res);
+        // console.log("Sedi per cliente caricate:", res.data);
         
         // Estrai i dati dalla risposta
         let clientSites = [];
@@ -439,11 +458,11 @@ export default function AttivitaDetailPage({ params }) {
     const date = attivita.data_inizio.split('T')[0];
     const timeSlot = attivita.time_slot || 'full_day';
     
-    // // console.log("Caricamento risorse disponibili per:", { date, timeSlot });
+    // console.log("Caricamento risorse disponibili per:", { date, timeSlot });
     
     api.get(`/available-resources?date=${date}&time_slot=${timeSlot}`)
       .then(res => {
-        // // console.log("Risorse disponibili:", res.data);
+        // console.log("Risorse disponibili:", res.data);
         
         // Aggiorna gli autisti e i veicoli disponibili
         if (res.data.drivers) {
@@ -510,15 +529,15 @@ export default function AttivitaDetailPage({ params }) {
       const clienteNome = clienti.find(c => c.id === Number(preparedData.client_id))?.nome || '';
       const dataFormattata = new Date(preparedData.data_inizio).toLocaleDateString();
       preparedData.titolo = `${clienteNome} - ${dataFormattata}`;
-      // // console.log('Titolo generato automaticamente:', preparedData.titolo);
+      // console.log('Titolo generato automaticamente:', preparedData.titolo);
       
       // Log per debug
-      // // console.log('Dati attività da salvare:', preparedData);
+      // console.log('Dati attività da salvare:', preparedData);
       
       // Aggiornamento
-      // // console.log(`Invio richiesta PUT a /activities/${id}`);
+      // console.log(`Invio richiesta PUT a /activities/${id}`);
       const response = await api.put(`/activities/${id}`, preparedData);
-      // // console.log('Risposta aggiornamento attività:', response.data);
+      // console.log('Risposta aggiornamento attività:', response.data);
       
       // Aggiorna l'attività
       setAttivita(response.data);
@@ -623,9 +642,13 @@ export default function AttivitaDetailPage({ params }) {
     });
   };
 
+  // Log dello stato prima del return
+  console.log("RENDER - attivita.status:", attivita?.status);
+
+  // Gestione stato di caricamento iniziale o errore
   if (loading || fetching) return <div className="centered">Caricamento...</div>;
   if (error) return <div className="centered">{error}</div>;
-  if (!attivita) return <div className="centered">Attività non trovata</div>;
+  if (!attivita) return <div className="centered">Attività non trovata o caricamento fallito.</div>; // Gestione caso null
 
   return (
     <div key={id} style={{ padding: 32 }}>
@@ -637,14 +660,6 @@ export default function AttivitaDetailPage({ params }) {
       
       <div className="activity-details">
         <h2>Dettaglio Attività</h2>
-        {/* DEBUG VISIVO: mostra sempre lo stato attivita/driver/vehicle in UI */}
-        <div style={{background:'#ffeeba',color:'#333',padding:'8px',fontSize:'0.85em',marginBottom:'10px'}}>
-          <b>DEBUG attivita:</b> <pre>{JSON.stringify(attivita,null,2)}</pre>
-          <b>DEBUG typeof attivita.driver:</b> <pre>{typeof attivita.driver}</pre>
-          <b>DEBUG attivita.driver:</b> <pre>{JSON.stringify(attivita.driver,null,2)}</pre>
-          <b>DEBUG typeof attivita.vehicle:</b> <pre>{typeof attivita.vehicle}</pre>
-          <b>DEBUG attivita.vehicle:</b> <pre>{JSON.stringify(attivita.vehicle,null,2)}</pre>
-        </div>
         <div className="detail-row">
           <div className="detail-label">Cliente:</div>
           <div className="detail-value">{attivita.client?.nome || 'N/D'}</div>
@@ -699,7 +714,7 @@ export default function AttivitaDetailPage({ params }) {
         </div>
         <div className="detail-row">
           <div className="detail-label">Stato:</div>
-          <div className="detail-value">{attivita.stato || 'N/D'}</div>
+          <div className="detail-value">{attivita.status || 'N/D'}</div>
         </div>
         <div className="detail-row">
           <div className="detail-label">Descrizione:</div>

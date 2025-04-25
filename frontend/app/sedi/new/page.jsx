@@ -17,8 +17,6 @@ function NewSiteContent() {
     citta: '',
     cap: '',
     provincia: '',
-    telefono: '',
-    email: '',
     client_id: clientId || '',
     note: ''
   });
@@ -34,8 +32,6 @@ function NewSiteContent() {
     { name: 'citta', label: 'Città', required: true },
     { name: 'cap', label: 'CAP' },
     { name: 'provincia', label: 'Provincia' },
-    { name: 'telefono', label: 'Telefono' },
-    { name: 'email', label: 'Email' },
     { name: 'client_id', label: 'Cliente', type: 'select', options: 
       (Array.isArray(clienti?.data) ? clienti.data : (Array.isArray(clienti) ? clienti : [])).map(cliente => ({ value: cliente.id, label: cliente.nome }))
     },
@@ -63,13 +59,17 @@ function NewSiteContent() {
   const handleSaveSede = async (formData) => {
     setIsSaving(true);
     try {
-      // Assicuriamoci che client_id sia un numero se presente
-      if (formData.client_id) {
-        formData.client_id = Number(formData.client_id);
+      // Pulisci i dati: invia solo i campi previsti dal database
+      const allowedFields = ['nome','indirizzo','citta','cap','provincia','client_id','note'];
+      const cleanedData = {};
+      for (const key of allowedFields) {
+        if (formData[key] !== undefined) cleanedData[key] = formData[key];
       }
-      
-      const response = await api.post('/sites', formData);
-      
+      // Assicuriamoci che client_id sia un numero se presente
+      if (cleanedData.client_id) {
+        cleanedData.client_id = Number(cleanedData.client_id);
+      }
+      const response = await api.post('/sites', cleanedData);
       // Reindirizza alla pagina della sede appena creata
       router.push(`/sedi/${response.data.id}`);
     } catch (err) {

@@ -145,7 +145,6 @@ class ActivityController extends Controller
                 $activity->site->citta = $activity->site->city;
                 $activity->site->cap = $activity->site->postal_code;
                 $activity->site->provincia = $activity->site->province;
-                $activity->site->telefono = $activity->site->phone;
                 $activity->site->note = $activity->site->notes;
             }
             
@@ -167,6 +166,8 @@ class ActivityController extends Controller
      */
     public function store(Request $request)
     {
+        Log::info('Raw request data for activity store:', $request->all()); // Log dati grezzi
+
         $validated = $request->validate([
             'titolo' => 'required|string|max:255',
             'descrizione' => 'nullable|string',
@@ -186,58 +187,94 @@ class ActivityController extends Controller
             'end_location' => 'nullable|string|max:255',
         ]);
 
-        // Usa direttamente i campi in italiano
-        $data = [
-            'titolo' => $validated['titolo'],
-            'descrizione' => $validated['descrizione'] ?? null,
-            'date' => $validated['data_inizio'],
-            'data_inizio' => $validated['data_inizio'],
-            'data_fine' => $validated['data_fine'],
-            'time_slot' => $validated['time_slot'] ?? 'full_day',
-            'ora_inizio' => $validated['ora_inizio'] ?? null,
-            'ora_fine' => $validated['ora_fine'] ?? null,
-            'driver_id' => $validated['driver_id'],
-            'vehicle_id' => $validated['vehicle_id'],
-            'client_id' => $validated['client_id'],
-            'site_id' => $validated['site_id'],
-            'activity_type_id' => $validated['activity_type_id'],
-            'status' => $validated['stato'] ?? 'planned',
-            'stato' => $validated['stato'] ?? 'planned',
-            'start_location' => $validated['start_location'] ?? null,
-            'end_location' => $validated['end_location'] ?? null,
-            'notes' => $validated['note'] ?? null,
-            'note' => $validated['note'] ?? null,
-        ];
+        Log::info('Validated data for activity store:', $validated); // Log dati validati
+        Log::info('Value of stato received:', $validated['stato'] ?? 'Not provided/Null'); // Log specifico per stato
 
         try {
+            Log::info('Dati validati:', $validated);
+            
+            // Verifica se stiamo usando orari specifici o time slot
+            $useSpecificTimes = isset($validated['ora_inizio']) && isset($validated['ora_fine']);
+            
+            // Prepara i dati per la creazione
+            $data = [
+                'titolo' => $validated['titolo'],
+                'descrizione' => $validated['descrizione'] ?? null,
+                'data_inizio' => $validated['data_inizio'],
+                'data_fine' => $validated['data_fine'],
+                'date' => $validated['data_inizio'], // Assicuriamoci che date sia qui
+                'time_slot' => $validated['time_slot'] ?? 'full_day',
+                'driver_id' => $validated['driver_id'],
+                'vehicle_id' => $validated['vehicle_id'],
+                'client_id' => $validated['client_id'],
+                'site_id' => $validated['site_id'],
+                'activity_type_id' => $validated['activity_type_id'],
+                'status' => $validated['stato'] ?? 'planned', // Usa solo 'status'
+                'start_location' => $validated['start_location'] ?? null, // Usa start_location
+                'end_location' => $validated['end_location'] ?? null,   // Usa end_location
+                'note' => $validated['note'] ?? null, // Usa solo 'note'
+            ];
+
+            // Se stiamo usando orari specifici, aggiungili
+            if ($useSpecificTimes) {
+                $data['ora_inizio'] = $validated['ora_inizio'];
+                $data['ora_fine'] = $validated['ora_fine'];
+            }
+
+            Log::info('Data before create:', $data); // Log prima della creazione
+
+            // Verifica l'esistenza dei record prima di procedere
+            $driver = \App\Models\Driver::find($validated['driver_id']);
+            $vehicle = \App\Models\Vehicle::find($validated['vehicle_id']);
+            $client = \App\Models\Client::find($validated['client_id']);
+            $site = \App\Models\Site::find($validated['site_id']);
+            $activityType = \App\Models\ActivityType::find($validated['activity_type_id']);
+
+            if (!$driver) {
+                throw new \Exception("Autista non trovato");
+            }
+            if (!$vehicle) {
+                throw new \Exception("Veicolo non trovato");
+            }
+            if (!$client) {
+                throw new \Exception("Cliente non trovato");
+            }
+            if (!$site) {
+                throw new \Exception("Sede non trovata");
+            }
+            if (!$activityType) {
+                throw new \Exception("Tipo di attività non trovato");
+            }
+
+            // Crea l'attività
             $activity = Activity::create($data);
-            $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
+            
+            // Carica solo le relazioni che esistono
+            try {
+                $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
+            } catch (\Exception $e) {
+                Log::error('Errore nel caricamento delle relazioni: ' . $e->getMessage());
+                $activity->load(['client', 'driver', 'vehicle', 'activityType']);
+            }
+            
             return response()->json($activity, 201);
         } catch (\Exception $e) {
-            // Check if it's a scheduling conflict
+            Log::error('Errore durante la creazione dell\'attività: ' . $e->getMessage());
+            
+            // Gestione specifica dei conflitti di pianificazione
             if (strpos($e->getMessage(), "L'autista è già impegnato") !== false) {
                 return response()->json([
                     'message' => $e->getMessage(),
                     'errors' => [
                         'driver_id' => ["L'autista selezionato è già impegnato in questa fascia oraria."]
                     ]
-                ], 422); // Use 422 Unprocessable Entity for validation errors
-            } else if (strpos($e->getMessage(), "Il veicolo è già impegnato") !== false) {
-                return response()->json([
-                    'message' => $e->getMessage(),
-                    'errors' => [
-                        'vehicle_id' => ["Il veicolo selezionato è già impegnato in questa fascia oraria."]
-                    ]
                 ], 422);
             }
             
-            // For other exceptions, return a 500 error
+            // Gestione degli altri errori
             return response()->json([
-                'message' => 'Si è verificato un errore durante il salvataggio dell\'attività.',
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTrace()
+                'message' => "Si è verificato un errore durante il salvataggio dell'attività.",
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -255,7 +292,6 @@ class ActivityController extends Controller
         $activity->description = $activity->descrizione ?? '';
         $activity->data_inizio = $activity->date;
         $activity->data_fine = $activity->date;
-        $activity->stato = $activity->status;
         $activity->note = $activity->notes;
         
         // Aggiungiamo i campi in italiano per il cliente
@@ -306,7 +342,6 @@ class ActivityController extends Controller
             $activity->site->citta = $activity->site->city;
             $activity->site->cap = $activity->site->postal_code;
             $activity->site->provincia = $activity->site->province;
-            $activity->site->telefono = $activity->site->phone;
             $activity->site->note = $activity->site->notes;
         }
         
@@ -437,8 +472,8 @@ class ActivityController extends Controller
                     'errors' => [
                         'driver_id' => ["L'autista selezionato è già impegnato in questa fascia oraria."]
                     ]
-                ], 422); // Use 422 Unprocessable Entity for validation errors
-            } else if (strpos($e->getMessage(), "Il veicolo è già impegnato") !== false) {
+                ], 422);
+            } elseif (strpos($e->getMessage(), "Il veicolo è già impegnato") !== false) {
                 return response()->json([
                     'message' => $e->getMessage(),
                     'errors' => [
@@ -670,7 +705,6 @@ class ActivityController extends Controller
                 $activity->site->citta = $activity->site->city;
                 $activity->site->cap = $activity->site->postal_code;
                 $activity->site->provincia = $activity->site->province;
-                $activity->site->telefono = $activity->site->phone;
                 $activity->site->note = $activity->site->notes;
             }
             

@@ -380,115 +380,157 @@ export default function EntityForm({
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {fields.map((field) => (
-        <div key={field.name} style={{ marginBottom: '16px' }}>
-          <label 
-            htmlFor={field.name}
-            style={{ 
-              display: 'block', 
-              marginBottom: '6px', 
-              fontWeight: 500,
-              fontSize: '0.9rem',
-              color: '#555'
-            }}
-          >
-            {field.label}
-            {field.required && <span style={{ color: 'var(--primary)', marginLeft: '4px' }}>*</span>}
+        <div key={field.name} style={{ marginBottom: '1.2rem', opacity: field.disabled ? 0.6 : 1 }}>
+          <label htmlFor={field.name} style={{ display: 'block', fontWeight: '500', marginBottom: '6px', fontSize: '0.9rem' }}>
+            {field.label}:
           </label>
-          
-          {field.type === 'textarea' ? (
-            <textarea
-              id={field.name}
-              name={field.name}
-              value={formData[field.name] !== undefined && formData[field.name] !== null ? formData[field.name] : ''}
-              onChange={handleChange}
-              disabled={!isEditing || isLoading || isSaving || field.disabled}
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
-                fontSize: '1rem',
-                backgroundColor: isEditing ? '#fff' : '#f9f9fa',
-                resize: 'vertical'
-              }}
-            />
-          ) : field.type === 'select' ? (
-            <>
-              {/* Mostra PRIMA/DOPO per autista e veicolo */}
-              {field.name === 'driver_id' && data.driver && (
-                <div style={{fontSize:'0.85em',color:'#888',marginBottom:'4px'}}>
-                  Autista precedente: {data.driver.nome} {data.driver.cognome}
-                </div>
-              )}
-              {field.name === 'vehicle_id' && data.vehicle && (
-                <div style={{fontSize:'0.85em',color:'#888',marginBottom:'4px'}}>
-                  Veicolo precedente: {data.vehicle.targa} - {data.vehicle.marca} {data.vehicle.modello}
-                </div>
-              )}
-              <select
-                id={field.name}
-                name={field.name}
-                value={formData[field.name] !== undefined ? String(formData[field.name]) : ''}
-                onChange={handleChange}
-                disabled={!isEditing || isLoading || isSaving || field.disabled}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
-                  fontSize: '1rem',
-                  backgroundColor: isEditing ? '#fff' : '#f9f9fa',
-                  appearance: 'none',
-                  backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007aff%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 12px top 50%',
-                  backgroundSize: '12px auto',
-                  paddingRight: '30px'
-                }}
-              >
-                <option value="">Seleziona...</option>
-                {field.options?.map(option => {
-                  // Converti sia il valore dell'opzione che il valore del form in stringhe per il confronto
-                  const optionValue = String(option.value);
-                  const formValue = String(formData[field.name]);
 
-                  // Log per debug
-                  if (field.name === 'driver_id' || field.name === 'vehicle_id') {
-                    console.log(`[DEBUG][EntityForm][render] Campo: ${field.name}, formValue: ${formValue}, optionValue: ${optionValue}, typeof formValue: ${typeof formValue}, typeof optionValue: ${typeof optionValue}`);
-                  }
+          {/* === Conditional Rendering Logic === */}
+          {!isEditing ? (
+            // === DISPLAY MODE (isEditing = false) ===
+            <div style={{
+              padding: '10px 12px',
+              border: '1px solid #e5e5ea',
+              borderRadius: '8px',
+              backgroundColor: '#f2f2f7',
+              minHeight: '44px', // Altezza minima per allineamento
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '1rem',
+              wordBreak: 'break-word', // Per testi lunghi
+            }}>
+              {(() => {
+                const value = formData[field.name];
+                if (value === undefined || value === null || value === '') {
+                  return <span style={{ color: '#8e8e93' }}>N/D</span>; // Mostra N/D per valori vuoti
+                }
 
-                  return (
-                    <option key={optionValue} value={optionValue}>
-                      {option.label}
-                    </option>
-                  );
-                })}
-              </select>
-            </>
+                if (field.type === 'select' && field.options) {
+                  const option = field.options.find(opt => String(opt.value) === String(value));
+                  return option ? option.label : <span style={{ color: '#ff3b30' }}>Valore non trovato</span>; // Mostra etichetta o errore
+                }
+
+                if (field.type === 'checkbox') {
+                  return value ? 'Sì' : 'No';
+                }
+
+                if (field.type === 'date' && value) {
+                  try {
+                    return new Date(value).toLocaleDateString('it-IT'); // Formato data locale
+                  } catch { return value; } // Fallback al valore grezzo
+                }
+
+                if (field.type === 'datetime-local' && value) {
+                  try {
+                    return new Date(value).toLocaleString('it-IT'); // Formato data/ora locale
+                  } catch { return value; } // Fallback
+                }
+
+                // Per altri tipi (text, textarea, number), mostra il valore
+                return String(value);
+              })()}
+            </div>
           ) : (
-            <input
-              type={field.type || 'text'}
-              id={field.name}
-              name={field.name}
-              value={formData[field.name] !== undefined && formData[field.name] !== null ? formData[field.name] : ''}
-              onChange={handleChange}
-              disabled={!isEditing || isLoading || isSaving || field.disabled}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
-                fontSize: '1rem',
-                backgroundColor: isEditing ? '#fff' : '#f9f9fa'
-              }}
-            />
+            // === EDIT MODE (isEditing = true) ===
+            (() => {
+              // Sposta la logica di rendering dell'input qui dentro
+              if (field.type === 'textarea') {
+                return (
+                  <textarea
+                    id={field.name}
+                    name={field.name}
+                    value={formData[field.name] !== undefined && formData[field.name] !== null ? formData[field.name] : ''}
+                    onChange={handleChange}
+                    disabled={isLoading || isSaving || field.disabled}
+                    rows={field.rows || 3}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
+                      fontSize: '1rem',
+                      resize: 'vertical',
+                      backgroundColor: (isLoading || isSaving || field.disabled) ? '#f2f2f7' : '#fff',
+                    }}
+                  />
+                );
+              } else if (field.type === 'select') {
+                return (
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={formData[field.name] !== undefined && formData[field.name] !== null ? String(formData[field.name]) : ''}
+                    onChange={handleChange}
+                    disabled={isLoading || isSaving || field.disabled}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
+                      fontSize: '1rem',
+                      backgroundColor: (isLoading || isSaving || field.disabled) ? '#f2f2f7' : '#fff',
+                      appearance: 'none', // Stile nativo
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 0.5rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem',
+                    }}
+                  >
+                    {field.placeholder && <option value="">{field.placeholder}</option>}
+                    {field.options && field.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                );
+              } else if (field.type === 'checkbox') {
+                return (
+                  <input
+                    type="checkbox"
+                    id={field.name}
+                    name={field.name}
+                    checked={!!formData[field.name]}
+                    onChange={handleChange}
+                    disabled={isLoading || isSaving || field.disabled}
+                    style={{ height: '20px', width: '20px' }}
+                  />
+                );
+              } else if (field.type === 'hidden') {
+                return (
+                  <input
+                    type="hidden"
+                    id={field.name}
+                    name={field.name}
+                    value={formData[field.name] !== undefined && formData[field.name] !== null ? formData[field.name] : ''}
+                  />
+                );
+              } else {
+                // Default per input text, number, date, datetime-local, etc.
+                return (
+                  <input
+                    type={field.type || 'text'}
+                    id={field.name}
+                    name={field.name}
+                    value={formData[field.name] !== undefined && formData[field.name] !== null ? formData[field.name] : ''}
+                    onChange={handleChange}
+                    disabled={isLoading || isSaving || field.disabled}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
+                      fontSize: '1rem',
+                      backgroundColor: (isLoading || isSaving || field.disabled) ? '#f2f2f7' : '#fff',
+                    }}
+                  />
+                );
+              }
+            })()
           )}
-          
           {allErrors[field.name] && (
-            <p style={{ color: '#ff3b30', fontSize: '0.8rem', marginTop: '4px', marginBottom: 0 }}>
-              {allErrors[field.name]}
-            </p>
+            <p style={{ color: '#ff3b30', fontSize: '0.8rem', marginTop: '4px' }}>{allErrors[field.name]}</p>
           )}
         </div>
       ))}

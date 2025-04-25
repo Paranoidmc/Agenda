@@ -131,32 +131,33 @@ export default function SediPage() {
   const handleSaveSede = async (formData) => {
     setIsSaving(true);
     try {
-      // Assicuriamoci che client_id sia un numero se presente
-      if (formData.client_id) {
-        formData.client_id = Number(formData.client_id);
+      // Filtra solo i campi permessi dal database
+      const allowedFields = ['id','nome','indirizzo','citta','cap','provincia','client_id','note','status'];
+      const cleanedData = {};
+      for (const key of allowedFields) {
+        if (formData[key] !== undefined) cleanedData[key] = formData[key];
       }
-      
+      // Assicuriamoci che client_id sia un numero se presente
+      if (cleanedData.client_id) {
+        cleanedData.client_id = Number(cleanedData.client_id);
+      }
       // Log per debug
-      console.log('Dati sede da salvare:', formData);
-      
+      console.log('Dati sede da salvare:', cleanedData);
       let response;
-      if (formData.id) {
+      if (cleanedData.id) {
         // Aggiornamento
-        response = await api.put(`/sites/${formData.id}`, formData);
+        response = await api.put(`/sites/${cleanedData.id}`, cleanedData);
         console.log('Risposta aggiornamento sede:', response.data);
-        
         // Aggiorna la lista delle sedi
         setSedi(prev => 
-          prev.map(s => s.id === formData.id ? response.data : s)
+          prev.map(s => s.id === cleanedData.id ? response.data : s)
         );
-        
         // Aggiorna la sede selezionata
         setSelectedSede(response.data);
       } else {
         // Creazione
-        response = await api.post('/sites', formData);
+        response = await api.post('/sites', cleanedData);
         console.log('Risposta creazione sede:', response.data);
-        
         // Aggiorna la lista delle sedi
         setSedi(prev => [...prev, response.data]);
         

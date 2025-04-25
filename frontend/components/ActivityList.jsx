@@ -287,17 +287,17 @@ export default function ActivityList({
                   borderRadius: 4,
                   fontSize: 12,
                   backgroundColor: 
-                    activity.stato === 'planned' ? '#007aff' : 
-                    activity.stato === 'in_progress' ? '#ff9500' :
-                    activity.stato === 'completed' ? '#4cd964' :
-                    activity.stato === 'cancelled' ? '#ff3b30' : '#8e8e93',
+                    activity.status === 'Pianificata' ? '#007aff' : 
+                    activity.status === 'In Corso' ? '#ff9500' :
+                    activity.status === 'Completata' ? '#4cd964' :
+                    activity.status === 'Annullata' ? '#ff3b30' : '#8e8e93',
                   color: '#fff'
                 }}>
-                  {activity.stato === 'planned' ? 'Pianificata' : 
-                   activity.stato === 'in_progress' ? 'In Corso' :
-                   activity.stato === 'completed' ? 'Completata' :
-                   activity.stato === 'cancelled' ? 'Annullata' : 
-                   activity.stato}
+                  {activity.status === 'Pianificata' ? 'Pianificata' : 
+                   activity.status === 'In Corso' ? 'In Corso' :
+                   activity.status === 'Completata' ? 'Completata' :
+                   activity.status === 'Annullata' ? 'Annullata' : 
+                   activity.status}
                 </span>
               </td>
             </tr>
