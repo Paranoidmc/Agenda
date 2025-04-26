@@ -23,6 +23,8 @@ class Vehicle extends Model
         'supplier', 'collection_date', 'contract_duration_months', 'contract_kilometers',
         'invoice_amount_excl_vat', 'invoice_amount_incl_vat', 'contract_equipment',
         'tomtom', 'tires', 'returned_or_redeemed', 'external_link',
+        // Nuovi campi
+        'matricola', 'scadenze', 'note', 'link',
     ];
     
     protected $casts = [
