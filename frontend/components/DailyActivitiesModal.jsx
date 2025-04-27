@@ -32,8 +32,7 @@ function mapRow(r) {
   const data = r.data || {};
   return {
     ...r,
-    titolo: r.titolo || data.titolo || data.title || '',
-    descrizione: r.descrizione || data.descrizione || data.description || '',
+        descrizione: r.descrizione || data.descrizione || data.description || '',
     client_id: r.client_id || data.client_id || data.site?.client?.id || '',
     site_id: r.site_id || data.site_id || data.site?.id || '',
     driver_id: r.driver_id || data.driver_id || data.driver?.id || '',
@@ -69,6 +68,15 @@ function mapRow(r) {
   // Gestore cambi campo (editabile, automatico)
   const handleFieldChange = (idx, field, value, isEmptyRow = false) => {
     const targetRows = isEmptyRow ? [...emptyRows] : [...rows];
+    
+    // Format time values if they come from time inputs
+    if (field === 'ora' || field === 'data_fine') {
+      // Ensure time is in HH:MM format
+      if (value && !value.includes(':')) {
+        value = `${value.slice(0,2)}:${value.slice(2)}`;
+      }
+    }
+    
     targetRows[idx][field] = value;
     if (isEmptyRow) {
       setEmptyRows(targetRows);
@@ -93,12 +101,17 @@ function mapRow(r) {
         });
         // Svuota la riga dopo il salvataggio
         const newEmptyRows = [...emptyRows];
-        newEmptyRows[idx] = { titolo: "", descrizione: "", client_id: "", site_id: "", ora: "", data_fine: "", driver_id: "", vehicle_id: "", stato: "", activity_type_id: "", _isNew: true };
+        newEmptyRows[idx] = { descrizione: "", client_id: "", site_id: "", ora: "", data_fine: "", driver_id: "", vehicle_id: "", stato: "", activity_type_id: "", _isNew: true };
         setEmptyRows(newEmptyRows);
       }
     } else {
       setRows(targetRows);
       // Salvataggio automatico per righe esistenti
+      // Genera titolo automatico se mancante
+      const clientObj = clients.find(c => String(c.id) === String(targetRows[idx].client_id));
+      const nomeCliente = clientObj ? clientObj.nome : '';
+      const dataAttivita = date;
+      const titoloGenerato = `${nomeCliente} - ${dataAttivita}`;
       onSaveActivity({
         ...targetRows[idx],
         data_inizio: date + 'T' + targetRows[idx].ora,
@@ -111,7 +124,7 @@ function mapRow(r) {
   const handleAddEmptyRow = () => {
     setEmptyRows([
       ...emptyRows,
-      { titolo: "", descrizione: "", client_id: "", site_id: "", ora: "", data_fine: "", driver_id: "", vehicle_id: "", stato: "", activity_type_id: "", _isNew: true }
+      { descrizione: "", client_id: "", site_id: "", ora: "", data_fine: "", driver_id: "", vehicle_id: "", stato: "", activity_type_id: "", _isNew: true }
     ]);
   };
 
@@ -119,9 +132,9 @@ function mapRow(r) {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h2>Attività giornaliere</h2>
+    <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div className="modal-content" style={{ maxWidth: '95vw', maxHeight: '95vh', width: 'auto', backgroundColor: 'white', padding: '20px', borderRadius: '8px', overflow: 'auto' }}>
+        <h2 style={{ marginTop: 0 }}>Attività giornaliere</h2>
         <div style={{ marginBottom: 16 }}>
           <label>
             Data:
@@ -133,265 +146,246 @@ function mapRow(r) {
             />
           </label>
         </div>
-        <table className="daily-table">
-          <thead>
-            <tr>
-              <th>Titolo</th>
-              <th>Descrizione attività</th>
-              <th>Cliente</th>
-              <th>Cantiere</th>
-              <th>Ora inizio</th>
-              <th>Ora fine</th>
-              <th>Veicolo</th>
-              <th>Assegnato a</th>
-              <th>Stato</th>
-              <th>Tipologia di attività</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Righe esistenti */}
-            {rows.map((row, idx) => (
-              <tr key={row.id || idx}>
-                <td>
-                  <input
-                    type="text"
-                    value={row.titolo || ""}
-                    onChange={e => handleFieldChange(idx, "titolo", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={row.descrizione || ""}
-                    onChange={e => handleFieldChange(idx, "descrizione", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <select
-                    value={row.client_id || ""}
-                    onChange={e => handleFieldChange(idx, "client_id", e.target.value)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(clients) ? clients : []).map(client => (
-                      <option key={client.id} value={client.id}>{client.nome}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.site_id || ""}
-                    onChange={e => handleFieldChange(idx, "site_id", e.target.value)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(sites) ? sites : []).map(site => (
-                      <option key={site.id} value={site.id}>{site.nome}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={row.ora || ""}
-                    onChange={e => handleFieldChange(idx, "ora", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={row.data_fine || ""}
-                    onChange={e => handleFieldChange(idx, "data_fine", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <select
-                    value={row.vehicle_id || ""}
-                    onChange={e => handleFieldChange(idx, "vehicle_id", e.target.value)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(vehicles) ? vehicles : []).map(vehicle => (
-                      <option key={vehicle.id} value={vehicle.id}>{vehicle.targa} - {vehicle.marca} {vehicle.modello}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.driver_id || ""}
-                    onChange={e => handleFieldChange(idx, "driver_id", e.target.value)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(drivers) ? drivers : []).map(driver => (
-                      <option key={driver.id} value={driver.id}>{driver.nome} {driver.cognome}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.stato || ""}
-                    onChange={e => handleFieldChange(idx, "stato", e.target.value)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {activityStates.map(stato => (
-                      <option key={stato} value={stato}>{stato}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.activity_type_id || ""}
-                    onChange={e => handleFieldChange(idx, "activity_type_id", e.target.value)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {activityTypes.map(type => (
-                      <option key={type.id} value={type.id}>{type.nome || type.name}</option>
-                    ))}
-                  </select>
-                </td>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="daily-table" style={{ minWidth: '1200px', width: '100%' }}>
+            <thead>
+              <tr>
+                                <th>Descrizione attività</th>
+                <th>Cliente</th>
+                <th>Cantiere</th>
+                <th>Ora inizio</th>
+                <th>Ora fine</th>
+                <th>Veicolo</th>
+                <th>Assegnato a</th>
+                <th>Stato</th>
+                <th>Tipologia di attività</th>
               </tr>
-            ))}
-            {/* Righe vuote per nuove attività */}
-            {emptyRows.map((row, idx) => (
-              <tr key={"empty-" + idx}>
-                <td>
-                  <input
-                    type="text"
-                    value={row.titolo || ""}
-                    onChange={e => handleFieldChange(idx, "titolo", e.target.value, true)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={row.descrizione || ""}
-                    onChange={e => handleFieldChange(idx, "descrizione", e.target.value, true)}
-                  />
-                </td>
-                <td>
-                  <select
-                    value={row.client_id || ""}
-                    onChange={e => handleFieldChange(idx, "client_id", e.target.value, true)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(clients) ? clients : []).map(client => (
-                      <option key={client.id} value={client.id}>{client.nome}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.site_id || ""}
-                    onChange={e => handleFieldChange(idx, "site_id", e.target.value, true)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(sites) ? sites : []).map(site => (
-                      <option key={site.id} value={site.id}>{site.nome}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={row.ora || ""}
-                    onChange={e => handleFieldChange(idx, "ora", e.target.value, true)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={row.data_fine || ""}
-                    onChange={e => handleFieldChange(idx, "data_fine", e.target.value, true)}
-                  />
-                </td>
-                <td>
-                  <select
-                    value={row.vehicle_id || ""}
-                    onChange={e => handleFieldChange(idx, "vehicle_id", e.target.value, true)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(vehicles) ? vehicles : []).map(vehicle => (
-                      <option key={vehicle.id} value={vehicle.id}>{vehicle.targa} - {vehicle.marca} {vehicle.modello}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.driver_id || ""}
-                    onChange={e => handleFieldChange(idx, "driver_id", e.target.value, true)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {(Array.isArray(drivers) ? drivers : []).map(driver => (
-                      <option key={driver.id} value={driver.id}>{driver.nome} {driver.cognome}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.stato || ""}
-                    onChange={e => handleFieldChange(idx, "stato", e.target.value, true)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {activityStates.map(stato => (
-                      <option key={stato} value={stato}>{stato}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.activity_type_id || ""}
-                    onChange={e => handleFieldChange(idx, "activity_type_id", e.target.value, true)}
-                  >
-                    <option value="">Seleziona...</option>
-                    {activityTypes.map(type => (
-                      <option key={type.id} value={type.id}>{type.nome || type.name}</option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {/* Righe esistenti */}
+              {rows.map((row, idx) => (
+                <tr key={row.id || idx} style={{ whiteSpace: 'nowrap' }}>
+                                    <td>
+                    <input
+                      type="text"
+                      value={row.descrizione || ""}
+                      onChange={e => handleFieldChange(idx, "descrizione", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.client_id || ""}
+                      onChange={e => handleFieldChange(idx, "client_id", e.target.value)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(clients) ? clients : []).map(client => (
+                        <option key={client.id} value={client.id}>{client.nome}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.site_id || ""}
+                      onChange={e => handleFieldChange(idx, "site_id", e.target.value)}
+                      disabled={!row.client_id}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(sites) ? sites.filter(site => {
+                        console.log('Filtering sites:', {
+                          siteClientId: site.client_id,
+                          siteClientObjId: site.client?.id,
+                          rowClientId: row.client_id,
+                          matchDirect: site.client_id == row.client_id,
+                          matchNested: site.client?.id == row.client_id
+                        });
+                        return site.client_id == row.client_id || 
+                               (site.client && site.client.id == row.client_id);
+                      }) : []).map(site => (
+                        <option key={site.id} value={site.id}>{site.nome}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={row.ora || ""}
+                      onChange={e => handleFieldChange(idx, "ora", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={row.data_fine || ""}
+                      onChange={e => handleFieldChange(idx, "data_fine", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.vehicle_id || ""}
+                      onChange={e => handleFieldChange(idx, "vehicle_id", e.target.value)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(vehicles) ? vehicles : []).map(vehicle => (
+                        <option key={vehicle.id} value={vehicle.id}>{vehicle.targa} - {vehicle.marca} {vehicle.modello}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.driver_id || ""}
+                      onChange={e => handleFieldChange(idx, "driver_id", e.target.value)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(drivers) ? drivers : []).map(driver => (
+                        <option key={driver.id} value={driver.id}>{driver.nome} {driver.cognome}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.stato || ""}
+                      onChange={e => handleFieldChange(idx, "stato", e.target.value)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {activityStates.map(stato => (
+                        <option key={stato} value={stato}>{stato}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.activity_type_id || ""}
+                      onChange={e => handleFieldChange(idx, "activity_type_id", e.target.value)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {activityTypes.map(type => (
+                        <option key={type.id} value={type.id}>{type.nome || type.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+              {/* Righe vuote per nuove attività */}
+              {emptyRows.map((row, idx) => (
+                <tr key={"empty-" + idx} style={{ whiteSpace: 'nowrap' }}>
+                                    <td>
+                    <input
+                      type="text"
+                      value={row.descrizione || ""}
+                      onChange={e => handleFieldChange(idx, "descrizione", e.target.value, true)}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.client_id || ""}
+                      onChange={e => handleFieldChange(idx, "client_id", e.target.value, true)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(clients) ? clients : []).map(client => (
+                        <option key={client.id} value={client.id}>{client.nome}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.site_id || ""}
+                      onChange={e => handleFieldChange(idx, "site_id", e.target.value, true)}
+                      disabled={!row.client_id}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(sites) ? sites.filter(site => {
+                        console.log('Filtering sites:', {
+                          siteClientId: site.client_id,
+                          siteClientObjId: site.client?.id,
+                          rowClientId: row.client_id,
+                          matchDirect: site.client_id == row.client_id,
+                          matchNested: site.client?.id == row.client_id
+                        });
+                        return site.client_id == row.client_id || 
+                               (site.client && site.client.id == row.client_id);
+                      }) : []).map(site => (
+                        <option key={site.id} value={site.id}>{site.nome}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={row.ora || ""}
+                      onChange={e => handleFieldChange(idx, "ora", e.target.value, true)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={row.data_fine || ""}
+                      onChange={e => handleFieldChange(idx, "data_fine", e.target.value, true)}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.vehicle_id || ""}
+                      onChange={e => handleFieldChange(idx, "vehicle_id", e.target.value, true)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(vehicles) ? vehicles : []).map(vehicle => (
+                        <option key={vehicle.id} value={vehicle.id}>{vehicle.targa} - {vehicle.marca} {vehicle.modello}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.driver_id || ""}
+                      onChange={e => handleFieldChange(idx, "driver_id", e.target.value, true)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {(Array.isArray(drivers) ? drivers : []).map(driver => (
+                        <option key={driver.id} value={driver.id}>{driver.nome} {driver.cognome}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.stato || ""}
+                      onChange={e => handleFieldChange(idx, "stato", e.target.value, true)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {activityStates.map(stato => (
+                        <option key={stato} value={stato}>{stato}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={row.activity_type_id || ""}
+                      onChange={e => handleFieldChange(idx, "activity_type_id", e.target.value, true)}
+                    >
+                      <option value="">Seleziona...</option>
+                      {activityTypes.map(type => (
+                        <option key={type.id} value={type.id}>{type.nome || type.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between" }}>
-          <button onClick={handleAddEmptyRow} style={{ background: "#007aff", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", cursor: "pointer" }}>
-            + Nuova riga vuota
+          <button 
+            onClick={handleAddEmptyRow}
+            style={{ marginTop: '16px', padding: '8px 16px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            Aggiungi attività
           </button>
-          <button onClick={onClose} style={{ background: "#aaa", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", cursor: "pointer" }}>
+          <button 
+            onClick={onClose}
+            style={{ marginTop: '16px', marginLeft: '16px', padding: '8px 16px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
             Chiudi
           </button>
         </div>
       </div>
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          background: rgba(0,0,0,0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-        .modal-content {
-          background: #fff;
-          padding: 32px 24px;
-          border-radius: 12px;
-          min-width: 900px;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-        }
-        .daily-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 12px;
-        }
-        .daily-table th, .daily-table td {
-          border: 1px solid #e5e5ea;
-          padding: 8px;
-          text-align: left;
-        }
-        .daily-table th {
-          background: #f7f7fa;
-        }
-      `}</style>
     </div>
   );
 }

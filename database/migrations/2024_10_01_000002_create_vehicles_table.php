@@ -66,7 +66,7 @@ return new class extends Migration
             $table->string('tomtom')->nullable();
             $table->string('tires')->nullable();
             $table->string('returned_or_redeemed')->nullable();
-            $table->text('external_link')->nullable();
+            $table->text('link')->nullable();
             $table->timestamps();
         });
     }

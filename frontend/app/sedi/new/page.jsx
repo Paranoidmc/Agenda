@@ -47,7 +47,7 @@ function NewSiteContent() {
   const loadClienti = async () => {
     setFetching(true);
     try {
-      const response = await api.get("/clients");
+      const response = await api.get("/clients", { params: { perPage: 20000 } });
       setClienti(response.data);
       setFetching(false);
     } catch (err) {

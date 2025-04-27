@@ -251,13 +251,15 @@ export default function ActivityList({
               onClick={() => onActivityClick && onActivityClick(activity)}
             >
               <td style={{ padding: 8 }}>
-                {new Date(activity.data_inizio).toLocaleDateString('it-IT')}
+                {activity.data_inizio && !isNaN(new Date(activity.data_inizio)) ?
+                  `${new Date(activity.data_inizio).toLocaleDateString('it-IT')} ${new Date(activity.data_inizio).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`.trim() :
+                  'N/D'}
               </td>
               <td style={{ padding: 8 }}>
                 {activity.time_slot === 'morning' ? 'Mattina' : 
                  activity.time_slot === 'afternoon' ? 'Pomeriggio' : 
                  activity.time_slot === 'full_day' ? 'Giornata Intera' : 
-                 activity.time_slot}
+                 activity.time_slot ? activity.time_slot : 'Nessuna'}
               </td>
               <td style={{ padding: 8 }}>
                 {activity.driver?.nome} {activity.driver?.cognome}

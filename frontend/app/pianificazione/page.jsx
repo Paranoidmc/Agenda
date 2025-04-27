@@ -121,7 +121,7 @@ export default function PianificazionePage() {
     
     if (event.type === 'activity' && event.data && event.data.id) {
       console.log(`Navigazione a /attivita/${event.data.id}`);
-      router.push(`/attivita/${event.data.id}`);
+      router.push(`/attivita?open=${event.data.id}`);
     } else if (event.type === 'deadline' && event.data && event.data.id) {
       console.log(`Navigazione a /scadenze?id=${event.data.id}`);
       router.push(`/scadenze?id=${event.data.id}`);
@@ -496,6 +496,21 @@ export default function PianificazionePage() {
       // Log completo della risposta per debug
       console.log("Risposta completa delle attività:", JSON.stringify(activitiesResponse.data, null, 2));
       
+      // DEBUG: logga tutti gli ID attività ricevuti e cerca la 910
+      const activitiesRawDebug = Array.isArray(activitiesResponse.data)
+        ? activitiesResponse.data
+        : (activitiesResponse.data && Array.isArray(activitiesResponse.data.data)
+          ? activitiesResponse.data.data
+          : []);
+      console.log('DEBUG: Tutti gli ID attività ricevuti:', activitiesRawDebug.map(a => a.id));
+      const activity910 = activitiesRawDebug.find(a => a.id === 910);
+      if (activity910) {
+        console.log('DEBUG: Attività 910 trovata:', activity910);
+        console.log('DEBUG: data_inizio 910:', activity910.data_inizio);
+        console.log('DEBUG: data_fine 910:', activity910.data_fine);
+      } else {
+        console.warn('DEBUG: Attività 910 NON trovata nella fetch!');
+      }
       // Log dei tipi di attività caricati
       console.log("Tipi di attività caricati:", JSON.stringify(activityTypesResponse.data, null, 2));
       

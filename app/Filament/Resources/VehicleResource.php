@@ -98,13 +98,8 @@ class VehicleResource extends Resource
                                         Forms\Components\TextInput::make('tomtom')->label('TomTom')->maxLength(64),
                                         Forms\Components\TextInput::make('tires')->label('Gomme')->maxLength(64),
                                         Forms\Components\TextInput::make('returned_or_redeemed')->label('Restituito/Riscattato')->maxLength(32),
-                                        Forms\Components\Textarea::make('external_link')->label('Link esterno'),
-                                        Forms\Components\TextInput::make('vin')
-                                            ->label('Numero Telaio (VIN)')
-                                            ->maxLength(255),
-                                        Forms\Components\TextInput::make('engine_number')
-                                            ->label('Numero Motore')
-                                            ->maxLength(255),
+                                        Forms\Components\Textarea::make('link')->label('Link esterno'),
+                                        Forms\Components\Textarea::make('external_note')->label('Nota esterno'),
                                     ])->columns(3),
                                 
                                 Forms\Components\Section::make('Caratteristiche')
@@ -268,206 +263,62 @@ class VehicleResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('plate')
-                    ->label('Targa')
-                    ->searchable()
-                    ->sortable()
-                    ->copyable()
-                    ->weight('bold'),
-                
-                Tables\Columns\TextColumn::make('brand')
-                    ->label('Marca')
-                    ->searchable()
-                    ->sortable(),
-                
-                Tables\Columns\TextColumn::make('model')
-                    ->label('Modello')
-                    ->searchable()
-                    ->sortable(),
-                
-                Tables\Columns\TextColumn::make('name')->label('Nome')->searchable(),
-                Tables\Columns\TextColumn::make('fuel_type')
-                    ->label('Carburante')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'petrol' => 'Benzina',
-                        'diesel' => 'Diesel',
-                        'lpg' => 'GPL',
-                        'methane' => 'Metano',
-                        'hybrid' => 'Ibrido',
-                        'electric' => 'Elettrico',
-                        'other' => 'Altro',
-                        default => $state,
-                    })
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('color')->label('Colore')->searchable(),
-                Tables\Columns\TextColumn::make('odometer')->label('Km')->searchable(),
-                Tables\Columns\TextColumn::make('assigned_driver')->label('Autista')->searchable(),
-                Tables\Columns\TextColumn::make('groups')->label('Gruppi')->searchable(),
-                
-                Tables\Columns\TextColumn::make('type')
-                    ->label('Tipo')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'car' => 'Automobile',
-                        'van' => 'Furgone',
-                        'truck' => 'Camion',
-                        'bus' => 'Autobus',
-                        'trailer' => 'Rimorchio',
-                        'other' => 'Altro',
-                        default => $state,
-                    })
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'car' => 'info',
-                        'van' => 'success',
-                        'truck' => 'warning',
-                        'bus' => 'danger',
-                        'trailer' => 'gray',
-                        default => 'gray',
-                    })
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('year')
-                    ->label('Anno')
-                    ->sortable()
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('age')
-                    ->label('Età')
-                    ->formatStateUsing(fn ($state) => $state ? "{$state} anni" : '-')
-                    ->sortable(query: function (Builder $query, string $direction): Builder {
-                        return $query->orderBy('year', $direction === 'desc' ? 'asc' : 'desc');
-                    })
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('odometer')
-                    ->label('Km')
-                    ->formatStateUsing(fn ($state) => $state ? number_format($state, 0, ',', '.') . ' km' : '-')
-                    ->sortable()
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('insurance_expiry')
-                    ->label('Scadenza Assicurazione')
-                    ->date('d/m/Y')
-                    ->sortable()
-                    ->color(fn ($record) => 
-                        $record->isInsuranceExpired()
-                            ? 'danger' 
-                            : ($record->isInsuranceExpiringSoon()
-                                ? 'warning' 
-                                : 'success')
-                    )
-                    ->icon(fn ($record) => 
-                        $record->isInsuranceExpired()
-                            ? 'heroicon-o-exclamation-triangle'
-                            : ($record->isInsuranceExpiringSoon()
-                                ? 'heroicon-o-clock'
-                                : 'heroicon-o-check-circle')
-                    )
-                    ->description(fn ($record) => 
-                        $record->isInsuranceExpired()
-                            ? 'Assicurazione scaduta'
-                            : ($record->isInsuranceExpiringSoon()
-                                ? 'In scadenza'
-                                : null)
-                    )
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('status')
-                    ->label('Stato')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'operational' => 'success',
-                        'maintenance' => 'warning',
-                        'out_of_service' => 'danger',
-                        'reserved' => 'info',
-                        'inactive' => 'gray',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'operational' => 'Operativo',
-                        'maintenance' => 'In Manutenzione',
-                        'out_of_service' => 'Fuori Servizio',
-                        'reserved' => 'Riservato',
-                        'inactive' => 'Inattivo',
-                        default => $state,
-                    }),
-                
-                Tables\Columns\TextColumn::make('maintenance_status')
-                    ->label('Manutenzione')
-                    ->state(function ($record) {
-                        if ($record->isMaintenanceNeededByKm() && $record->isMaintenanceNeededByTime()) {
-                            return 'both';
-                        } elseif ($record->isMaintenanceNeededByKm()) {
-                            return 'km';
-                        } elseif ($record->isMaintenanceNeededByTime()) {
-                            return 'time';
-                        } else {
-                            return 'ok';
-                        }
-                    })
-                    ->formatStateUsing(function ($state, $record) {
-                        if ($state === 'both') {
-                            return 'Necessaria (km e tempo)';
-                        } elseif ($state === 'km') {
-                            return 'Necessaria (km)';
-                        } elseif ($state === 'time') {
-                            return 'Necessaria (tempo)';
-                        } else {
-                            if ($record->km_to_next_maintenance !== null && $record->days_to_next_maintenance !== null) {
-                                return "OK ({$record->km_to_next_maintenance} km / {$record->days_to_next_maintenance} giorni)";
-                            } elseif ($record->km_to_next_maintenance !== null) {
-                                return "OK ({$record->km_to_next_maintenance} km)";
-                            } elseif ($record->days_to_next_maintenance !== null) {
-                                return "OK ({$record->days_to_next_maintenance} giorni)";
-                            } else {
-                                return 'Non configurata';
-                            }
-                        }
-                    })
-                    ->badge()
-                    ->color(function ($state) {
-                        return match ($state) {
-                            'both' => 'danger',
-                            'km', 'time' => 'warning',
-                            'ok' => 'success',
-                            default => 'gray',
-                        };
-                    })
-                    ->icon(function ($state) {
-                        return match ($state) {
-                            'both', 'km', 'time' => 'heroicon-o-wrench',
-                            'ok' => 'heroicon-o-check-circle',
-                            default => 'heroicon-o-question-mark-circle',
-                        };
-                    })
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Data Creazione')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Ultimo Aggiornamento')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('plate')->label('Targa')->searchable(),
+                Tables\Columns\TextColumn::make('brand')->label('Marca')->searchable(),
+                Tables\Columns\TextColumn::make('model')->label('Modello')->searchable(),
+                Tables\Columns\TextColumn::make('year')->label('Anno')->sortable(),
+                Tables\Columns\TextColumn::make('type')->label('Tipo'),
+                Tables\Columns\TextColumn::make('status')->label('Stato'),
+                Tables\Columns\TextColumn::make('notes')->label('Note'),
+                Tables\Columns\TextColumn::make('name')->label('Nome'),
+                Tables\Columns\TextColumn::make('fuel_type')->label('Tipo Carburante'),
+                Tables\Columns\TextColumn::make('color')->label('Colore'),
+                Tables\Columns\TextColumn::make('odometer')->label('Chilometraggio'),
+                Tables\Columns\TextColumn::make('engine_hours')->label('Ore motore'),
+                Tables\Columns\TextColumn::make('max_load')->label('Portata max'),
+                Tables\Columns\TextColumn::make('chassis_number')->label('Numero telaio'),
+                Tables\Columns\TextColumn::make('purchase_date')->label('Data acquisto')->date(),
+                Tables\Columns\TextColumn::make('purchase_price')->label('Prezzo acquisto'),
+                Tables\Columns\TextColumn::make('front_tire_size')->label('Misura gomme anteriori'),
+                Tables\Columns\TextColumn::make('rear_tire_size')->label('Misura gomme posteriori'),
+                Tables\Columns\TextColumn::make('vin_code')->label('VIN'),
+                Tables\Columns\TextColumn::make('engine_capacity')->label('Cilindrata'),
+                Tables\Columns\TextColumn::make('engine_code')->label('Codice motore'),
+                Tables\Columns\TextColumn::make('engine_serial_number')->label('Matricola motore'),
+                Tables\Columns\TextColumn::make('fiscal_horsepower')->label('Cavalli fiscali'),
+                Tables\Columns\TextColumn::make('power_kw')->label('Potenza kW'),
+                Tables\Columns\TextColumn::make('registration_number')->label('Numero immatricolazione'),
+                Tables\Columns\TextColumn::make('euro_classification')->label('Classe Euro'),
+                Tables\Columns\TextColumn::make('groups')->label('Gruppi'),
+                Tables\Columns\TextColumn::make('assigned_driver')->label('Autista assegnato'),
+                Tables\Columns\TextColumn::make('first_registration_date')->label('Data prima immatricolazione')->date(),
+                Tables\Columns\TextColumn::make('ownership')->label('Proprietà'),
+                Tables\Columns\TextColumn::make('current_profitability')->label('Redditività attuale'),
+                Tables\Columns\TextColumn::make('contract_holder')->label('Intestatario contratto'),
+                Tables\Columns\TextColumn::make('ownership_type')->label('Tipo proprietà'),
+                Tables\Columns\TextColumn::make('rental_type')->label('Tipo noleggio'),
+                Tables\Columns\TextColumn::make('advance_paid')->label('Anticipo pagato'),
+                Tables\Columns\TextColumn::make('final_installment')->label('Maxi rata'),
+                Tables\Columns\TextColumn::make('monthly_fee')->label('Canone mensile'),
+                Tables\Columns\TextColumn::make('contract_start_date')->label('Inizio contratto')->date(),
+                Tables\Columns\TextColumn::make('contract_end_date')->label('Fine contratto')->date(),
+                Tables\Columns\TextColumn::make('monthly_alert')->label('Allerta mensile'),
+                Tables\Columns\TextColumn::make('end_alert')->label('Allerta fine'),
+                Tables\Columns\TextColumn::make('installment_payment_day')->label('Giorno pagamento rata'),
+                Tables\Columns\TextColumn::make('supplier')->label('Fornitore'),
+                Tables\Columns\TextColumn::make('collection_date')->label('Data ritiro')->date(),
+                Tables\Columns\TextColumn::make('contract_duration_months')->label('Durata contratto (mesi)'),
+                Tables\Columns\TextColumn::make('contract_kilometers')->label('Km contratto'),
+                Tables\Columns\TextColumn::make('invoice_amount_excl_vat')->label('Fattura (IVA esclusa)'),
+                Tables\Columns\TextColumn::make('invoice_amount_incl_vat')->label('Fattura (IVA inclusa)'),
+                Tables\Columns\TextColumn::make('contract_equipment')->label('Dotazioni contratto'),
+                Tables\Columns\TextColumn::make('tomtom')->label('TomTom'),
+                Tables\Columns\TextColumn::make('tires')->label('Gomme'),
+                Tables\Columns\TextColumn::make('returned_or_redeemed')->label('Restituito/Riscattato'),
+                Tables\Columns\TextColumn::make('link')->label('Link esterno'),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->label('Stato')
-                    ->options([
-                        'operational' => 'Operativo',
-                        'maintenance' => 'In Manutenzione',
-                        'out_of_service' => 'Fuori Servizio',
-                        'reserved' => 'Riservato',
-                        'inactive' => 'Inattivo',
-                    ])
-                    ->multiple(),
-                
                 Tables\Filters\SelectFilter::make('type')
-                    ->label('Tipo Veicolo')
                     ->options([
                         'car' => 'Automobile',
                         'van' => 'Furgone',
@@ -475,265 +326,17 @@ class VehicleResource extends Resource
                         'bus' => 'Autobus',
                         'trailer' => 'Rimorchio',
                         'other' => 'Altro',
-                    ])
-                    ->multiple(),
-                
-                Tables\Filters\SelectFilter::make('fuel_type')
-                    ->label('Tipo Carburante')
-                    ->options([
-                        'petrol' => 'Benzina',
-                        'diesel' => 'Diesel',
-                        'lpg' => 'GPL',
-                        'methane' => 'Metano',
-                        'hybrid' => 'Ibrido',
-                        'electric' => 'Elettrico',
-                        'other' => 'Altro',
-                    ])
-                    ->multiple(),
-                
-                Tables\Filters\Filter::make('insurance_expired')
-                    ->label('Assicurazione Scaduta')
-                    ->query(fn (Builder $query): Builder => $query->whereDate('insurance_expiry', '<', now())),
-                
-                Tables\Filters\Filter::make('insurance_expiring_soon')
-                    ->label('Assicurazione in Scadenza')
-                    ->query(fn (Builder $query): Builder => 
-                        $query->whereDate('insurance_expiry', '>=', now())
-                             ->whereDate('insurance_expiry', '<=', now()->addDays(30))
-                    ),
-                
-                Tables\Filters\Filter::make('maintenance_needed')
-                    ->label('Manutenzione Necessaria')
-                    ->query(function (Builder $query): Builder {
-                        return $query->where(function (Builder $query) {
-                            // Manutenzione necessaria per km
-                            $query->whereRaw('odometer - last_maintenance_odometer >= maintenance_interval_km')
-                                ->whereNotNull('odometer')
-                                ->whereNotNull('last_maintenance_odometer')
-                                ->whereNotNull('maintenance_interval_km');
-                        })->orWhere(function (Builder $query) {
-                            // Manutenzione necessaria per tempo
-                            $query->whereRaw('DATE_ADD(last_maintenance_date, INTERVAL maintenance_interval_months MONTH) <= CURDATE()')
-                                ->whereNotNull('last_maintenance_date')
-                                ->whereNotNull('maintenance_interval_months');
-                        });
-                    }),
-                
-                Tables\Filters\Filter::make('age')
-                    ->label('Età Veicolo')
-                    ->form([
-                        Forms\Components\TextInput::make('min_age')
-                            ->label('Età Minima (anni)')
-                            ->numeric()
-                            ->minValue(0),
-                        Forms\Components\TextInput::make('max_age')
-                            ->label('Età Massima (anni)')
-                            ->numeric()
-                            ->minValue(0),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['min_age'],
-                                fn (Builder $query, $minAge): Builder => $query->where('year', '<=', now()->year - $minAge),
-                            )
-                            ->when(
-                                $data['max_age'],
-                                fn (Builder $query, $maxAge): Builder => $query->where('year', '>=', now()->year - $maxAge),
-                            );
-                    }),
+                    ]),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\ActionGroup::make([
-                    Tables\Actions\Action::make('print_details')
-                        ->label('Stampa Scheda')
-                        ->icon('heroicon-o-printer')
-                        ->url(fn ($record) => route('filament.admin.resources.vehicles.print', $record))
-                        ->openUrlInNewTab(),
-                    
-                    Tables\Actions\Action::make('update_odometer')
-                        ->label('Aggiorna Km')
-                        ->icon('heroicon-o-arrow-path')
-                        ->form([
-                            Forms\Components\TextInput::make('odometer')
-                                ->label('Contachilometri Attuale (km)')
-                                ->numeric()
-                                ->minValue(fn ($record) => $record->odometer ?? 0)
-                                ->required(),
-                            Forms\Components\Textarea::make('note')
-                                ->label('Nota')
-                                ->placeholder('Inserisci una nota opzionale sull\'aggiornamento del contachilometri'),
-                        ])
-                        ->action(function (Vehicle $record, array $data): void {
-                            $oldOdometer = $record->odometer;
-                            $record->odometer = $data['odometer'];
-                            
-                            if (!empty($data['note'])) {
-                                $odometerNote = "Aggiornamento contachilometri da " . 
-                                    ($oldOdometer ? number_format($oldOdometer, 0, ',', '.') : '0') . 
-                                    " km a " . number_format($data['odometer'], 0, ',', '.') . 
-                                    " km il " . now()->format('d/m/Y') . ".\nNota: " . $data['note'];
-                                
-                                $record->notes = $record->notes 
-                                    ? $record->notes . "\n\n" . $odometerNote
-                                    : $odometerNote;
-                            }
-                            
-                            $record->save();
-                            
-                            Filament\Notifications\Notification::make()
-                                ->title('Contachilometri aggiornato')
-                                ->success()
-                                ->send();
-                        }),
-                    
-                    Tables\Actions\Action::make('change_status')
-                        ->label('Cambia Stato')
-                        ->icon('heroicon-o-arrow-path')
-                        ->form([
-                            Forms\Components\Select::make('status')
-                                ->label('Nuovo Stato')
-                                ->options([
-                                    'operational' => 'Operativo',
-                                    'maintenance' => 'In Manutenzione',
-                                    'out_of_service' => 'Fuori Servizio',
-                                    'reserved' => 'Riservato',
-                                    'inactive' => 'Inattivo',
-                                ])
-                                ->required(),
-                            Forms\Components\Textarea::make('note')
-                                ->label('Nota')
-                                ->placeholder('Inserisci una nota opzionale sul cambio di stato'),
-                        ])
-                        ->action(function (Vehicle $record, array $data): void {
-                            $oldStatus = $record->status;
-                            $record->status = $data['status'];
-                            
-                            if (!empty($data['note'])) {
-                                $statusNote = "Cambio stato da " . match ($oldStatus) {
-                                    'operational' => 'Operativo',
-                                    'maintenance' => 'In Manutenzione',
-                                    'out_of_service' => 'Fuori Servizio',
-                                    'reserved' => 'Riservato',
-                                    'inactive' => 'Inattivo',
-                                    default => $oldStatus,
-                                } . " a " . match ($data['status']) {
-                                    'operational' => 'Operativo',
-                                    'maintenance' => 'In Manutenzione',
-                                    'out_of_service' => 'Fuori Servizio',
-                                    'reserved' => 'Riservato',
-                                    'inactive' => 'Inattivo',
-                                    default => $data['status'],
-                                } . " il " . now()->format('d/m/Y') . ".\nNota: " . $data['note'];
-                                
-                                $record->notes = $record->notes 
-                                    ? $record->notes . "\n\n" . $statusNote
-                                    : $statusNote;
-                            }
-                            
-                            $record->save();
-                            
-                            Filament\Notifications\Notification::make()
-                                ->title('Stato aggiornato')
-                                ->success()
-                                ->send();
-                        }),
-                    
-                    Tables\Actions\Action::make('register_maintenance')
-                        ->label('Registra Manutenzione')
-                        ->icon('heroicon-o-wrench')
-                        ->form([
-                            Forms\Components\DatePicker::make('maintenance_date')
-                                ->label('Data Manutenzione')
-                                ->default(now())
-                                ->required(),
-                            Forms\Components\TextInput::make('maintenance_odometer')
-                                ->label('Contachilometri (km)')
-                                ->default(fn ($record) => $record->odometer)
-                                ->numeric()
-                                ->required(),
-                            Forms\Components\Textarea::make('maintenance_description')
-                                ->label('Descrizione Intervento')
-                                ->required(),
-                            Forms\Components\TextInput::make('maintenance_cost')
-                                ->label('Costo Intervento (€)')
-                                ->numeric()
-                                ->step(0.01),
-                        ])
-                        ->action(function (Vehicle $record, array $data): void {
-                            // Aggiorna i dati dell'ultima manutenzione
-                            $record->last_maintenance_date = $data['maintenance_date'];
-                            $record->last_maintenance_odometer = $data['maintenance_odometer'];
-                            
-                            // Aggiorna il contachilometri se necessario
-                            if ($record->odometer < $data['maintenance_odometer']) {
-                                $record->odometer = $data['maintenance_odometer'];
-                            }
-                            
-                            // Aggiungi una nota sulla manutenzione
-                            $maintenanceNote = "Manutenzione effettuata il " . Carbon::parse($data['maintenance_date'])->format('d/m/Y') . 
-                                " a " . number_format($data['maintenance_odometer'], 0, ',', '.') . " km.\n" .
-                                "Intervento: " . $data['maintenance_description'];
-                                
-                            if (!empty($data['maintenance_cost'])) {
-                                $maintenanceNote .= "\nCosto: € " . number_format($data['maintenance_cost'], 2, ',', '.');
-                            }
-                            
-                            $record->notes = $record->notes 
-                                ? $record->notes . "\n\n" . $maintenanceNote
-                                : $maintenanceNote;
-                            
-                            // Se il veicolo era in manutenzione, riportalo operativo
-                            if ($record->status === 'maintenance') {
-                                $record->status = 'operational';
-                            }
-                            
-                            $record->save();
-                            
-                            Filament\Notifications\Notification::make()
-                                ->title('Manutenzione registrata')
-                                ->success()
-                                ->send();
-                        }),
-                    
-                    Tables\Actions\DeleteAction::make(),
-                ]),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\BulkAction::make('change_status_bulk')
-                        ->label('Cambia Stato')
-                        ->icon('heroicon-o-arrow-path')
-                        ->form([
-                            Forms\Components\Select::make('status')
-                                ->label('Nuovo Stato')
-                                ->options([
-                                    'operational' => 'Operativo',
-                                    'maintenance' => 'In Manutenzione',
-                                    'out_of_service' => 'Fuori Servizio',
-                                    'reserved' => 'Riservato',
-                                    'inactive' => 'Inattivo',
-                                ])
-                                ->required(),
-                        ])
-                        ->action(function (Collection $records, array $data): void {
-                            $records->each(function ($record) use ($data) {
-                                $record->status = $data['status'];
-                                $record->save();
-                            });
-                            
-                            Filament\Notifications\Notification::make()
-                                ->title('Stato aggiornato per ' . $records->count() . ' veicoli')
-                                ->success()
-                                ->send();
-                        }),
-                    
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ])
-            ->defaultSort('plate', 'asc');
+            ]);
     }
 
     public static function getRelations(): array

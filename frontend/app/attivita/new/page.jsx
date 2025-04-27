@@ -17,8 +17,8 @@ function NewActivityContent() {
   const [attivita, setAttivita] = useState({
     titolo: '',
     descrizione: '',
-    data_inizio: new Date().toISOString().slice(0, 16),
-    data_fine: new Date().toISOString().slice(0, 16),
+    data_inizio: '',
+    data_fine: '',
     time_slot: 'full_day',
     client_id: clientId || '',
     site_id: siteId || '',
@@ -28,6 +28,26 @@ function NewActivityContent() {
     stato: 'Programmata',
     note: ''
   });
+
+  // Funzione per formattare la data (parsing manuale, senza new Date)
+  const formatDate = (dateString) => {
+  if (!dateString) return 'N/D';
+  // Usa direttamente la stringa ISO 8601 con offset (Europe/Rome)
+  const d = new Date(dateString);
+  // Ricava giorno/mese/anno/ora/minuto in locale Europe/Rome
+  return d.toLocaleString('it-IT', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).replace(',', '');
+};
+
+  // DEBUG: log ad ogni render
+  console.log('[DEBUG] Render NewActivityContent', attivita);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -38,6 +58,14 @@ function NewActivityContent() {
   const [sedi, setSedi] = useState([]);
   const [sediPerCliente, setSediPerCliente] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
+
+  // Forza il caricamento sedi ogni volta che cambia il cliente selezionato
+  useEffect(() => {
+    if (attivita.client_id) {
+      console.log('[DEBUG][useEffect] Cambio cliente, carico sedi per:', attivita.client_id);
+      loadSediPerCliente(attivita.client_id);
+    }
+  }, [attivita.client_id]);
 
   // Gestisce il cambio di data o fascia oraria
   const handleDateOrTimeSlotChange = (name, value) => {
@@ -60,58 +88,43 @@ function NewActivityContent() {
 
   // Funzione per ottenere i campi del form attività
   const getAttivitaFields = () => {
-    // Determina quali sedi mostrare in base al cliente selezionato
     let sediOptions = [];
     const clienteId = attivita?.client_id;
-    
-    console.log("getAttivitaFields - clienteId:", clienteId);
-    console.log("getAttivitaFields - sediPerCliente:", sediPerCliente);
-    
-    if (clienteId && sediPerCliente[clienteId]) {
-      // Se abbiamo le sedi per questo cliente, le utilizziamo
-      sediOptions = sediPerCliente[clienteId].map(sede => ({ 
-        value: sede.id, 
-        label: sede.nome || sede.name 
+    const clientKey = clienteId ? String(clienteId) : null;
+
+    if (!clienteId) {
+      // Nessun cliente selezionato
+      sediOptions = [{ value: '', label: 'Seleziona prima un cliente' }];
+      console.log('[DEBUG][getAttivitaFields] Nessun cliente selezionato');
+    } else if (clientKey && sediPerCliente[clientKey]) {
+      // Sedi caricate per il cliente
+      sediOptions = sediPerCliente[clientKey].map(sede => ({
+        value: sede.id,
+        label: sede.nome || sede.name
       }));
-      console.log("Usando sedi specifiche per il cliente:", sediOptions);
-    } else if (!clienteId) {
-      // Se non c'è un cliente selezionato, non mostriamo sedi
-      sediOptions = [];
-      console.log("Nessun cliente selezionato, nessuna sede disponibile");
+      console.log('[DEBUG] Usando sedi specifiche per il cliente:', sediOptions);
     } else {
-      // Se abbiamo un cliente ma non abbiamo ancora le sue sedi, carichiamole
-      console.log("Cliente selezionato ma sedi non ancora caricate, caricamento in corso...");
-      loadSediPerCliente(clienteId);
-      // Mostriamo un messaggio di caricamento
-      sediOptions = [{ value: "", label: "Caricamento sedi..." }];
+      // Cliente selezionato ma sedi non ancora caricate
+      sediOptions = [{ value: '', label: 'Caricamento sedi...' }];
+      console.log('[DEBUG][getAttivitaFields] Sedi non ancora caricate per clientKey:', clientKey);
     }
     
+    console.log('[DEBUG][getAttivitaFields] clienteId:', clienteId);
+    console.log('[DEBUG][getAttivitaFields] clientKey:', clientKey);
+
     return [
       { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
       { 
         name: 'data_inizio', 
-        label: 'Data Inizio', 
-        type: 'datetime-local', 
-        required: true,
-        onChange: handleDateOrTimeSlotChange
-      },
-      { 
-        name: 'data_fine', 
-        label: 'Data Fine', 
+        label: 'Data/Ora Inizio', 
         type: 'datetime-local', 
         required: true 
       },
       { 
-        name: 'time_slot', 
-        label: 'Fascia Oraria', 
-        type: 'select', 
-        required: true,
-        options: [
-          { value: 'morning', label: 'Mattina' },
-          { value: 'afternoon', label: 'Pomeriggio' },
-          { value: 'full_day', label: 'Giornata intera' }
-        ],
-        onChange: handleDateOrTimeSlotChange
+        name: 'data_fine', 
+        label: 'Data/Ora Fine', 
+        type: 'datetime-local', 
+        required: false 
       },
       { 
         name: 'client_id', 
@@ -132,14 +145,14 @@ function NewActivityContent() {
         isNumeric: true, 
         required: true,
         options: sediOptions,
-        disabled: !clienteId || sediOptions.length === 0
+        disabled: !clienteId || sediOptions.length === 0 || sediOptions[0]?.value === ''
       },
       { 
         name: 'driver_id', 
         label: 'Autista', 
         type: 'select', 
         isNumeric: true, 
-        required: true,
+        required: false,
         options: Array.isArray(autisti) ? autisti.map(autista => ({ 
           value: autista.id, 
           label: `${autista.nome || ''} ${autista.cognome || ''}`.trim() 
@@ -150,7 +163,7 @@ function NewActivityContent() {
         label: 'Veicolo', 
         type: 'select', 
         isNumeric: true, 
-        required: true,
+        required: false,
         options: Array.isArray(veicoli) ? veicoli.map(veicolo => ({ 
           value: veicolo.id, 
           label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() 
@@ -215,13 +228,11 @@ function NewActivityContent() {
   
   // Carica le sedi quando cambia il cliente selezionato
   const handleClienteChange = (name, value) => {
+  console.log('[DEBUG] handleClienteChange - name:', name, 'value:', value, 'typeof value:', typeof value);
     console.log("Cliente cambiato:", value, typeof value);
-    
     // Assicurati che il valore sia un numero
     const clientId = value ? Number(value) : null;
-    
     console.log("Cliente ID convertito:", clientId, typeof clientId);
-    
     if (clientId) {
       // Aggiorna il cliente nell'attività selezionata
       setAttivita(prev => ({
@@ -230,16 +241,15 @@ function NewActivityContent() {
         // Reset della sede quando cambia il cliente
         site_id: ""
       }));
-      
       // Carica le sedi per questo cliente
       loadSediPerCliente(clientId);
     }
   };
 
+  // Carica tutti i clienti (fino a 1000)
   const loadClienti = () => {
-    return api.get("/clients")
+    return api.get("/clients", { params: { perPage: 20000 } })
       .then(res => {
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
         let clientiData = [];
         if (Array.isArray(res.data)) {
           clientiData = res.data;
@@ -248,36 +258,12 @@ function NewActivityContent() {
         } else {
           console.error("Formato dati clienti non valido:", res.data);
         }
-        
         console.log("Clienti caricati:", clientiData.length);
         setClienti(clientiData);
         return clientiData;
       })
       .catch(err => {
         console.error("Errore nel caricamento dei clienti:", err);
-        return [];
-      });
-  };
-
-  const loadVeicoli = () => {
-    return api.get("/vehicles")
-      .then(res => {
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
-        let veicoliData = [];
-        if (Array.isArray(res.data)) {
-          veicoliData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          veicoliData = res.data.data;
-        } else {
-          console.error("Formato dati veicoli non valido:", res.data);
-        }
-        
-        console.log("Veicoli caricati:", veicoliData.length);
-        setVeicoli(veicoliData);
-        return veicoliData;
-      })
-      .catch(err => {
-        console.error("Errore nel caricamento dei veicoli:", err);
         return [];
       });
   };
@@ -352,6 +338,8 @@ function NewActivityContent() {
   };
   
   const loadSediPerCliente = (clientId) => {
+  // Forza la chiave a stringa ovunque
+  const clientKey = String(clientId);
     if (!clientId) {
       console.log("loadSediPerCliente: clientId non valido", clientId);
       return;
@@ -368,33 +356,25 @@ function NewActivityContent() {
     
     // Usa l'endpoint specifico per caricare le sedi di un cliente
     // Aggiungiamo un parametro per evitare la cache e impostiamo useCache a false
-    api.get(`/clients/${numericClientId}/sites`, {
-      params: { _t: new Date().getTime() },
-      useCache: false
-    })
+    return api.get(`/clients/${numericClientId}/sites`, { params: { _t: new Date().getTime() }, useCache: false })
       .then(res => {
-        console.log("Sedi per cliente caricate:", res.data);
-        
-        // Estrai i dati dalla risposta
-        let clientSites = [];
+        let sediData = [];
         if (Array.isArray(res.data)) {
-          clientSites = res.data;
+          sediData = res.data;
         } else if (res.data && Array.isArray(res.data.data)) {
-          clientSites = res.data.data;
+          sediData = res.data.data;
+        } else if (res.data && typeof res.data === 'object') {
+          sediData = Object.values(res.data);
+        } else {
+          console.error("Formato dati sedi per cliente non valido:", res.data);
         }
         
-        console.log("Sedi per cliente:", numericClientId, clientSites);
+        console.log("Sedi per cliente:", numericClientId, sediData);
         
         // Aggiorna lo stato
-        setSediPerCliente(prev => ({
-          ...prev,
-          [numericClientId]: clientSites
-        }));
+        setSediPerCliente(prev => ({ ...prev, [String(clientId)]: sediData }));
       })
       .catch(err => {
-        console.error(`Errore nel caricamento delle sedi per il cliente ${numericClientId}:`, err);
-        
-        // Log dettagliato dell'errore
         if (err.response) {
           console.error("Dettagli errore:", {
             status: err.response.status,
@@ -410,14 +390,13 @@ function NewActivityContent() {
         // In caso di errore, imposta un array vuoto per evitare errori
         setSediPerCliente(prev => ({
           ...prev,
-          [numericClientId]: []
+          [String(clientId)]: []
         }));
       });
   };
   
   const loadAvailableResources = () => {
     if (!attivita?.data_inizio) return;
-    
     // Estrai solo la data dalla data_inizio (formato ISO)
     const date = attivita.data_inizio.split('T')[0];
     const timeSlot = attivita.time_slot || 'full_day';
@@ -448,11 +427,12 @@ function NewActivityContent() {
   const handleSaveAttivita = async (formData) => {
     setIsSaving(true);
     setValidationErrors({});
-    
     try {
       // Assicuriamoci che i campi ID siano numeri
       const preparedData = { ...formData };
-      
+      // PATCH: non manipolare mai data_inizio/data_fine, invia esattamente il valore dell'input
+      if (formData.data_inizio) preparedData.data_inizio = formData.data_inizio;
+      if (formData.data_fine) preparedData.data_fine = formData.data_fine;
       // Converti gli ID in numeri
       ['client_id', 'site_id', 'driver_id', 'vehicle_id', 'activity_type_id'].forEach(field => {
         if (preparedData[field]) {
@@ -565,33 +545,35 @@ function NewActivityContent() {
   if (loading || fetching) return <div className="centered">Caricamento...</div>;
   if (error) return <div className="centered">{error}</div>;
 
+  // Campi dinamici generati ad ogni render
+  const dynamicFields = getAttivitaFields();
+  console.log('[DEBUG] Render EntityForm con fields:', dynamicFields);
+
   return (
     <div style={{ padding: 32 }}>
-      <PageHeader 
-        title="Nuova Attività" 
-        buttonLabel="Torna alla lista" 
-        onAddClick={handleBackToList} 
-      />
-      
-      <div style={{ 
-        background: '#fff', 
-        borderRadius: 14, 
-        boxShadow: 'var(--box-shadow)', 
+      <PageHeader title="Nuova Attività" />
+      <div style={{
+        background: '#fff',
+        borderRadius: 14,
+        boxShadow: 'var(--box-shadow)',
         padding: 24
       }}>
-        <EntityForm 
-          fields={getAttivitaFields()}
+        <EntityForm
           data={attivita}
+          fields={dynamicFields}
           onSave={handleSaveAttivita}
           onCancel={handleBackToList}
           isSaving={isSaving}
           errors={validationErrors}
           isEditing={true}
+          key={attivita.client_id || 'no-client'}
+          // customHandlers o altre prop possono essere aggiunte qui se servono
         />
       </div>
     </div>
   );
 }
+
 
 // Main page component with Suspense
 export default function NewActivityPage() {

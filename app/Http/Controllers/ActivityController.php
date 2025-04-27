@@ -15,16 +15,10 @@ class ActivityController extends Controller
     {
         $query = Activity::with(['client', 'driver', 'vehicle', 'site', 'activityType']);
         
-        // Filtraggio per intervallo date
+        // Filtraggio per intervallo date (inclusione se l'attività tocca anche solo parzialmente il range)
         if ($request->has('start_date') && $request->has('end_date')) {
-            $query->where(function($q) use ($request) {
-                $q->whereBetween('data_inizio', [$request->start_date, $request->end_date])
-                  ->orWhereBetween('data_fine', [$request->start_date, $request->end_date])
-                  ->orWhere(function($q) use ($request) {
-                      $q->where('data_inizio', '<=', $request->start_date)
-                        ->where('data_fine', '>=', $request->end_date);
-                  });
-            });
+            $query->where('data_inizio', '<=', $request->end_date)
+                  ->where('data_fine', '>=', $request->start_date);
         }
         
         // Filtraggio per cliente
@@ -63,8 +57,7 @@ class ActivityController extends Controller
         
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('titolo', 'like', "%$search%")
-                  ->orWhere('descrizione', 'like', "%$search%")
+                $q->where('descrizione', 'like', "%$search%")
                   ->orWhere('notes', 'like', "%$search%")
                   ->orWhere('note', 'like', "%$search%")
                   ->orWhereHas('client', function ($sub) use ($search) {
@@ -95,6 +88,17 @@ class ActivityController extends Controller
         $activities = $query->orderBy('data_inizio', 'desc')->paginate($perPage);
         // Aggiungiamo i campi in italiano per ogni attività
         $activities->getCollection()->transform(function ($activity) {
+            // Serializza data_inizio e data_fine con offset ISO8601 (Y-m-d\TH:i:sP)
+            if ($activity->data_inizio) {
+                $activity->data_inizio = $activity->data_inizio instanceof \Carbon\Carbon
+                    ? $activity->data_inizio->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
+                    : (string) $activity->data_inizio;
+            }
+            if ($activity->data_fine) {
+                $activity->data_fine = $activity->data_fine instanceof \Carbon\Carbon
+                    ? $activity->data_fine->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
+                    : (string) $activity->data_fine;
+            }
             // Manteniamo solo i campi in italiano
             
             // Aggiungiamo i campi in italiano per il cliente
@@ -169,13 +173,13 @@ class ActivityController extends Controller
         Log::info('Raw request data for activity store:', $request->all()); // Log dati grezzi
 
         $validated = $request->validate([
-            'titolo' => 'required|string|max:255',
+    
             'descrizione' => 'nullable|string',
-            'data_inizio' => 'required|date',
-            'data_fine' => 'required|date|after_or_equal:data_inizio',
+            'data_inizio' => 'required|date_format:Y-m-d\TH:i',
+            'data_fine' => 'required|date_format:Y-m-d\TH:i|after_or_equal:data_inizio',
             'client_id' => 'required|exists:clients,id',
-            'driver_id' => 'required|exists:drivers,id',
-            'vehicle_id' => 'required|exists:vehicles,id',
+            'driver_id' => 'nullable|exists:drivers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
             'site_id' => 'required|exists:sites,id',
             'activity_type_id' => 'required|exists:activity_types,id',
             'stato' => 'nullable|string|max:50',
@@ -198,14 +202,11 @@ class ActivityController extends Controller
             
             // Prepara i dati per la creazione
             $data = [
-                'titolo' => $validated['titolo'],
                 'descrizione' => $validated['descrizione'] ?? null,
-                'data_inizio' => $validated['data_inizio'],
-                'data_fine' => $validated['data_fine'],
-                'date' => $validated['data_inizio'], // Assicuriamoci che date sia qui
-                'time_slot' => $validated['time_slot'] ?? 'full_day',
-                'driver_id' => $validated['driver_id'],
-                'vehicle_id' => $validated['vehicle_id'],
+                'data_inizio' => \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_inizio']),
+                'data_fine' => \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_fine']),
+                'driver_id' => $validated['driver_id'] ?? null,
+                'vehicle_id' => $validated['vehicle_id'] ?? null,
                 'client_id' => $validated['client_id'],
                 'site_id' => $validated['site_id'],
                 'activity_type_id' => $validated['activity_type_id'],
@@ -224,18 +225,13 @@ class ActivityController extends Controller
             Log::info('Data before create:', $data); // Log prima della creazione
 
             // Verifica l'esistenza dei record prima di procedere
-            $driver = \App\Models\Driver::find($validated['driver_id']);
-            $vehicle = \App\Models\Vehicle::find($validated['vehicle_id']);
+            $driver = isset($validated['driver_id']) ? \App\Models\Driver::find($validated['driver_id']) : null;
+            $vehicle = isset($validated['vehicle_id']) ? \App\Models\Vehicle::find($validated['vehicle_id']) : null;
             $client = \App\Models\Client::find($validated['client_id']);
             $site = \App\Models\Site::find($validated['site_id']);
             $activityType = \App\Models\ActivityType::find($validated['activity_type_id']);
 
-            if (!$driver) {
-                throw new \Exception("Autista non trovato");
-            }
-            if (!$vehicle) {
-                throw new \Exception("Veicolo non trovato");
-            }
+            
             if (!$client) {
                 throw new \Exception("Cliente non trovato");
             }
@@ -287,11 +283,20 @@ class ActivityController extends Controller
         // Carica le relazioni senza specificare i campi
         $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
         
+        // Serializza data_inizio e data_fine con offset ISO8601 (Y-m-d\TH:i:sP)
+        if ($activity->data_inizio) {
+            $activity->data_inizio = $activity->data_inizio instanceof \Carbon\Carbon
+                ? $activity->data_inizio->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
+                : (string) $activity->data_inizio;
+        }
+        if ($activity->data_fine) {
+            $activity->data_fine = $activity->data_fine instanceof \Carbon\Carbon
+                ? $activity->data_fine->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
+                : (string) $activity->data_fine;
+        }
         // Aggiungiamo i campi in inglese (per compatibilità)
         $activity->title = $activity->titolo ?? '';
         $activity->description = $activity->descrizione ?? '';
-        $activity->data_inizio = $activity->date;
-        $activity->data_fine = $activity->date;
         $activity->note = $activity->notes;
         
         // Aggiungiamo i campi in italiano per il cliente
@@ -362,10 +367,10 @@ class ActivityController extends Controller
     {
         \Log::info('ActivityController@update - dati ricevuti', ['all' => $request->all()]);
         $validated = $request->validate([
-            'titolo' => 'sometimes|required|string|max:255',
+    
             'descrizione' => 'nullable|string',
-            'data_inizio' => 'sometimes|required|date',
-            'data_fine' => 'sometimes|required|date|after_or_equal:data_inizio',
+            'data_inizio' => 'sometimes|required|date_format:Y-m-d\TH:i',
+            'data_fine' => 'sometimes|required|date_format:Y-m-d\TH:i|after_or_equal:data_inizio',
             'client_id' => 'sometimes|required|exists:clients,id',
             'driver_id' => 'sometimes|required|exists:drivers,id',
             'vehicle_id' => 'sometimes|required|exists:vehicles,id',
@@ -386,24 +391,10 @@ class ActivityController extends Controller
         $data = [];
         
         if (isset($validated['data_inizio'])) {
-            $data['date'] = $validated['data_inizio'];
-            $data['data_inizio'] = $validated['data_inizio'];
+            $data['data_inizio'] = \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_inizio']);
         }
-        
         if (isset($validated['data_fine'])) {
-            $data['data_fine'] = $validated['data_fine'];
-        }
-        
-        if (isset($validated['time_slot'])) {
-            $data['time_slot'] = $validated['time_slot'];
-        }
-        
-        if (isset($validated['start_time'])) {
-            $data['start_time'] = $validated['start_time'];
-        }
-        
-        if (isset($validated['end_time'])) {
-            $data['end_time'] = $validated['end_time'];
+            $data['data_fine'] = \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_fine']);
         }
         
         if (isset($validated['driver_id'])) {
@@ -527,95 +518,58 @@ class ActivityController extends Controller
     }
     
     /**
-     * Get available drivers and vehicles for a specific date and time
+     * Restituisce driver e veicoli disponibili per una data
      */
     public function getAvailableResources(Request $request)
     {
         $request->validate([
             'date' => 'required|date',
-            'time_slot' => 'nullable|string|in:morning,afternoon,full_day',
-            'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i',
         ]);
-        
         $date = $request->date;
-        $timeSlot = $request->time_slot ?? 'full_day';
-        $startTime = $request->start_time;
-        $endTime = $request->end_time;
-        
-        // Get all drivers (senza filtri per status)
-        $allDrivers = \App\Models\Driver::all();
-        
-        // Get all vehicles (senza filtri per status)
-        $allVehicles = \App\Models\Vehicle::all();
-        
-        // Find busy drivers for the specified date and time slot
-        $busyDriverIds = Activity::whereDate('data_inizio', $date)
-            ->where('status', '!=', 'cancelled')
-            ->where('driver_id', '!=', $request->input('exclude_driver_id'))
-            ->where(function($query) use ($timeSlot) {
-                if ($timeSlot === 'morning') {
-                    // Morning conflicts with morning or full day
-                    return $query->whereIn('time_slot', ['morning', 'full_day']);
-                } elseif ($timeSlot === 'afternoon') {
-                    // Afternoon conflicts with afternoon or full day
-                    return $query->whereIn('time_slot', ['afternoon', 'full_day']);
-                } else {
-                    // Full day conflicts with any time slot
-                    return $query->whereIn('time_slot', ['morning', 'afternoon', 'full_day']);
-                }
-            })
-            ->pluck('driver_id')
-            ->toArray();
-            
-        // Find busy vehicles for the specified date and time slot
-        $busyVehicleIds = Activity::whereDate('data_inizio', $date)
-            ->where('status', '!=', 'cancelled')
-            ->where('vehicle_id', '!=', $request->input('exclude_vehicle_id'))
-            ->where(function($query) use ($timeSlot) {
-                if ($timeSlot === 'morning') {
-                    // Morning conflicts with morning or full day
-                    return $query->whereIn('time_slot', ['morning', 'full_day']);
-                } elseif ($timeSlot === 'afternoon') {
-                    // Afternoon conflicts with afternoon or full day
-                    return $query->whereIn('time_slot', ['afternoon', 'full_day']);
-                } else {
-                    // Full day conflicts with any time slot
-                    return $query->whereIn('time_slot', ['morning', 'afternoon', 'full_day']);
-                }
-            })
-            ->pluck('vehicle_id')
-            ->toArray();
-            
-        // Filter available drivers
-        $availableDrivers = $allDrivers->filter(function($driver) use ($busyDriverIds) {
-            return !in_array($driver->id, $busyDriverIds);
-        })->values();
-        
-        // Filter available vehicles
-        $availableVehicles = $allVehicles->filter(function($vehicle) use ($busyVehicleIds) {
-            return !in_array($vehicle->id, $busyVehicleIds);
-        })->values();
-        
-        // Add Italian field names for drivers
-        $availableDrivers = $availableDrivers->map(function($driver) {
-            $driver->nome = $driver->name;
-            $driver->cognome = $driver->surname;
-            return $driver;
-        });
-        
-        // Add Italian field names for vehicles
-        $availableVehicles = $availableVehicles->map(function($vehicle) {
-            $vehicle->targa = $vehicle->plate;
-            $vehicle->marca = $vehicle->brand;
-            $vehicle->modello = $vehicle->model;
-            return $vehicle;
-        });
-        
-        return response()->json([
-            'drivers' => $availableDrivers,
-            'vehicles' => $availableVehicles
-        ]);
+
+    // Recupera tutti i driver e veicoli
+    $allDrivers = \App\Models\Driver::all();
+    $allVehicles = \App\Models\Vehicle::all();
+
+    // Trova driver occupati per la data specificata
+    $busyDriverIds = Activity::whereDate('data_inizio', $date)
+        ->where('status', '!=', 'cancelled')
+        ->pluck('driver_id')
+        ->toArray();
+
+    // Trova veicoli occupati per la data specificata
+    $busyVehicleIds = Activity::whereDate('data_inizio', $date)
+        ->where('status', '!=', 'cancelled')
+        ->pluck('vehicle_id')
+        ->toArray();
+
+    // Filtra driver disponibili
+    $availableDrivers = $allDrivers->filter(function($driver) use ($busyDriverIds) {
+        return !in_array($driver->id, $busyDriverIds);
+    })->values();
+
+    // Filtra veicoli disponibili
+    $availableVehicles = $allVehicles->filter(function($vehicle) use ($busyVehicleIds) {
+        return !in_array($vehicle->id, $busyVehicleIds);
+    })->values();
+
+    // Aggiungi i campi italiani
+    $availableDrivers = $availableDrivers->map(function($driver) {
+        $driver->nome = $driver->name;
+        $driver->cognome = $driver->surname;
+        return $driver;
+    });
+    $availableVehicles = $availableVehicles->map(function($vehicle) {
+        $vehicle->targa = $vehicle->plate;
+        $vehicle->marca = $vehicle->brand;
+        $vehicle->modello = $vehicle->model;
+        return $vehicle;
+    });
+
+    return response()->json([
+        'drivers' => $availableDrivers,
+        'vehicles' => $availableVehicles
+    ]);
     }
     
     /**
@@ -652,8 +606,17 @@ class ActivityController extends Controller
             // Aggiungiamo i campi in italiano
             $activity->titolo = $activity->title ?? '';
             $activity->descrizione = $activity->description ?? '';
-            $activity->data_inizio = $activity->date;
-            $activity->data_fine = $activity->date;
+            // Serializza data_inizio/data_fine in formato ISO Europe/Rome o stringa vuota
+            if ($activity->data_inizio instanceof \Carbon\Carbon) {
+                $activity->data_inizio = $activity->data_inizio->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i');
+            } else {
+                $activity->data_inizio = $activity->data_inizio ? (string) $activity->data_inizio : '';
+            }
+            if ($activity->data_fine instanceof \Carbon\Carbon) {
+                $activity->data_fine = $activity->data_fine->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i');
+            } else {
+                $activity->data_fine = $activity->data_fine ? (string) $activity->data_fine : '';
+            }
             $activity->stato = $activity->status;
             $activity->note = $activity->notes;
             

@@ -44,26 +44,26 @@ export default function EntityForm({
         // Gestisci i campi datetime-local
         else if (field.type === 'datetime-local' && fieldValue) {
           try {
-            // Assicurati che la data sia nel formato corretto per l'input datetime-local
-            // Il formato richiesto è: YYYY-MM-DDThh:mm
+            // Funzione per convertire stringa ISO con offset in YYYY-MM-DDTHH:mm Europe/Rome
+            const toInputDatetimeLocal = (isoString) => {
+              if (!isoString) return '';
+              const date = new Date(isoString);
+              // Ricava valori in Europe/Rome
+              const tzDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+              const year = tzDate.getFullYear();
+              const month = String(tzDate.getMonth() + 1).padStart(2, '0');
+              const day = String(tzDate.getDate()).padStart(2, '0');
+              const hour = String(tzDate.getHours()).padStart(2, '0');
+              const minute = String(tzDate.getMinutes()).padStart(2, '0');
+              return `${year}-${month}-${day}T${hour}:${minute}`;
+            };
             if (typeof fieldValue === 'string') {
-              // Se la data non contiene già la T, formattala correttamente
-              if (!fieldValue.includes('T')) {
-                const date = new Date(fieldValue);
-                if (!isNaN(date.getTime())) {
-                  formattedData[fieldName] = date.toISOString().slice(0, 16);
-                }
-              } else if (fieldValue.length > 16) {
-                // Se la data è già in formato ISO, taglia i secondi e millisecondi
-                formattedData[fieldName] = fieldValue.slice(0, 16);
-              }
+              formattedData[fieldName] = toInputDatetimeLocal(fieldValue);
             } else if (fieldValue instanceof Date) {
-              // Se è un oggetto Date, convertilo in stringa ISO
-              formattedData[fieldName] = fieldValue.toISOString().slice(0, 16);
+              formattedData[fieldName] = toInputDatetimeLocal(fieldValue.toISOString());
             }
-          } catch (error) {
-            console.error(`Errore nella formattazione della data per il campo ${fieldName}:`, error);
-            formattedData[fieldName] = '';
+          } catch (e) {
+            // In caso di errore lascia il valore invariato
           }
         }
         // Gestisci i campi date
@@ -143,6 +143,12 @@ export default function EntityForm({
     // Trova la definizione del campo
     const field = fields.find(f => f.name === name);
     
+    // Callback custom: chiama sempre field.onChange se esiste (es: AttivitaPage.handleFieldChange)
+    if (field && typeof field.onChange === 'function') {
+      console.log('[EntityForm] Chiamo field.onChange per', name, value);
+      field.onChange(name, value);
+    }
+    
     // Determina il valore corretto in base al tipo di campo
     let processedValue = value;
     
@@ -214,74 +220,54 @@ export default function EntityForm({
         return newErrors;
       });
     }
-    
-    // Gestisci il cambiamento del campo con callback onChange
-    if (field && field.onChange) {
-      console.log(`Chiamata onChange per il campo ${name} con valore ${processedValue}`);
-      field.onChange(name, processedValue);
-    }
   };
 
+  // Funzione di validazione pulita e robusta
   const validate = () => {
     const newErrors = {};
-    
     fields.forEach(field => {
       const fieldName = field.name;
+      const fieldLabel = field.label || fieldName;
       const fieldValue = formData[fieldName];
-      const fieldLabel = field.label;
-      
-      // Controlla se il campo è richiesto e se è vuoto
+
+      // Campo obbligatorio
       if (field.required) {
-        // Considera i valori 0 come validi per i campi numerici
-        const isEmptyNumeric = field.type === 'number' && (fieldValue === undefined || fieldValue === null || fieldValue === '');
-        const isEmptyString = typeof fieldValue === 'string' && fieldValue.trim() === '';
-        const isEmptySelect = field.type === 'select' && (fieldValue === undefined || fieldValue === null || fieldValue === '');
-        const isEmptyOther = fieldValue === undefined || fieldValue === null || (field.type !== 'number' && fieldValue === 0);
-        
-        if (isEmptyNumeric || isEmptyString || isEmptySelect || isEmptyOther) {
+        const isEmpty = fieldValue === undefined || fieldValue === null || fieldValue === '';
+        if (isEmpty) {
           newErrors[fieldName] = `${fieldLabel} è obbligatorio`;
         }
       }
-      
-      // Validazione specifica per i campi datetime-local
-      if (field.type === 'datetime-local' && fieldValue) {
-        try {
-          const date = new Date(fieldValue);
-          if (isNaN(date.getTime())) {
-            newErrors[fieldName] = `${fieldLabel} non è una data valida`;
-          }
-        } catch (error) {
-          newErrors[fieldName] = `${fieldLabel} non è una data valida`;
-        }
-      }
-      
-      // Validazione specifica per i campi date
-      if (field.type === 'date' && fieldValue) {
-        try {
-          const date = new Date(fieldValue);
-          if (isNaN(date.getTime())) {
-            newErrors[fieldName] = `${fieldLabel} non è una data valida`;
-          }
-        } catch (error) {
-          newErrors[fieldName] = `${fieldLabel} non è una data valida`;
-        }
-      }
-      
-      // Validazione specifica per i campi numerici
+
+      // Validazione numeri
       if (field.type === 'number' && fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
         if (isNaN(Number(fieldValue))) {
           newErrors[fieldName] = `${fieldLabel} deve essere un numero`;
         }
       }
-      
-      // Validazione specifica per i campi select numerici
+
+      // Validazione select numerici
       if (field.type === 'select' && field.isNumeric && fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
         if (isNaN(Number(fieldValue))) {
           newErrors[fieldName] = `${fieldLabel} deve essere un valore valido`;
         }
       }
+
+      // Validazione date
+      if (field.type === 'date' && fieldValue) {
+        const date = new Date(fieldValue);
+        if (isNaN(date.getTime())) {
+          newErrors[fieldName] = `${fieldLabel} non è una data valida`;
+        }
+      }
+
+      // Validazione datetime-local
+      if (field.type === 'datetime-local' && fieldValue) {
+        const date = new Date(fieldValue);
+        if (isNaN(date.getTime())) {
+          newErrors[fieldName] = `${fieldLabel} non è una data valida`;
+        }
+      }
     });
-    
     console.log('Errori di validazione:', newErrors);
     setLocalErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -450,35 +436,45 @@ export default function EntityForm({
                   />
                 );
               } else if (field.type === 'select') {
+                // --- SELECT RICERCABILE CON REACT-SELECT ---
+                const Select = require('react-select').default;
+                const options = field.options?.map(option => ({ value: option.value, label: option.label })) || [];
+                // Trova l'opzione selezionata
+                const selectedOption = options.find(opt => String(opt.value) === String(formData[field.name]));
                 return (
-                  <select
-                    id={field.name}
-                    name={field.name}
-                    value={formData[field.name] !== undefined && formData[field.name] !== null ? String(formData[field.name]) : ''}
-                    onChange={handleChange}
-                    disabled={isLoading || isSaving || field.disabled}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: (allErrors[field.name]) ? '1px solid #ff3b30' : '1px solid #e5e5ea',
-                      fontSize: '1rem',
-                      backgroundColor: (isLoading || isSaving || field.disabled) ? '#f2f2f7' : '#fff',
-                      appearance: 'none', // Stile nativo
-                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                      backgroundPosition: 'right 0.5rem center',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundSize: '1.5em 1.5em',
-                      paddingRight: '2.5rem',
-                    }}
-                  >
-                    {field.placeholder && <option value="">{field.placeholder}</option>}
-                    {field.options && field.options.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ marginBottom: 8 }}>
+                    <Select
+                      id={field.name}
+                      name={field.name}
+                      isDisabled={isLoading || isSaving || field.disabled}
+                      options={options}
+                      placeholder={field.placeholder || 'Seleziona...'}
+                      value={selectedOption || null}
+                      onChange={selected => {
+                        handleChange({
+                          target: {
+                            name: field.name,
+                            value: selected ? selected.value : ''
+                          }
+                        });
+                      }}
+                      styles={{
+                        control: (base, state) => ({
+                          ...base,
+                          borderColor: allErrors[field.name] ? '#ff3b30' : '#e5e5ea',
+                          borderRadius: 8,
+                          minHeight: 44,
+                          fontSize: '1rem',
+                          backgroundColor: (isLoading || isSaving || field.disabled) ? '#f2f2f7' : '#fff',
+                          boxShadow: 'none',
+                        }),
+                        option: base => ({ ...base, fontSize: '1rem' }),
+                        menu: base => ({ ...base, zIndex: 100 }),
+                      }}
+                      isClearable
+                      isSearchable
+                    />
+                  </div>
                 );
               } else if (field.type === 'checkbox') {
                 return (

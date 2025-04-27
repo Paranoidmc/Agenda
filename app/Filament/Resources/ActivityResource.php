@@ -34,25 +34,11 @@ class ActivityResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Informazioni Attività')
                     ->schema([
-                        Forms\Components\DatePicker::make('date')
-                            ->label('Data')
-                            ->required()
-                            ->default(now()),
-                        Forms\Components\Select::make('time_slot')
-                            ->label('Fascia Oraria')
-                            ->options([
-                                'morning' => 'Slot 1',
-                                'afternoon' => 'Slot 2',
-                                'full_day' => 'Slot 3',
-                            ])
-                            ->required()
-                            ->default('morning'),
-                        Forms\Components\TimePicker::make('start_time')
-                            ->label('Ora Inizio')
-                            ->seconds(false),
-                        Forms\Components\TimePicker::make('end_time')
-                            ->label('Ora Fine')
-                            ->seconds(false),
+                        Forms\Components\DateTimePicker::make('data_inizio')
+                            ->label('Data/Ora Inizio')
+                            ->required(),
+                        Forms\Components\DateTimePicker::make('data_fine')
+                            ->label('Data/Ora Fine'),
                         Forms\Components\Select::make('activity_type_id')
                             ->label('Tipo Attività')
                             ->relationship('activityType', 'name')
@@ -76,23 +62,21 @@ class ActivityResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('driver_id')
                             ->label('Autista')
+                            ->nullable()
                             ->relationship('driver', 'name', function (Builder $query) {
                                 return $query->where('status', 'active');
                             })
                             ->getOptionLabelFromRecordUsing(fn (Model $record) => "{$record->name} {$record->surname}")
-                            ->required()
                             ->searchable()
                             ->preload(),
                         Forms\Components\Select::make('vehicle_id')
                             ->label('Veicolo')
-                            ->relationship('vehicle', 'plate', function (Builder $query) {
-                                return $query->where('status', 'operational');
+                            ->nullable()
+                            ->relationship('vehicle', 'targa', function (Builder $query) {
+                                return $query->where('status', 'active');
                             })
-                            ->required()
                             ->searchable()
                             ->preload(),
-                    ])->columns(2),
-                
                 Forms\Components\Section::make('Cliente e Cantiere')
                     ->schema([
                         Forms\Components\Select::make('client_id')
@@ -128,7 +112,8 @@ class ActivityResource extends Resource
                             ->label('Note')
                             ->maxLength(65535)
                             ->columnSpanFull(),
-                    ])->columns(2),
+                    ])->columns(2)
+            ])
             ]);
     }
 
@@ -136,24 +121,14 @@ class ActivityResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('date')
-                    ->label('Data')
-                    ->date('d/m/Y')
+                Tables\Columns\TextColumn::make('data_inizio')
+                    ->label('Data/Ora Inizio')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('time_slot')
-                    ->label('Fascia Oraria')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'morning' => 'Slot 1',
-                        'afternoon' => 'Slot 2',
-                        'full_day' => 'Slot 3',
-                        default => $state,
-                    }),
-                Tables\Columns\TextColumn::make('start_time')
-                    ->label('Ora Inizio')
-                    ->time('H:i'),
-                Tables\Columns\TextColumn::make('end_time')
-                    ->label('Ora Fine')
-                    ->time('H:i'),
+                Tables\Columns\TextColumn::make('data_fine')
+                    ->label('Data/Ora Fine')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('driver.name')
                     ->label('Autista')
                     ->formatStateUsing(fn ($state, $record) => $record->driver ? "{$record->driver->name} {$record->driver->surname}" : '')

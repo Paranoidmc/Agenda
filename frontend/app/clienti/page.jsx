@@ -18,7 +18,7 @@ export default function ClientiPage() {
   const [fetching, setFetching] = useState(true);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
+  const [perPage, setPerPage] = useState(20000);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedCliente, setSelectedCliente] = useState(null);
@@ -70,14 +70,22 @@ export default function ClientiPage() {
     setFetching(true);
     api.get(`/clients`, {
       params: {
-        page: currentPage,
-        perPage: perPage,
+        page: 1, // carica tutto in una pagina
+        perPage: 20000,
         search: searchTerm
       }
     })
       .then(res => {
-        setClienti(res.data.data || []);
-        setTotal(res.data.total || 0);
+        if (Array.isArray(res.data)) {
+          setClienti(res.data);
+          setTotal(res.data.length);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setClienti(res.data.data);
+          setTotal(res.data.total || res.data.data.length);
+        } else {
+          setClienti([]);
+          setTotal(0);
+        }
       })
       .catch((err) => {
         console.error("Errore nel caricamento dei clienti:", err);
@@ -398,7 +406,7 @@ export default function ClientiPage() {
                     ) : (
                       <ActivityList 
                         clientId={selectedCliente.id} 
-                        onActivityClick={(activity) => router.push(`/attivita/${activity.id}`)}
+                        onActivityClick={(activity) => router.push(`/attivita?open=${activity.id}`)}
                       />
                     )}
                   </div>

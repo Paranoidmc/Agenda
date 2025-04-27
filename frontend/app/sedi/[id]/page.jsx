@@ -75,7 +75,7 @@ export default function SedeDetailPage() {
 
   const loadClienti = async () => {
     try {
-      const response = await api.get("/clients");
+      const response = await api.get("/clients", { params: { perPage: 20000 } });
       setClienti(response.data);
     } catch (err) {
       console.error("Errore nel caricamento dei clienti:", err);

@@ -215,9 +215,24 @@ export default function WeeklyCalendar({
       filteredEvents = events.filter(event => event.vehicleId);
     } // Altrimenti mostra tutte le attività (activity)
     return filteredEvents.filter(event => {
-      const eventDate = new Date(event.start);
-      const eventHour = eventDate.getHours();
-      return eventHour === hour;
+      const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
+      const eventEnd = event.end instanceof Date ? event.end : new Date(event.end);
+      // Show event if it covers this hour (start <= hour < end)
+      const eventStartHour = eventStart.getHours();
+      const eventEndHour = eventEnd.getHours();
+      const isSameDay = eventStart.getFullYear() === day.getFullYear() && eventStart.getMonth() === day.getMonth() && eventStart.getDate() === day.getDate();
+      const coversHour = isSameDay && hour >= eventStartHour && hour < (eventEndHour === eventStartHour ? eventStartHour + 1 : eventEndHour);
+      if (coversHour) {
+        console.log(`[DEBUG] Event shown in cell`, {
+          eventId: event.id,
+          eventTitle: event.title,
+          eventStart: eventStart.toISOString(),
+          eventEnd: eventEnd.toISOString(),
+          cellDay: day.toISOString(),
+          cellHour: hour
+        });
+      }
+      return coversHour;
     });
   };
 

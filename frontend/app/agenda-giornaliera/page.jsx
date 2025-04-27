@@ -101,7 +101,7 @@ export default function AgendaGiornalieraPage() {
     
     if (event.type === 'activity' && event.data && event.data.id) {
       console.log(`Navigazione a /attivita/${event.data.id}`);
-      router.push(`/attivita/${event.data.id}`);
+      router.push(`/attivita?open=${event.data.id}`);
     } else if (event.type === 'deadline' && event.data && event.data.id) {
       console.log(`Navigazione a /scadenze?id=${event.data.id}`);
       router.push(`/scadenze?id=${event.data.id}`);
@@ -556,7 +556,7 @@ const activityEvents = activitiesRaw.map(activity => {
     // Carica i clienti
     async function fetchClients() {
       try {
-        const response = await api.get('/clients', { withCredentials: true });
+        const response = await api.get('/clients', { params: { perPage: 20000 }, withCredentials: true });
         console.log('API /clients response', response.data);
         const normalized = Array.isArray(response.data) ? response.data : (response.data && Array.isArray(response.data.data) ? response.data.data : []);
         console.log('Normalized clients:', normalized);

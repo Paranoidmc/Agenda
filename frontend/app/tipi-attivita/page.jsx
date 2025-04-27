@@ -37,9 +37,7 @@ const [searchText, setSearchText] = useState("");
   const tipoAttivitaFields = [
     { name: 'nome', label: 'Nome', required: true },
     { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
-    { name: 'colore', label: 'Colore', type: 'select', options: coloriPredefiniti },
-    { name: 'durata_predefinita', label: 'Durata Predefinita (minuti)', type: 'number' },
-    { name: 'note', label: 'Note', type: 'textarea' }
+    { name: 'colore', label: 'Colore', type: 'select', options: coloriPredefiniti }
   ];
 
   useEffect(() => {

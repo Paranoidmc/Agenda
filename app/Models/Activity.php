@@ -11,19 +11,16 @@ class Activity extends Model
     use HasFactory;
 
     protected $fillable = [
-        'titolo', 'descrizione', 'data_inizio', 'data_fine', 
-        'time_slot', 'ora_inizio', 'ora_fine', 
-        'driver_id', 'vehicle_id', 'client_id', 'site_id', 
-        'activity_type_id', 'status', 'start_location', 
-        'end_location', 'note', 'completato_il', 'date'
+        'descrizione', 'data_inizio', 'data_fine',
+        'driver_id', 'vehicle_id', 'client_id', 'site_id',
+        'activity_type_id', 'status', 'start_location',
+        'end_location', 'note', 'completed_at'
     ];
 
     protected $casts = [
         'data_inizio' => 'datetime',
         'data_fine' => 'datetime',
-        'ora_inizio' => 'datetime',
-        'ora_fine' => 'datetime',
-        'completato_il' => 'datetime',
+        'completed_at' => 'datetime',
     ];
     
     protected static function booted()

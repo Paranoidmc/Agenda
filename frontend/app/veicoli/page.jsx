@@ -91,13 +91,15 @@ export default function VeicoliPage() {
     { name: 'tomtom', label: 'TomTom' },
     { name: 'tires', label: 'Gomme' },
     { name: 'returned_or_redeemed', label: 'Restituito/Riscattato' },
-    { name: 'external_link', label: 'Link esterno', type: 'textarea' },
+    { name: 'link', label: 'Link esterno', type: 'textarea' },
     { name: 'status', label: 'Stato', type: 'select', options: [
       { value: 'operational', label: 'Operativo' },
       { value: 'maintenance', label: 'In manutenzione' },
       { value: 'decommissioned', label: 'Disattivato' },
     ]},
     { name: 'notes', label: 'Note', type: 'textarea' },
+    { name: 'purchase_date', label: 'Data Acquisto', type: 'date' },
+    { name: 'purchase_price', label: 'Prezzo Acquisto', type: 'number' },
   ];
 
   // Suddivisione tab logiche per i dettagli veicolo
@@ -117,13 +119,13 @@ export default function VeicoliPage() {
     {
       label: 'Amministrativi',
       fields: veicoloFields.filter(f => [
-        'registration_number','euro_classification','ownership','current_profitability','supplier','collection_date','first_registration_date','external_link'
+        'registration_number','euro_classification','ownership','current_profitability','supplier','collection_date','first_registration_date','purchase_date','purchase_price','link'
       ].includes(f.name))
     },
     {
       label: 'Contratto/Noleggio',
       fields: veicoloFields.filter(f => [
-        'contract_holder','ownership_type','rental_type','advance_paid','final_installment','monthly_fee','contract_start_date','contract_end_date','contract_duration_months','purchase_date','purchase_price','monthly_alert','end_alert','installment_payment_day','contract_kilometers','invoice_amount_excl_vat','invoice_amount_incl_vat','contract_equipment','returned_or_redeemed'
+        'contract_holder','ownership_type','rental_type','advance_paid','final_installment','monthly_fee','contract_start_date','contract_end_date','contract_duration_months','contract_kilometers','invoice_amount_excl_vat','invoice_amount_incl_vat','contract_equipment','returned_or_redeemed'
       ].includes(f.name))
     }
   ];
@@ -560,7 +562,7 @@ export default function VeicoliPage() {
                     ) : (
                       <ActivityList 
                         vehicleId={selectedVeicolo.id} 
-                        onActivityClick={(activity) => router.push(`/attivita/${activity.id}`)}
+                        onActivityClick={(activity) => router.push(`/attivita?open=${activity.id}`)}
                       />
                     )}
                   </div>

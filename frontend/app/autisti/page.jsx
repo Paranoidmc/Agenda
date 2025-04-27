@@ -13,8 +13,9 @@ import DataTable from "../../components/DataTable";
 export default function AutistiPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  // Stato principale (PRIMA di ogni useEffect!)
   const [autisti, setAutisti] = useState([]);
-const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState("");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [selectedAutista, setSelectedAutista] = useState(null);
@@ -25,6 +26,132 @@ const [searchText, setSearchText] = useState("");
   const [tableWidth, setTableWidth] = useState('100%');
   const [activities, setActivities] = useState([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  // Stato per pannello nuova attività
+  const [isNewActivityPanelOpen, setIsNewActivityPanelOpen] = useState(false);
+  const [newActivitySaving, setNewActivitySaving] = useState(false);
+  const [newActivityValidationErrors, setNewActivityValidationErrors] = useState({});
+  const [clienti, setClienti] = useState([]);
+  const [veicoli, setVeicoli] = useState([]);
+  const [autistiList, setAutistiList] = useState([]); // per il form attività
+  const [tipiAttivita, setTipiAttivita] = useState([]);
+  const [sedi, setSedi] = useState([]);
+  const [sediPerCliente, setSediPerCliente] = useState({});
+  const [newActivity, setNewActivity] = useState(null);
+
+  // Caricamento risorse per il form attività (come in /attivita/new/page.jsx)
+  useEffect(() => {
+    if (isNewActivityPanelOpen && selectedAutista) {
+      Promise.all([
+        api.get('/clients', { params: { perPage: 20000 } }).then(res => setClienti(Array.isArray(res.data) ? res.data : res.data.data || [])),
+        api.get('/vehicles').then(res => setVeicoli(Array.isArray(res.data) ? res.data : res.data.data || [])),
+        api.get('/drivers').then(res => setAutistiList(Array.isArray(res.data) ? res.data : res.data.data || [])),
+        api.get('/activity-types').then(res => setTipiAttivita(Array.isArray(res.data) ? res.data : res.data.data || [])),
+        api.get('/sites').then(res => setSedi(Array.isArray(res.data) ? res.data : res.data.data || [])),
+      ]);
+      setNewActivity({
+        descrizione: '',
+        data_inizio: '',
+        data_fine: '',
+        client_id: '',
+        site_id: '',
+        driver_id: selectedAutista.id || '',
+        vehicle_id: '',
+        activity_type_id: '',
+        stato: 'Programmata',
+        note: ''
+      });
+    }
+  }, [isNewActivityPanelOpen, selectedAutista]);
+
+  // Gestore salvataggio nuova attività
+  const handleSaveNewActivity = async (formData) => {
+    setNewActivitySaving(true);
+    setNewActivityValidationErrors({});
+    try {
+      const preparedData = { ...formData };
+      // Assicura che il campo titolo sia sempre presente
+      preparedData.titolo = formData.titolo || formData.descrizione || '';
+      ['client_id', 'site_id', 'driver_id', 'vehicle_id', 'activity_type_id'].forEach(field => {
+        if (preparedData[field]) preparedData[field] = Number(preparedData[field]);
+      });
+      await api.post('/activities', preparedData);
+      setIsNewActivityPanelOpen(false);
+      // Aggiorna lista attività per l'autista selezionato
+      if (selectedAutista && selectedAutista.id) {
+        loadActivities(selectedAutista.id);
+      }
+    } catch (err) {
+      if (err.response && err.response.data && err.response.data.errors) {
+        setNewActivityValidationErrors(err.response.data.errors);
+      } else {
+        alert('Errore durante il salvataggio della nuova attività');
+      }
+    } finally {
+      setNewActivitySaving(false);
+    }
+  };
+
+  // Campi form attività (dinamici come in AttivitaPage)
+  const toInputDatetimeLocal = (dateString) => {
+    if (!dateString) return '';
+    const match = dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
+    return match ? match[0] : '';
+  };
+
+  const handleNewActivityFieldChange = (name, value) => {
+    setNewActivity(prev => {
+      let newState = { ...prev, [name]: value };
+      if (name === 'client_id') newState.site_id = '';
+      return newState;
+    });
+    if (name === 'client_id') {
+      loadSediPerCliente(value);
+    }
+  };
+
+  // Caricamento sedi per cliente (come AttivitaPage)
+  const loadSediPerCliente = async (clientId) => {
+    if (!clientId) return;
+    try {
+      const res = await api.get(`/clients/${clientId}/sites`);
+      setSediPerCliente(prev => ({ ...prev, [clientId]: Array.isArray(res.data) ? res.data : res.data.data || [] }));
+    } catch (err) {
+      setSediPerCliente(prev => ({ ...prev, [clientId]: [] }));
+    }
+  };
+
+  const getAttivitaFields = (activity) => {
+    let sediOptions = [];
+    const clienteId = activity?.client_id;
+    const clientKey = String(clienteId);
+    if (clientKey && sediPerCliente[clientKey]) {
+      sediOptions = sediPerCliente[clientKey].map(sede => ({ value: sede.id, label: sede.nome || sede.name }));
+    } else if (!clienteId) {
+      sediOptions = [];
+    } else {
+      loadSediPerCliente(clienteId);
+      sediOptions = [{ value: '', label: 'Caricamento sedi...' }];
+    }
+    return [
+      { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
+      { name: 'data_inizio', label: 'Data/Ora Inizio', type: 'datetime-local', required: true, value: toInputDatetimeLocal(activity?.data_inizio), onChange: handleNewActivityFieldChange },
+      { name: 'data_fine', label: 'Data/Ora Fine', type: 'datetime-local', value: toInputDatetimeLocal(activity?.data_fine), onChange: handleNewActivityFieldChange },
+      { name: 'client_id', label: 'Cliente', type: 'select', required: true, options: clienti.map(c => ({ value: c.id, label: c.nome || c.name || '' })), value: activity?.client_id || '', onChange: handleNewActivityFieldChange },
+      { name: 'site_id', label: 'Sede', type: 'select', required: true, options: sediOptions, value: activity?.site_id || '' },
+      { name: 'driver_id', label: 'Autista', type: 'select', required: false, options: autistiList.map(a => ({ value: a.id, label: `${a.nome || ''} ${a.cognome || ''}`.trim() })), value: activity?.driver_id || '' },
+      { name: 'vehicle_id', label: 'Veicolo', type: 'select', required: false, options: veicoli.map(v => ({ value: v.id, label: `${v.targa || ''} - ${v.marca || ''} ${v.modello || ''}`.trim() })), value: activity?.vehicle_id || '' },
+      { name: 'activity_type_id', label: 'Tipo Attività', type: 'select', required: true, options: tipiAttivita.map(t => ({ value: t.id, label: t.nome || t.name || '' })), value: activity?.activity_type_id || '' },
+      { name: 'stato', label: 'Stato', type: 'select', required: true, options: [
+        { value: 'Programmata', label: 'Programmata' },
+        { value: 'In corso', label: 'In corso' },
+        { value: 'Completata', label: 'Completata' },
+        { value: 'Annullata', label: 'Annullata' }
+      ], value: activity?.stato || 'Programmata' },
+      { name: 'note', label: 'Note', type: 'textarea', value: activity?.note || '' },
+    ];
+  };
+
+
 
   // Campi del form autista - informazioni personali
   const autistaFields = [
@@ -411,7 +538,7 @@ setActivities([]);
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                       <h3 style={{ margin: 0 }}>Attività dell'autista</h3>
                       <button
-                        onClick={() => router.push(`/attivita/new?driver_id=${selectedAutista.id}`)}
+                        onClick={() => setIsNewActivityPanelOpen(true)}
                         style={{ 
                           background: 'var(--primary)', 
                           color: '#fff', 
@@ -425,13 +552,12 @@ setActivities([]);
                         Nuova Attività
                       </button>
                     </div>
-                    
                     {loadingActivities ? (
                       <div>Caricamento attività...</div>
                     ) : (
                       <ActivityList 
                         driverId={selectedAutista.id} 
-                        onActivityClick={(activity) => router.push(`/attivita/${activity.id}`)}
+                        onActivityClick={(activity) => router.push(`/attivita?open=${activity.id}`)}
                       />
                     )}
                   </div>
@@ -441,6 +567,23 @@ setActivities([]);
             defaultTab="details"
           />
         )}
+      </SidePanel>
+
+      {/* SidePanel per NUOVA ATTIVITÀ */}
+      <SidePanel
+        isOpen={isNewActivityPanelOpen}
+        onClose={() => setIsNewActivityPanelOpen(false)}
+        title={selectedAutista ? `Nuova Attività per ${selectedAutista.nome || ''} ${selectedAutista.cognome || ''}` : 'Nuova Attività'}
+      >
+        <EntityForm
+          data={newActivity}
+          fields={getAttivitaFields(newActivity)}
+          onSave={handleSaveNewActivity}
+          onCancel={() => setIsNewActivityPanelOpen(false)}
+          isSaving={newActivitySaving}
+          isEditing={true}
+          errors={newActivityValidationErrors}
+        />
       </SidePanel>
     </div>
   );

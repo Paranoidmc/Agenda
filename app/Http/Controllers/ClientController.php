@@ -39,38 +39,64 @@ class ClientController extends Controller
             'id', 'name', 'address', 'city', 'postal_code', 'province', 'phone', 'email', 'vat_number', 'fiscal_code', 'codice_arca', 'notes'
         ];
 
-        $clients = $query->select($fields)->orderBy('name')->paginate($perPage);
-
-        // Mappa i campi in italiano per ogni cliente
-        $clients->getCollection()->transform(function ($client) {
-            // Assicurati che tutti i campi siano definiti
-            $client->name = $client->name ?? '';
-            $client->address = $client->address ?? '';
-            $client->city = $client->city ?? '';
-            $client->postal_code = $client->postal_code ?? '';
-            $client->province = $client->province ?? '';
-            $client->phone = $client->phone ?? '';
-            $client->email = $client->email ?? '';
-            $client->vat_number = $client->vat_number ?? '';
-            $client->fiscal_code = $client->fiscal_code ?? '';
-            $client->codice_arca = $client->codice_arca ?? '';
-            $client->notes = $client->notes ?? '';
-            
-            // Aggiungi i campi in italiano
-            $client->nome = $client->name;
-            $client->indirizzo = $client->address;
-            $client->citta = $client->city;
-            $client->cap = $client->postal_code;
-            $client->provincia = $client->province;
-            $client->telefono = $client->phone;
-            $client->partita_iva = $client->vat_number;
-            $client->codice_fiscale = $client->fiscal_code;
-            $client->note = $client->notes;
-            
-            return $client;
-        });
-
-        return response()->json($clients);
+        // Se perPage è 'all' o > 10000, restituisci tutti i clienti senza paginazione
+        if ($perPage === 'all' || intval($perPage) > 10000) {
+            $clients = $query->select($fields)->orderBy('name')->get();
+            // Mappa i campi in italiano per ogni cliente
+            $clients->transform(function ($client) {
+                $client->name = $client->name ?? '';
+                $client->address = $client->address ?? '';
+                $client->city = $client->city ?? '';
+                $client->postal_code = $client->postal_code ?? '';
+                $client->province = $client->province ?? '';
+                $client->phone = $client->phone ?? '';
+                $client->email = $client->email ?? '';
+                $client->vat_number = $client->vat_number ?? '';
+                $client->fiscal_code = $client->fiscal_code ?? '';
+                $client->codice_arca = $client->codice_arca ?? '';
+                $client->notes = $client->notes ?? '';
+                // Aggiungi i campi in italiano
+                $client->nome = $client->name;
+                $client->indirizzo = $client->address;
+                $client->citta = $client->city;
+                $client->cap = $client->postal_code;
+                $client->provincia = $client->province;
+                $client->telefono = $client->phone;
+                $client->partita_iva = $client->vat_number;
+                $client->codice_fiscale = $client->fiscal_code;
+                $client->note = $client->notes;
+                return $client;
+            });
+            return response()->json($clients);
+        } else {
+            $clients = $query->select($fields)->orderBy('name')->paginate($perPage);
+            // Mappa i campi in italiano per ogni cliente
+            $clients->getCollection()->transform(function ($client) {
+                $client->name = $client->name ?? '';
+                $client->address = $client->address ?? '';
+                $client->city = $client->city ?? '';
+                $client->postal_code = $client->postal_code ?? '';
+                $client->province = $client->province ?? '';
+                $client->phone = $client->phone ?? '';
+                $client->email = $client->email ?? '';
+                $client->vat_number = $client->vat_number ?? '';
+                $client->fiscal_code = $client->fiscal_code ?? '';
+                $client->codice_arca = $client->codice_arca ?? '';
+                $client->notes = $client->notes ?? '';
+                // Aggiungi i campi in italiano
+                $client->nome = $client->name;
+                $client->indirizzo = $client->address;
+                $client->citta = $client->city;
+                $client->cap = $client->postal_code;
+                $client->provincia = $client->province;
+                $client->telefono = $client->phone;
+                $client->partita_iva = $client->vat_number;
+                $client->codice_fiscale = $client->fiscal_code;
+                $client->note = $client->notes;
+                return $client;
+            });
+            return response()->json($clients);
+        }
     }
 
     /**

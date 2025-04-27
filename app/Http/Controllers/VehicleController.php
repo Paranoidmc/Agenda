@@ -31,14 +31,58 @@ class VehicleController extends Controller
                 
                 // Aggiungiamo i campi in italiano
                 $vehicle->targa = $vehicle->plate;
-                $vehicle->modello = $vehicle->model;
+                $vehicle->nome = $vehicle->name;
                 $vehicle->marca = $vehicle->brand;
-                $vehicle->colore = $vehicle->color;
+                $vehicle->modello = $vehicle->model;
                 $vehicle->anno = $vehicle->year;
                 $vehicle->tipo = $vehicle->type;
+                $vehicle->stato = $vehicle->status;
+                $vehicle->note = $vehicle->notes;
+                $vehicle->colore = $vehicle->color;
+                $vehicle->chilometraggio = $vehicle->odometer;
+                $vehicle->ore_motore = $vehicle->engine_hours;
+                $vehicle->portata_max = $vehicle->max_load;
+                $vehicle->numero_telaio = $vehicle->chassis_number;
+                $vehicle->data_acquisto = $vehicle->purchase_date;
+                $vehicle->prezzo_acquisto = $vehicle->purchase_price;
+                $vehicle->misura_gomme_anteriori = $vehicle->front_tire_size;
+                $vehicle->misura_gomme_posteriori = $vehicle->rear_tire_size;
+                $vehicle->vin = $vehicle->vin_code;
+                $vehicle->cilindrata = $vehicle->engine_capacity;
+                $vehicle->codice_motore = $vehicle->engine_code;
+                $vehicle->matricola_motore = $vehicle->engine_serial_number;
+                $vehicle->cavalli_fiscali = $vehicle->fiscal_horsepower;
+                $vehicle->potenza_kw = $vehicle->power_kw;
+                $vehicle->numero_immatricolazione = $vehicle->registration_number;
+                $vehicle->classe_euro = $vehicle->euro_classification;
+                $vehicle->gruppi = $vehicle->groups;
+                $vehicle->autista_assegnato = $vehicle->assigned_driver;
+                $vehicle->data_prima_immatricolazione = $vehicle->first_registration_date;
+                $vehicle->proprieta = $vehicle->ownership;
                 $vehicle->carburante = $vehicle->fuel_type;
                 $vehicle->km = $vehicle->odometer;
-                $vehicle->note = $vehicle->notes;
+                $vehicle->contratto_titolare = $vehicle->contract_holder;
+                $vehicle->tipo_proprieta = $vehicle->ownership_type;
+                $vehicle->tipo_noleggio = $vehicle->rental_type;
+                $vehicle->acconto_pagato = $vehicle->advance_paid;
+                $vehicle->rata_finale = $vehicle->final_installment;
+                $vehicle->canone_mensile = $vehicle->monthly_fee;
+                $vehicle->data_inizio_contratto = $vehicle->contract_start_date;
+                $vehicle->data_fine_contratto = $vehicle->contract_end_date;
+                $vehicle->allarme_mensile = $vehicle->monthly_alert;
+                $vehicle->allarme_fine = $vehicle->end_alert;
+                $vehicle->giorno_pagamento_rata = $vehicle->installment_payment_day;
+                $vehicle->fornitore = $vehicle->supplier;
+                $vehicle->data_riconsegna = $vehicle->collection_date;
+                $vehicle->durata_contratto_mesi = $vehicle->contract_duration_months;
+                $vehicle->chilometraggio_contratto = $vehicle->contract_kilometers;
+                $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
+                $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
+                $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
+                $vehicle->tomtom = $vehicle->tomtom;
+                $vehicle->pneumatici = $vehicle->tires;
+                $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
+                $vehicle->link_esterno = $vehicle->external_link;
                 
                 // Aggiungiamo anche i campi mancanti
                 $vehicle->name = $vehicle->name ?? '';
@@ -69,7 +113,7 @@ class VehicleController extends Controller
                 $vehicle->tomtom = $vehicle->tomtom ?? '';
                 $vehicle->tires = $vehicle->tires ?? '';
                 $vehicle->returned_or_redeemed = $vehicle->returned_or_redeemed ?? '';
-                $vehicle->external_link = $vehicle->external_link ?? '';
+                $vehicle->link = $vehicle->link ?? '';
                 $vehicle->status = $vehicle->status ?? 'operational';
                 $vehicle->front_tire_size = $vehicle->front_tire_size ?? '';
                 $vehicle->rear_tire_size = $vehicle->rear_tire_size ?? '';
@@ -148,7 +192,7 @@ class VehicleController extends Controller
                 'tomtom' => 'nullable|string|max:255',
                 'tires' => 'nullable|string|max:255',
                 'returned_or_redeemed' => 'nullable|string|max:255',
-                'external_link' => 'nullable|string',
+                'link' => 'nullable|string',
                 // Campi in italiano
                 'targa' => 'sometimes|required|string|max:20|unique:vehicles,plate',
                 'modello' => 'sometimes|required|string|max:255',
@@ -218,7 +262,7 @@ class VehicleController extends Controller
             if (array_key_exists('tomtom', $validated)) $data['tomtom'] = $validated['tomtom'] === '' ? null : $validated['tomtom'];
             if (array_key_exists('tires', $validated)) $data['tires'] = $validated['tires'] === '' ? null : $validated['tires'];
             if (array_key_exists('returned_or_redeemed', $validated)) $data['returned_or_redeemed'] = $validated['returned_or_redeemed'] === '' ? null : $validated['returned_or_redeemed'];
-            if (array_key_exists('external_link', $validated)) $data['external_link'] = $validated['external_link'] === '' ? null : $validated['external_link'];
+            if (array_key_exists('link', $validated)) $data['link'] = $validated['link'] === '' ? null : $validated['link'];
             if (array_key_exists('status', $validated)) $data['status'] = $validated['status'] === '' ? null : $validated['status'];
 
             $vehicle = Vehicle::create($data);
@@ -237,14 +281,58 @@ class VehicleController extends Controller
             
             // Aggiungiamo i campi in italiano
             $vehicle->targa = $vehicle->plate;
-            $vehicle->modello = $vehicle->model;
+            $vehicle->nome = $vehicle->name;
             $vehicle->marca = $vehicle->brand;
-            $vehicle->colore = $vehicle->color;
+            $vehicle->modello = $vehicle->model;
             $vehicle->anno = $vehicle->year;
             $vehicle->tipo = $vehicle->type;
+            $vehicle->stato = $vehicle->status;
+            $vehicle->note = $vehicle->notes;
+            $vehicle->colore = $vehicle->color;
+            $vehicle->chilometraggio = $vehicle->odometer;
+            $vehicle->ore_motore = $vehicle->engine_hours;
+            $vehicle->portata_max = $vehicle->max_load;
+            $vehicle->numero_telaio = $vehicle->chassis_number;
+            $vehicle->data_acquisto = $vehicle->purchase_date;
+            $vehicle->prezzo_acquisto = $vehicle->purchase_price;
+            $vehicle->misura_gomme_anteriori = $vehicle->front_tire_size;
+            $vehicle->misura_gomme_posteriori = $vehicle->rear_tire_size;
+            $vehicle->vin = $vehicle->vin_code;
+            $vehicle->cilindrata = $vehicle->engine_capacity;
+            $vehicle->codice_motore = $vehicle->engine_code;
+            $vehicle->matricola_motore = $vehicle->engine_serial_number;
+            $vehicle->cavalli_fiscali = $vehicle->fiscal_horsepower;
+            $vehicle->potenza_kw = $vehicle->power_kw;
+            $vehicle->numero_immatricolazione = $vehicle->registration_number;
+            $vehicle->classe_euro = $vehicle->euro_classification;
+            $vehicle->gruppi = $vehicle->groups;
+            $vehicle->autista_assegnato = $vehicle->assigned_driver;
+            $vehicle->data_prima_immatricolazione = $vehicle->first_registration_date;
+            $vehicle->proprieta = $vehicle->ownership;
             $vehicle->carburante = $vehicle->fuel_type;
             $vehicle->km = $vehicle->odometer;
-            $vehicle->note = $vehicle->notes;
+            $vehicle->contratto_titolare = $vehicle->contract_holder;
+            $vehicle->tipo_proprieta = $vehicle->ownership_type;
+            $vehicle->tipo_noleggio = $vehicle->rental_type;
+            $vehicle->acconto_pagato = $vehicle->advance_paid;
+            $vehicle->rata_finale = $vehicle->final_installment;
+            $vehicle->canone_mensile = $vehicle->monthly_fee;
+            $vehicle->data_inizio_contratto = $vehicle->contract_start_date;
+            $vehicle->data_fine_contratto = $vehicle->contract_end_date;
+            $vehicle->allarme_mensile = $vehicle->monthly_alert;
+            $vehicle->allarme_fine = $vehicle->end_alert;
+            $vehicle->giorno_pagamento_rata = $vehicle->installment_payment_day;
+            $vehicle->fornitore = $vehicle->supplier;
+            $vehicle->data_riconsegna = $vehicle->collection_date;
+            $vehicle->durata_contratto_mesi = $vehicle->contract_duration_months;
+            $vehicle->chilometraggio_contratto = $vehicle->contract_kilometers;
+            $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
+            $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
+            $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
+            $vehicle->tomtom = $vehicle->tomtom;
+            $vehicle->pneumatici = $vehicle->tires;
+            $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
+            $vehicle->link_esterno = $vehicle->external_link;
             
             return response()->json($vehicle, 201);
         } catch (\Exception $e) {
@@ -280,14 +368,58 @@ class VehicleController extends Controller
             
             // Aggiungiamo i campi in italiano
             $vehicle->targa = $vehicle->plate;
-            $vehicle->modello = $vehicle->model;
+            $vehicle->nome = $vehicle->name;
             $vehicle->marca = $vehicle->brand;
-            $vehicle->colore = $vehicle->color;
+            $vehicle->modello = $vehicle->model;
             $vehicle->anno = $vehicle->year;
             $vehicle->tipo = $vehicle->type;
+            $vehicle->stato = $vehicle->status;
+            $vehicle->note = $vehicle->notes;
+            $vehicle->colore = $vehicle->color;
+            $vehicle->chilometraggio = $vehicle->odometer;
+            $vehicle->ore_motore = $vehicle->engine_hours;
+            $vehicle->portata_max = $vehicle->max_load;
+            $vehicle->numero_telaio = $vehicle->chassis_number;
+            $vehicle->data_acquisto = $vehicle->purchase_date;
+            $vehicle->prezzo_acquisto = $vehicle->purchase_price;
+            $vehicle->misura_gomme_anteriori = $vehicle->front_tire_size;
+            $vehicle->misura_gomme_posteriori = $vehicle->rear_tire_size;
+            $vehicle->vin = $vehicle->vin_code;
+            $vehicle->cilindrata = $vehicle->engine_capacity;
+            $vehicle->codice_motore = $vehicle->engine_code;
+            $vehicle->matricola_motore = $vehicle->engine_serial_number;
+            $vehicle->cavalli_fiscali = $vehicle->fiscal_horsepower;
+            $vehicle->potenza_kw = $vehicle->power_kw;
+            $vehicle->numero_immatricolazione = $vehicle->registration_number;
+            $vehicle->classe_euro = $vehicle->euro_classification;
+            $vehicle->gruppi = $vehicle->groups;
+            $vehicle->autista_assegnato = $vehicle->assigned_driver;
+            $vehicle->data_prima_immatricolazione = $vehicle->first_registration_date;
+            $vehicle->proprieta = $vehicle->ownership;
             $vehicle->carburante = $vehicle->fuel_type;
             $vehicle->km = $vehicle->odometer;
-            $vehicle->note = $vehicle->notes;
+            $vehicle->contratto_titolare = $vehicle->contract_holder;
+            $vehicle->tipo_proprieta = $vehicle->ownership_type;
+            $vehicle->tipo_noleggio = $vehicle->rental_type;
+            $vehicle->acconto_pagato = $vehicle->advance_paid;
+            $vehicle->rata_finale = $vehicle->final_installment;
+            $vehicle->canone_mensile = $vehicle->monthly_fee;
+            $vehicle->data_inizio_contratto = $vehicle->contract_start_date;
+            $vehicle->data_fine_contratto = $vehicle->contract_end_date;
+            $vehicle->allarme_mensile = $vehicle->monthly_alert;
+            $vehicle->allarme_fine = $vehicle->end_alert;
+            $vehicle->giorno_pagamento_rata = $vehicle->installment_payment_day;
+            $vehicle->fornitore = $vehicle->supplier;
+            $vehicle->data_riconsegna = $vehicle->collection_date;
+            $vehicle->durata_contratto_mesi = $vehicle->contract_duration_months;
+            $vehicle->chilometraggio_contratto = $vehicle->contract_kilometers;
+            $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
+            $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
+            $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
+            $vehicle->tomtom = $vehicle->tomtom;
+            $vehicle->pneumatici = $vehicle->tires;
+            $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
+            $vehicle->link_esterno = $vehicle->external_link;
             
             // Aggiungiamo anche i campi mancanti
             $vehicle->name = $vehicle->name ?? '';
@@ -307,8 +439,6 @@ class VehicleController extends Controller
             $vehicle->contract_holder = $vehicle->contract_holder ?? '';
             $vehicle->ownership_type = $vehicle->ownership_type ?? '';
             $vehicle->rental_type = $vehicle->rental_type ?? '';
-            $vehicle->contract_start_date = $vehicle->contract_start_date ?? null;
-            $vehicle->contract_end_date = $vehicle->contract_end_date ?? null;
             $vehicle->monthly_alert = $vehicle->monthly_alert ?? '';
             $vehicle->end_alert = $vehicle->end_alert ?? '';
             $vehicle->installment_payment_day = $vehicle->installment_payment_day ?? '';
@@ -320,7 +450,7 @@ class VehicleController extends Controller
             $vehicle->tomtom = $vehicle->tomtom ?? '';
             $vehicle->tires = $vehicle->tires ?? '';
             $vehicle->returned_or_redeemed = $vehicle->returned_or_redeemed ?? '';
-            $vehicle->external_link = $vehicle->external_link ?? '';
+            $vehicle->link = $vehicle->link ?? '';
             $vehicle->status = $vehicle->status ?? 'operational';
             $vehicle->front_tire_size = $vehicle->front_tire_size ?? '';
             $vehicle->rear_tire_size = $vehicle->rear_tire_size ?? '';
@@ -396,7 +526,7 @@ class VehicleController extends Controller
                 'tomtom' => 'nullable|string|max:255',
                 'tires' => 'nullable|string|max:255',
                 'returned_or_redeemed' => 'nullable|string|max:255',
-                'external_link' => 'nullable|string',
+                'link' => 'nullable|string',
                 // Campi in italiano
                 'targa' => 'sometimes|required|string|max:20|unique:vehicles,plate,' . $vehicle->id,
                 'modello' => 'sometimes|required|string|max:255',
@@ -492,7 +622,7 @@ class VehicleController extends Controller
             if (array_key_exists('tomtom', $validated)) $data['tomtom'] = $validated['tomtom'] === '' ? null : $validated['tomtom'];
             if (array_key_exists('tires', $validated)) $data['tires'] = $validated['tires'] === '' ? null : $validated['tires'];
             if (array_key_exists('returned_or_redeemed', $validated)) $data['returned_or_redeemed'] = $validated['returned_or_redeemed'] === '' ? null : $validated['returned_or_redeemed'];
-            if (array_key_exists('external_link', $validated)) $data['external_link'] = $validated['external_link'] === '' ? null : $validated['external_link'];
+            if (array_key_exists('link', $validated)) $data['link'] = $validated['link'] === '' ? null : $validated['link'];
             if (array_key_exists('status', $validated)) $data['status'] = $validated['status'] === '' ? null : $validated['status'];
 
             $vehicle->update($data);
@@ -511,14 +641,58 @@ class VehicleController extends Controller
             
             // Aggiungiamo i campi in italiano
             $vehicle->targa = $vehicle->plate;
-            $vehicle->modello = $vehicle->model;
+            $vehicle->nome = $vehicle->name;
             $vehicle->marca = $vehicle->brand;
-            $vehicle->colore = $vehicle->color;
+            $vehicle->modello = $vehicle->model;
             $vehicle->anno = $vehicle->year;
             $vehicle->tipo = $vehicle->type;
+            $vehicle->stato = $vehicle->status;
+            $vehicle->note = $vehicle->notes;
+            $vehicle->colore = $vehicle->color;
+            $vehicle->chilometraggio = $vehicle->odometer;
+            $vehicle->ore_motore = $vehicle->engine_hours;
+            $vehicle->portata_max = $vehicle->max_load;
+            $vehicle->numero_telaio = $vehicle->chassis_number;
+            $vehicle->data_acquisto = $vehicle->purchase_date;
+            $vehicle->prezzo_acquisto = $vehicle->purchase_price;
+            $vehicle->misura_gomme_anteriori = $vehicle->front_tire_size;
+            $vehicle->misura_gomme_posteriori = $vehicle->rear_tire_size;
+            $vehicle->vin = $vehicle->vin_code;
+            $vehicle->cilindrata = $vehicle->engine_capacity;
+            $vehicle->codice_motore = $vehicle->engine_code;
+            $vehicle->matricola_motore = $vehicle->engine_serial_number;
+            $vehicle->cavalli_fiscali = $vehicle->fiscal_horsepower;
+            $vehicle->potenza_kw = $vehicle->power_kw;
+            $vehicle->numero_immatricolazione = $vehicle->registration_number;
+            $vehicle->classe_euro = $vehicle->euro_classification;
+            $vehicle->gruppi = $vehicle->groups;
+            $vehicle->autista_assegnato = $vehicle->assigned_driver;
+            $vehicle->data_prima_immatricolazione = $vehicle->first_registration_date;
+            $vehicle->proprieta = $vehicle->ownership;
             $vehicle->carburante = $vehicle->fuel_type;
             $vehicle->km = $vehicle->odometer;
-            $vehicle->note = $vehicle->notes;
+            $vehicle->contratto_titolare = $vehicle->contract_holder;
+            $vehicle->tipo_proprieta = $vehicle->ownership_type;
+            $vehicle->tipo_noleggio = $vehicle->rental_type;
+            $vehicle->acconto_pagato = $vehicle->advance_paid;
+            $vehicle->rata_finale = $vehicle->final_installment;
+            $vehicle->canone_mensile = $vehicle->monthly_fee;
+            $vehicle->data_inizio_contratto = $vehicle->contract_start_date;
+            $vehicle->data_fine_contratto = $vehicle->contract_end_date;
+            $vehicle->allarme_mensile = $vehicle->monthly_alert;
+            $vehicle->allarme_fine = $vehicle->end_alert;
+            $vehicle->giorno_pagamento_rata = $vehicle->installment_payment_day;
+            $vehicle->fornitore = $vehicle->supplier;
+            $vehicle->data_riconsegna = $vehicle->collection_date;
+            $vehicle->durata_contratto_mesi = $vehicle->contract_duration_months;
+            $vehicle->chilometraggio_contratto = $vehicle->contract_kilometers;
+            $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
+            $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
+            $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
+            $vehicle->tomtom = $vehicle->tomtom;
+            $vehicle->pneumatici = $vehicle->tires;
+            $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
+            $vehicle->link_esterno = $vehicle->external_link;
             
             return response()->json($vehicle);
         } catch (\Exception $e) {

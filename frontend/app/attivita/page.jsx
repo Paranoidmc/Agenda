@@ -6,8 +6,12 @@ import SidePanel from "../../components/SidePanel";
 import EntityForm from "../../components/EntityForm";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AttivitaPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const openId = searchParams.get('open');
   const { user, loading } = useAuth();
   const [attivita, setAttivita] = useState([]);
   const [fetching, setFetching] = useState(true);
@@ -19,6 +23,41 @@ export default function AttivitaPage() {
   const [selectedAttivita, setSelectedAttivita] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  // Effetto: se openId cambia, carica l'attività giusta e apri il pannello
+  useEffect(() => {
+    if (openId) {
+      // Se già caricata, seleziona direttamente
+      const found = attivita.find(a => String(a.id) === String(openId));
+      if (found) {
+        setSelectedAttivita(found);
+        setIsPanelOpen(true);
+        setIsEditing(false);
+        setValidationErrors({});
+        if (found.client_id) loadSediPerCliente(found.client_id);
+      } else {
+        // Se non trovata, fetch singola attività (fallback)
+        api.get(`/activities/${openId}`)
+          .then(res => {
+            setSelectedAttivita(res.data);
+            setIsPanelOpen(true);
+            setIsEditing(false);
+            setValidationErrors({});
+            if (res.data.client_id) loadSediPerCliente(res.data.client_id);
+          })
+          .catch(() => {
+            setSelectedAttivita(null);
+            setIsPanelOpen(false);
+          });
+      }
+    } else {
+      setIsPanelOpen(false);
+      setSelectedAttivita(null);
+      setIsEditing(false);
+      setValidationErrors({});
+    }
+    // eslint-disable-next-line
+  }, [openId, attivita]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [tableWidth, setTableWidth] = useState('100%');
@@ -32,11 +71,16 @@ export default function AttivitaPage() {
 
   // Handler unico per tutte le modifiche ai campi del form
   const handleFieldChange = (name, value) => {
+    console.log('[DEBUG][handleFieldChange] CAMPO CAMBIATO:', name, value);
+    if (name === 'data_inizio' || name === 'data_fine') {
+      console.log('[DEBUG][handleFieldChange] CAMPO DATA CAMBIATO', name, value);
+    }
     setSelectedAttivita(prev => {
       let newState = { ...prev, [name]: value };
       // Reset della sede se cambio cliente
       if (name === 'client_id') {
         newState.site_id = '';
+        console.log('[DEBUG][handleFieldChange] Reset site_id per cambio cliente');
       }
       return newState;
     });
@@ -46,19 +90,52 @@ export default function AttivitaPage() {
     }
     // Caricamento sedi per cliente
     if (name === 'client_id') {
+      console.log('[DEBUG][handleFieldChange] Chiamo loadSediPerCliente con:', value);
       loadSediPerCliente(value);
     }
   };
+
+  // Funzione per formattare la data in modo leggibile (it-IT)
+  // Parsing manuale che ignora offset e secondi
+  const formatDate = (dateString) => {
+  if (!dateString) return 'N/D';
+  // Usa direttamente la stringa ISO 8601 con offset (Europe/Rome)
+  const d = new Date(dateString);
+  // Ricava giorno/mese/anno/ora/minuto in locale Europe/Rome
+  return d.toLocaleString('it-IT', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).replace(',', '');
+};
+
+  // Per input type="datetime-local": estrae solo YYYY-MM-DDTHH:mm
+  const toInputDatetimeLocal = (dateString) => {
+    if (!dateString) return '';
+    const match = dateString.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+    return match ? match[1] : '';
+  };
+
 
   // Funzione per ottenere i campi del form attività
   const getAttivitaFields = (selectedAttivita) => {
     // Determina quali sedi mostrare in base al cliente selezionato
     let sediOptions = [];
     const clienteId = selectedAttivita?.client_id;
-    
-    if (clienteId && sediPerCliente[clienteId]) {
+    const clientKey = String(clienteId);
+    // Debug log
+    console.log('[DEBUG][getAttivitaFields] sediPerCliente keys:', Object.keys(sediPerCliente));
+    console.log('[DEBUG][getAttivitaFields] clientKey:', clientKey, typeof clientKey);
+    console.log('[DEBUG][getAttivitaFields] sedi trovate:', sediPerCliente[clientKey]);
+    console.log('[DEBUG][getAttivitaFields] clienteId:', clienteId);
+
+    if (clientKey && sediPerCliente[clientKey]) {
       // Se abbiamo le sedi per questo cliente, le utilizziamo
-      sediOptions = sediPerCliente[clienteId].map(sede => ({ 
+      sediOptions = sediPerCliente[clientKey].map(sede => ({ 
         value: sede.id, 
         label: sede.nome || sede.name 
       }));
@@ -76,28 +153,18 @@ export default function AttivitaPage() {
       { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
       { 
         name: 'data_inizio', 
-        label: 'Data Inizio', 
+        label: 'Data/Ora Inizio', 
         type: 'datetime-local', 
         required: true,
+        value: toInputDatetimeLocal(selectedAttivita?.data_inizio),
         onChange: handleFieldChange
       },
       { 
         name: 'data_fine', 
-        label: 'Data Fine', 
+        label: 'Data/Ora Fine', 
         type: 'datetime-local', 
-        required: true 
-      },
-      { 
-        name: 'time_slot', 
-        label: 'Fascia Oraria', 
-        type: 'select', 
-        required: true,
-        options: [
-          { value: 'morning', label: 'Mattina' },
-          { value: 'afternoon', label: 'Pomeriggio' },
-          { value: 'full_day', label: 'Giornata intera' }
-        ],
-        onChange: handleFieldChange
+        required: false,
+        value: toInputDatetimeLocal(selectedAttivita?.data_fine)
       },
       { 
         name: 'client_id', 
@@ -118,29 +185,66 @@ export default function AttivitaPage() {
         isNumeric: true, 
         required: true,
         options: sediOptions,
-        disabled: !clienteId || sediOptions.length === 0
+        disabled: !clienteId || sediOptions.length === 0 || sediOptions[0]?.value === ''
       },
       { 
         name: 'driver_id', 
         label: 'Autista', 
         type: 'select', 
         isNumeric: true, 
-        required: true,
-        options: Array.isArray(autisti) ? autisti.map(autista => ({ 
-          value: autista.id, 
-          label: `${autista.nome || ''} ${autista.cognome || ''}`.trim() 
-        })) : []
+        required: false,
+        options: (() => {
+          let opts = Array.isArray(autisti) ? autisti.map(autista => ({ 
+            value: autista.id, 
+            label: `${autista.nome || ''} ${autista.cognome || ''}`.trim() 
+          })) : [];
+          // Se il valore selezionato non è tra le opzioni, aggiungilo
+          const selId = selectedAttivita?.driver_id;
+          if (
+            selId &&
+            !opts.some(opt => String(opt.value) === String(selId)) &&
+            selectedAttivita.driver
+          ) {
+            opts = [
+              {
+                value: selectedAttivita.driver.id,
+                label: `${selectedAttivita.driver.nome || ''} ${selectedAttivita.driver.cognome || ''}`.trim() + ' (non disponibile)',
+                isDisabled: true
+              },
+              ...opts
+            ];
+          }
+          return opts;
+        })()
       },
       { 
         name: 'vehicle_id', 
         label: 'Veicolo', 
         type: 'select', 
         isNumeric: true, 
-        required: true,
-        options: Array.isArray(veicoli) ? veicoli.map(veicolo => ({ 
-          value: veicolo.id, 
-          label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() 
-        })) : []
+        required: false,
+        options: (() => {
+          let opts = Array.isArray(veicoli) ? veicoli.map(veicolo => ({ 
+            value: veicolo.id, 
+            label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() 
+          })) : [];
+          const selId = selectedAttivita?.vehicle_id;
+          if (
+            selId &&
+            !opts.some(opt => String(opt.value) === String(selId)) &&
+            selectedAttivita.vehicle
+          ) {
+            opts = [
+              {
+                value: selectedAttivita.vehicle.id,
+                label: `${selectedAttivita.vehicle.targa || ''} - ${selectedAttivita.vehicle.marca || ''} ${selectedAttivita.vehicle.modello || ''}`.trim() + ' (non disponibile)',
+                isDisabled: true
+              },
+              ...opts
+            ];
+          }
+          return opts;
+        })()
       },
       { 
         name: 'activity_type_id', 
@@ -271,7 +375,7 @@ export default function AttivitaPage() {
   };
 
   const loadClienti = () => {
-    return api.get("/clients")
+    return api.get("/clients", { params: { perPage: 20000 } })
       .then(res => {
         // Verifica che res.data sia un array o estrai l'array da res.data.data
         let clientiData = [];
@@ -386,6 +490,7 @@ export default function AttivitaPage() {
   };
   
   const loadSediPerCliente = (clientId) => {
+    console.log('[DEBUG][loadSediPerCliente] chiamata con clientId:', clientId);
     if (!clientId) {
       console.log("loadSediPerCliente: clientId non valido", clientId);
       return;
@@ -422,7 +527,7 @@ export default function AttivitaPage() {
         console.log("Sedi caricate per cliente:", numericClientId, sediData.length);
         setSediPerCliente(prev => ({
           ...prev,
-          [numericClientId]: sediData
+          [String(clientId)]: sediData
         }));
       })
       .catch(err => {
@@ -439,7 +544,7 @@ export default function AttivitaPage() {
           // In caso di errore, imposta un array vuoto per evitare errori
           setSediPerCliente(prev => ({
             ...prev,
-            [numericClientId]: []
+            [String(clientId)]: []
           }));
         } else if (err.request) {
           console.error("Nessuna risposta ricevuta:", err.request);
@@ -479,27 +584,22 @@ export default function AttivitaPage() {
       });
   };
 
-  const handleViewDetails = (attivita) => {
-    setSelectedAttivita(attivita);
-    setIsEditing(false);
-    setIsPanelOpen(true);
-    setValidationErrors({});
-    
-    // Carica le sedi per il cliente selezionato
-    if (attivita.client_id) {
-      loadSediPerCliente(attivita.client_id);
-    }
+  const handleViewDetails = (item) => {
+    // Aggiorna la query string per aprire la SidePanel su quell'attività
+    router.push(`/attivita?open=${item.id}`);
   };
 
   const handleClosePanel = () => {
+    // Rimuovi il param "open" dalla query string
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('open');
+    router.replace(`/attivita${params.toString() ? '?' + params.toString() : ''}`);
     setIsPanelOpen(false);
-    // Reset dello stato dopo che l'animazione di chiusura è completata
-    setTimeout(() => {
-      setSelectedAttivita(null);
-      setIsEditing(false);
-      setValidationErrors({});
-    }, 300);
+    setSelectedAttivita(null);
+    setIsEditing(false);
+    setValidationErrors({});
   };
+
 
   const handleSaveAttivita = async (formData) => {
     setIsSaving(true);
@@ -508,6 +608,9 @@ export default function AttivitaPage() {
     try {
       // Assicuriamoci che i campi ID siano numeri
       const preparedData = { ...formData };
+      // PATCH: non manipolare mai data_inizio/data_fine, invia esattamente il valore dell'input
+      if (formData.data_inizio) preparedData.data_inizio = formData.data_inizio;
+      if (formData.data_fine) preparedData.data_fine = formData.data_fine;
       
       // Converti gli ID in numeri
       ['client_id', 'site_id', 'driver_id', 'vehicle_id', 'activity_type_id'].forEach(field => {
@@ -690,56 +793,59 @@ export default function AttivitaPage() {
     }
   };
 
-  const handleCreateNew = () => {
-    setSelectedAttivita({
-      data_inizio: new Date().toISOString().slice(0, 16),
-      data_fine: new Date().toISOString().slice(0, 16),
-      stato: 'Programmata'
-    });
-    setIsEditing(true);
-    setIsPanelOpen(true);
-    setValidationErrors({});
+  
+
+const handleCreateNew = () => {
+  const now = new Date();
+  // Ottieni la data e ora locale Europe/Rome in formato YYYY-MM-DDTHH:mm
+  const toDatetimeLocal = (date) => {
+    const tzDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    const year = tzDate.getFullYear();
+    const month = String(tzDate.getMonth() + 1).padStart(2, '0');
+    const day = String(tzDate.getDate()).padStart(2, '0');
+    const hour = String(tzDate.getHours()).padStart(2, '0');
+    const minute = String(tzDate.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:${minute}`;
   };
+  const dataInizio = toDatetimeLocal(now);
+  setSelectedAttivita({
+    data_inizio: dataInizio,
+    data_fine: dataInizio,
+    stato: 'Programmata',
+    client_id: '',
+    site_id: ''
+  });
+  setIsEditing(true);
+  setIsPanelOpen(true);
+  setValidationErrors({});
+};
 
-  // Funzione per formattare la data
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/D';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+// Funzione per ottenere il colore dello stato
+const getStatusColor = (stato) => {
+  switch (stato?.toLowerCase()) {
+    case 'completata':
+      return '#34c759'; // Verde
+    case 'in corso':
+      return '#007aff'; // Blu
+    case 'programmata':
+      return '#ff9500'; // Arancione
+    case 'annullata':
+      return '#ff3b30'; // Rosso
+    default:
+      return '#8e8e93'; // Grigio
+  }
+};
 
-  // Funzione per ottenere il colore dello stato
-  const getStatusColor = (stato) => {
-    switch (stato?.toLowerCase()) {
-      case 'completata':
-        return '#34c759'; // Verde
-      case 'in corso':
-        return '#007aff'; // Blu
-      case 'programmata':
-        return '#ff9500'; // Arancione
-      case 'annullata':
-        return '#ff3b30'; // Rosso
-      default:
-        return '#8e8e93'; // Grigio
-    }
-  };
+if (loading || fetching) return <div className="centered">Caricamento...</div>;
+if (error) return <div className="centered">{error}</div>;
 
-  if (loading || fetching) return <div className="centered">Caricamento...</div>;
-  if (error) return <div className="centered">{error}</div>;
-
-  return (
-    <div style={{ padding: 32 }}>
-      <PageHeader 
-        title="Attività" 
-        buttonLabel="Nuova Attività" 
-        onAddClick={handleCreateNew} 
-      />
+return (
+  <div style={{ padding: 32 }}>
+    <PageHeader 
+      title="Attività" 
+      buttonLabel="Nuova Attività" 
+      onAddClick={handleCreateNew} 
+    />
       <div 
         style={{ 
           transition: 'width 0.3s ease-in-out',
@@ -906,6 +1012,7 @@ export default function AttivitaPage() {
       >
         {selectedAttivita && (
           <EntityForm
+            key={`form-${selectedAttivita.client_id || ''}-${(sediPerCliente[selectedAttivita.client_id || ''] || []).length}`}
             data={selectedAttivita}
             fields={getAttivitaFields(selectedAttivita).map(field => ({
               ...field,

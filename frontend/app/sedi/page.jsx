@@ -17,7 +17,7 @@ export default function SediPage() {
   const [fetching, setFetching] = useState(true);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
+  const [perPage, setPerPage] = useState(20000);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedSede, setSelectedSede] = useState(null);
@@ -70,8 +70,8 @@ export default function SediPage() {
     setFetching(true);
     api.get(`/sites`, {
       params: {
-        page: currentPage,
-        perPage: perPage,
+        page: 1, // carica tutto in una pagina
+        perPage: 20000,
         search: searchTerm
       }
     })
@@ -91,9 +91,25 @@ export default function SediPage() {
   };
 
   const loadClienti = () => {
-    api.get("/clients")
-      .then(res => setClienti(res.data.data || []))
-      .catch(err => console.error("Errore nel caricamento dei clienti:", err));
+    console.log('[DEBUG] Chiamo /clients per la select cantieri...');
+    api.get("/clients", { params: { perPage: 20000 } })
+      .then(res => {
+        console.log('[DEBUG] Risposta /clients:', res.data);
+        if (Array.isArray(res.data)) {
+          setClienti(res.data);
+          console.log('[DEBUG] Imposto clienti come array diretto:', res.data.length);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setClienti(res.data.data);
+          console.log('[DEBUG] Imposto clienti come res.data.data:', res.data.data.length);
+        } else {
+          setClienti([]);
+          console.warn('[DEBUG] Nessun cliente trovato o formato dati inatteso:', res.data);
+        }
+      })
+      .catch(err => {
+        console.error("[DEBUG] Errore nel caricamento dei clienti:", err);
+        setClienti([]);
+      });
   };
 
   const handleViewDetails = (sede) => {
