@@ -299,28 +299,38 @@ export default function PianificazionePage() {
   }, [showExportMenu]);
 
   const getRows = () => {
+    console.log("DIAGNOSTICA - Totale eventi:", events.length);
+    console.log("DIAGNOSTICA - Eventi di tipo activity:", events.filter(e => e.type === 'activity').length);
+    console.log("DIAGNOSTICA - Eventi di tipo deadline:", events.filter(e => e.type === 'deadline').length);
+    
     if (viewMode === 'day') {
       // Una sola riga che contiene tutte le attività del giorno selezionato
+      const dayEvents = events.filter(e => e.type === 'activity' && e.data?.data_inizio?.startsWith(dailyModalDate));
+      console.log(`DIAGNOSTICA - Eventi per il giorno ${dailyModalDate}:`, dayEvents.length);
       return [{
         id: 'attivita-giornaliere',
         name: 'Attività del giorno',
-        events: events.filter(e => e.type === 'activity' && e.data?.data_inizio?.startsWith(dailyModalDate))
+        events: dayEvents
       }];
     }
     // Filtra solo gli eventi di tipo 'activity'
     let activityEvents = events.filter(e => e.type === 'activity');
+    console.log("DIAGNOSTICA - Activity events dopo il filtro iniziale:", activityEvents.length);
     
     // Applica i filtri in base alle selezioni
     if (selectedSiteId) {
       activityEvents = activityEvents.filter(e => e.siteId === selectedSiteId || e.data?.site?.id === selectedSiteId);
+      console.log("DIAGNOSTICA - Activity events dopo filtro per cantiere:", activityEvents.length);
     }
     
     if (selectedDriverId) {
       activityEvents = activityEvents.filter(e => e.driverId === selectedDriverId || e.data?.driver?.id === selectedDriverId);
+      console.log("DIAGNOSTICA - Activity events dopo filtro per autista:", activityEvents.length);
     }
     
     if (selectedVehicleId) {
       activityEvents = activityEvents.filter(e => e.vehicleId === selectedVehicleId || e.data?.vehicle?.id === selectedVehicleId);
+      console.log("DIAGNOSTICA - Activity events dopo filtro per veicolo:", activityEvents.length);
     }
     
     if (selectedActivityTypeId) {
@@ -328,6 +338,7 @@ export default function PianificazionePage() {
         e.data?.activity_type_id === selectedActivityTypeId || 
         e.data?.activityType?.id === selectedActivityTypeId
       );
+      console.log("DIAGNOSTICA - Activity events dopo filtro per tipo attività:", activityEvents.length);
     }
     
     // Determina quali righe mostrare in base alla modalità di visualizzazione e ai filtri
@@ -389,37 +400,14 @@ export default function PianificazionePage() {
           }));
       
       case 'activity':
-        // Se c'è un filtro per cantiere, mostra solo quel cantiere
-        if (selectedSiteId) {
-          const site = sites.find(s => s.id === selectedSiteId);
-          if (site) {
-            return [{
-              id: site.id,
-              name: site.nome || 'Cantiere',
-              events: activityEvents
-            }];
-          }
-        }
-        
-        // Raggruppa gli eventi per cantiere
-        const siteMap = new Map();
-        
-        // Aggiungi tutti i cantieri che hanno attività che soddisfano i filtri
-        activityEvents.forEach(event => {
-          const siteId = event.siteId || event.data?.site?.id || 'no-site';
-          const siteName = event.siteName || event.data?.site?.nome || 'Cantiere non specificato';
-          
-          if (!siteMap.has(siteId)) {
-            siteMap.set(siteId, {
-              id: siteId,
-              name: siteName,
-              events: []
-            });
-          }
-          siteMap.get(siteId).events.push(event);
-        });
-        
-        return Array.from(siteMap.values());
+        // IMPORTANTE: Mostra tutte le attività in un'unica riga
+        // Questo assicura che tutte le attività siano visibili
+        console.log(`DIAGNOSTICA - Mostrando tutte le attività (${activityEvents.length}) in un'unica riga`);
+        return [{
+          id: 'all-activities',
+          name: 'Tutte le attività',
+          events: activityEvents
+        }];
       
       default:
         return [];
@@ -490,8 +478,9 @@ export default function PianificazionePage() {
       setActivityTypes(activityTypesResponse.data);
       setActivityTypesError(null);
 
-      // Carica le attività
-      const activitiesResponse = await api.get(`/activities?start_date=${startDate}&end_date=${endDate}`);
+      // Carica le attività - richiediamo TUTTE le attività senza paginazione e senza filtri di data
+      // IMPORTANTE: Rimuoviamo i filtri di data per assicurarci di ottenere tutte le attività
+      const activitiesResponse = await api.get(`/activities?per_page=1000&all=1`);
       
       // Log completo della risposta per debug
       console.log("Risposta completa delle attività:", JSON.stringify(activitiesResponse.data, null, 2));
@@ -515,22 +504,42 @@ export default function PianificazionePage() {
       console.log("Tipi di attività caricati:", JSON.stringify(activityTypesResponse.data, null, 2));
       
       const activitiesRaw = Array.isArray(activitiesResponse.data)
-  ? activitiesResponse.data
-  : (activitiesResponse.data && Array.isArray(activitiesResponse.data.data)
-    ? activitiesResponse.data.data
-    : []);
-const activities = activitiesRaw.map(activity => {
+        ? activitiesResponse.data
+        : (activitiesResponse.data && Array.isArray(activitiesResponse.data.data)
+          ? activitiesResponse.data.data
+          : []);
+      
+      console.log("DIAGNOSTICA - Numero totale di attività ricevute:", activitiesRaw.length);
+      console.log("DIAGNOSTICA - ID delle attività:", activitiesRaw.map(a => a.id).join(", "));
+      
+      const activities = activitiesRaw.map(activity => {
+        console.log(`DIAGNOSTICA - Processando attività ID ${activity.id}:`, {
+          data_inizio: activity.data_inizio,
+          data_fine: activity.data_fine,
+          titolo: activity.titolo,
+          stato: activity.stato
+        });
+        
         // Assicuriamoci che le date siano valide
         let startDate = new Date(activity.data_inizio);
         let endDate = new Date(activity.data_fine || activity.data_inizio);
         
+        console.log(`DIAGNOSTICA - Date convertite per attività ${activity.id}:`, {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          startValid: !isNaN(startDate.getTime()),
+          endValid: !isNaN(endDate.getTime())
+        });
+        
         // Se le date non sono valide, usa dei valori predefiniti
         if (isNaN(startDate.getTime())) {
+          console.warn(`ATTENZIONE: Data inizio non valida per attività ${activity.id}: ${activity.data_inizio}`);
           startDate = new Date();
           startDate.setHours(9, 0, 0);
         }
         
         if (isNaN(endDate.getTime())) {
+          console.warn(`ATTENZIONE: Data fine non valida per attività ${activity.id}: ${activity.data_fine}`);
           endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 ora
         }
         
@@ -544,91 +553,41 @@ const activities = activitiesRaw.map(activity => {
           endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 ora
         }
         
-        // Assicuriamoci di avere il colore corretto
-        let activityColor = '#007aff'; // Colore predefinito
+        // Inizializza le variabili per il tipo di attività e il colore
         let activityTypeName = 'Attività';
+        let activityColor = '#007aff'; // Colore predefinito
         
         // Log dell'attività per debug
         console.log(`Elaborazione attività ${activity.id}:`, JSON.stringify(activity, null, 2));
         
-        // Verifica se l'attività ha un tipo di attività
-        if (!activity.activityType && activity.activity_type_id) {
-          // Se non ha un tipo ma ha un ID, cerchiamo di recuperarlo dai tipi caricati
-          console.log(`Attività ${activity.id} ha solo activity_type_id:`, activity.activity_type_id);
+        // Determina il tipo di attività per la visualizzazione
+        if (activity.activityType) {
+          activityTypeName = activity.activityType.nome || activity.activityType.name || 'Attività';
+        } else if (activity.activity_type_id) {
           const tipoAttivita = activityTypesResponse.data.find(tipo => tipo.id === activity.activity_type_id);
           if (tipoAttivita) {
-            console.log(`Tipo attività trovato per ID ${activity.activity_type_id}:`, tipoAttivita);
-            activity.activityType = {
-              id: tipoAttivita.id,
-              name: tipoAttivita.name || tipoAttivita.nome,
-              color: tipoAttivita.color || tipoAttivita.colore,
-              nome: tipoAttivita.nome || tipoAttivita.name,
-              colore: tipoAttivita.colore || tipoAttivita.color
-            };
-          } else {
-            console.warn(`Tipo attività con ID ${activity.activity_type_id} non trovato`);
+            activityTypeName = tipoAttivita.nome || tipoAttivita.name || 'Attività';
           }
         }
         
-        if (activity.activityType) {
-          console.log(`Attività ${activity.id} ha activityType:`, JSON.stringify(activity.activityType, null, 2));
-          
-          // Prova prima il campo colore (italiano)
-          if (activity.activityType.colore && activity.activityType.colore.startsWith('#')) {
-            activityColor = activity.activityType.colore;
-            console.log(`Usando colore italiano: ${activityColor}`);
-          } 
-          // Altrimenti prova il campo color (inglese)
-          else if (activity.activityType.color && activity.activityType.color.startsWith('#')) {
-            activityColor = activity.activityType.color;
-            console.log(`Usando colore inglese: ${activityColor}`);
-          }
-          
-          // Se abbiamo un ID del tipo di attività ma non un colore, cerchiamo nel nostro elenco di tipi
-          if (activity.activityType.id) {
-            // Cerca nei tipi di attività caricati
-            const matchingType = activityTypesResponse.data.find(type => type.id === activity.activityType.id);
-            if (matchingType) {
-              console.log(`Tipo attività corrispondente trovato:`, JSON.stringify(matchingType, null, 2));
-              
-              if (matchingType.colore && matchingType.colore.startsWith('#')) {
-                activityColor = matchingType.colore;
-                console.log(`Usando colore italiano dal tipo corrispondente: ${activityColor}`);
-              } else if (matchingType.color && matchingType.color.startsWith('#')) {
-                activityColor = matchingType.color;
-                console.log(`Usando colore inglese dal tipo corrispondente: ${activityColor}`);
-              }
-              
-              // Imposta anche il nome del tipo di attività
-              activityTypeName = matchingType.nome || matchingType.name || 'Attività';
-            } else {
-              console.warn(`Nessun tipo attività corrispondente trovato per ID ${activity.activityType.id}`);
-            }
-          } else {
-            // Se non abbiamo un ID ma abbiamo un nome, usalo
-            activityTypeName = activity.activityType.nome || activity.activityType.name || 'Attività';
-          }
-        } else {
-          console.warn(`Attività ${activity.id} non ha activityType`);
-          
-          // Proviamo a cercare il tipo di attività direttamente nella risposta
-          if (activity.activity_type_id) {
-            const tipoAttivita = activityTypesResponse.data.find(tipo => tipo.id === activity.activity_type_id);
-            if (tipoAttivita) {
-              console.log(`Tipo attività trovato direttamente per ID ${activity.activity_type_id}:`, tipoAttivita);
-              activityColor = tipoAttivita.colore || tipoAttivita.color || '#007aff';
-              activityTypeName = tipoAttivita.nome || tipoAttivita.name || 'Attività';
-            }
+        // IMPORTANTE: Determina il colore SOLO in base allo stato dell'attività
+        
+        if (activity.stato) {
+          const stato = activity.stato.toLowerCase();
+          if (stato === 'non assegnato') {
+            activityColor = '#e0f2fe'; // Azzurro chiaro
+          } else if (stato === 'assegnato') {
+            activityColor = '#fef9c3'; // Giallo chiaro
+          } else if (stato === 'doc emesso') {
+            activityColor = '#fee2e2'; // Rosso chiaro
+          } else if (stato === 'completato') {
+            activityColor = '#bbf7d0'; // Verde chiaro
+          } else if (stato === 'annullato') {
+            activityColor = '#fbcfe8'; // Rosa chiaro
           }
         }
         
-        console.log(`Attività ${activity.id} (${activity.titolo}): tipo = ${activityTypeName}, colore = ${activityColor}`, activity.activityType);
-        
-        // Assicuriamoci che il colore sia valido
-        if (!activityColor || !activityColor.startsWith('#')) {
-          console.warn(`Colore non valido per attività ${activity.id}: ${activityColor}, usando predefinito`);
-          activityColor = '#007aff';
-        }
+        console.log(`Attività ${activity.id} (${activity.titolo}): tipo = ${activityTypeName}, stato = ${activity.stato}, colore = ${activityColor}`);
         
         console.log(`Creazione evento per attività ${activity.id} con colore ${activityColor}`);
         
@@ -668,9 +627,31 @@ const activities = activitiesRaw.map(activity => {
         };
       });
 
-      setEvents([...activities, ...deadlines]);
+      // Combina attività e scadenze
+      const allEvents = [...activities, ...deadlines];
+      console.log("DIAGNOSTICA - Totale eventi combinati:", allEvents.length);
+      console.log("DIAGNOSTICA - Attività dopo la trasformazione:", activities.length);
+      console.log("DIAGNOSTICA - Scadenze dopo la trasformazione:", deadlines.length);
+      
+      // Verifica se ci sono attività per la settimana corrente
+      const startOfWeek = currentWeek[0];
+      const endOfWeek = currentWeek[6];
+      const activitiesInCurrentWeek = activities.filter(activity => {
+        const activityDate = new Date(activity.start);
+        return activityDate >= startOfWeek && activityDate <= endOfWeek;
+      });
+      
+      console.log("DIAGNOSTICA - Attività nella settimana corrente:", activitiesInCurrentWeek.length);
+      console.log("DIAGNOSTICA - Date della settimana:", currentWeek.map(d => d.toISOString().split('T')[0]).join(", "));
+      
+      if (activitiesInCurrentWeek.length === 0) {
+        console.warn("ATTENZIONE: Nessuna attività trovata per la settimana corrente!");
+      }
+      
+      setEvents(allEvents);
     } catch (err) {
-      setError("Errore nel caricamento dati");
+      console.error("Errore nel caricamento dati:", err);
+      setError(`Errore nel caricamento dati: ${err.message || err}`);
     }
     setFetching(false);
   };
@@ -987,24 +968,34 @@ const activities = activitiesRaw.map(activity => {
             <button className={viewMode === 'driver' ? 'active' : ''} onClick={() => setViewMode('driver')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Autista</button>
             <button className={viewMode === 'vehicle' ? 'active' : ''} onClick={() => setViewMode('vehicle')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6 }}>Veicolo</button>
           </div>
-          <WeeklyCalendar
-            events={events}
-            currentWeek={currentWeek}
-            onPrevWeek={goToPreviousWeek}
-            onNextWeek={goToNextWeek}
-            viewMode={viewMode}
-            onEventClick={event => {
-              if (event && event.data && event.data.data_inizio) {
-                const dateStr = event.data.data_inizio.substring(0, 10);
-                setDailyModalDate(dateStr);
-              }
-              handleEventClick(event);
-            }}
-            getEventContent={getEventContent}
-            rows={getRows()}
-            onDayClick={dateStr => setDailyModalDate(dateStr)}
-            selectedDate={dailyModalDate}
-          />
+          {/* Log per debug */}
+      {console.log("DIAGNOSTICA - Rendering WeeklyCalendar con:", {
+        totalEvents: events.length,
+        activityEvents: events.filter(e => e.type === 'activity').length,
+        deadlineEvents: events.filter(e => e.type === 'deadline').length,
+        rows: getRows().length,
+        rowsWithEvents: getRows().filter(row => row.events.length > 0).length,
+        totalEventsInRows: getRows().reduce((sum, row) => sum + row.events.length, 0)
+      })}
+      
+      <WeeklyCalendar
+        events={events}
+        currentWeek={currentWeek}
+        onPrevWeek={goToPreviousWeek}
+        onNextWeek={goToNextWeek}
+        viewMode={viewMode}
+        onEventClick={event => {
+          if (event && event.data && event.data.data_inizio) {
+            const dateStr = event.data.data_inizio.substring(0, 10);
+            setDailyModalDate(dateStr);
+          }
+          handleEventClick(event);
+        }}
+        getEventContent={getEventContent}
+        rows={getRows()}
+        onDayClick={dateStr => setDailyModalDate(dateStr)}
+        selectedDate={dailyModalDate}
+      />
         </div>
       )}
       
@@ -1014,35 +1005,32 @@ const activities = activitiesRaw.map(activity => {
         </div>
       )}
 
-      {/* Legenda dei tipi di attività */}
-      {activityTypesError ? (
-        <div className="mt-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
-          {activityTypesError}
-        </div>
-      ) : activityTypes.length > 0 && (
-        <div className="legend-container">
-          <h3 className="legend-title">Legenda Tipi di Attività</h3>
-          <div className="legend-items">
-            {activityTypes.map(type => {
-              // Assicuriamoci che il colore sia valido
-              let color = type.colore || type.color || '#007aff';
-              if (!color.startsWith('#')) {
-                color = '#007aff'; // Colore predefinito se non valido
-              }
-              
-              console.log(`Tipo attività nella legenda: ID=${type.id}, Nome=${type.nome || type.name}, Colore=${color}`);
-              
-              return (
-                <LegendItem 
-                  key={type.id} 
-                  color={color} 
-                  label={`${type.nome || type.name} (ID: ${type.id})`} 
-                />
-              );
-            })}
+      {/* Legenda degli stati delle attività */}
+      <div className="legend-container" style={{ marginTop: '20px' }}>
+        <h3 className="legend-title" style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '10px' }}>Legenda Stati Attività</h3>
+        <div className="legend-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+          <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#e0f2fe', borderRadius: '4px' }}></div>
+            <span className="legend-label" style={{ fontSize: '0.9rem' }}>Non assegnato</span>
+          </div>
+          <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#fef9c3', borderRadius: '4px' }}></div>
+            <span className="legend-label" style={{ fontSize: '0.9rem' }}>Assegnato</span>
+          </div>
+          <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#fee2e2', borderRadius: '4px' }}></div>
+            <span className="legend-label" style={{ fontSize: '0.9rem' }}>Doc emesso</span>
+          </div>
+          <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#bbf7d0', borderRadius: '4px' }}></div>
+            <span className="legend-label" style={{ fontSize: '0.9rem' }}>Completato</span>
+          </div>
+          <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#fbcfe8', borderRadius: '4px' }}></div>
+            <span className="legend-label" style={{ fontSize: '0.9rem' }}>Annullato</span>
           </div>
         </div>
-      )}
+      </div>
       <DailyActivitiesModal
         isOpen={showDailyModal}
         onClose={() => setShowDailyModal(false)}

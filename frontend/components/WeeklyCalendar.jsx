@@ -18,11 +18,20 @@ export default function WeeklyCalendar({
 
   // Funzione per trovare attività per cella
   function getCellEvents(row, day) {
-    return row.events.filter(event => sameDay(event.start, day));
+    const events = row.events.filter(event => sameDay(event.start, day));
+    console.log(`DIAGNOSTICA - Eventi per cella (${day.toISOString().split('T')[0]}):`, events.length);
+    return events;
   }
   function sameDay(date1, date2) {
     const d1 = date1 instanceof Date ? date1 : new Date(date1);
     const d2 = date2 instanceof Date ? date2 : new Date(date2);
+    
+    // Verifica se le date sono valide
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) {
+      console.warn("ATTENZIONE: Data non valida nel confronto sameDay", { date1, date2 });
+      return false;
+    }
+    
     return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
   }
 
@@ -109,6 +118,12 @@ export default function WeeklyCalendar({
     
     // Per le attività, verifica se l'ora corrisponde
     const eventHour = eventDate.getHours();
+    // IMPORTANTE: Per la vista settimanale, mostriamo sempre l'evento nella prima ora visibile
+    // Questo assicura che tutti gli eventi siano visibili
+    if (viewMode === 'activity' || viewMode === 'driver' || viewMode === 'vehicle') {
+      return hour === visibleHours.start;
+    }
+    
     const eventEndHour = eventEndDate.getHours() || eventHour + 1; // Default 1 ora se non specificato
     
     const shouldShow = hour >= eventHour && hour < eventEndHour;
@@ -180,7 +195,9 @@ export default function WeeklyCalendar({
 
   // Ottiene gli eventi per un determinato giorno
   const getEventsForDay = (row, day) => {
-    return row.events.filter(event => sameDay(event.start, day));
+    const events = row.events.filter(event => sameDay(event.start, day));
+    console.log(`DIAGNOSTICA - getEventsForDay (${day.toISOString().split('T')[0]}, ${row.name}):`, events.length);
+    return events;
   };
 
   // Ottiene gli eventi per un determinato giorno e ora
@@ -207,6 +224,12 @@ export default function WeeklyCalendar({
       );
     }
     
+      // IMPORTANTE: Per la vista settimanale, mostriamo sempre l'evento nella prima ora visibile
+      // Questo assicura che tutti gli eventi siano visibili
+      if (viewMode === 'activity' || viewMode === 'driver' || viewMode === 'vehicle') {
+        return hour === visibleHours.start;
+      }
+      
     // Applica la vista selezionata
     let filteredEvents = events;
     if (viewMode === 'driver') {
@@ -234,6 +257,9 @@ export default function WeeklyCalendar({
       }
       return coversHour;
     });
+    
+    console.log(`DIAGNOSTICA - getEventsForTimeSlot (${day.toISOString().split('T')[0]}, ora ${hour}): eventi filtrati = ${result.length}`);
+    return result;
   };
 
 
@@ -334,13 +360,35 @@ export default function WeeklyCalendar({
                   );
                 })()
               : currentWeek.map((day, dayIndex) => {
-                  const cellEvents = getCellEvents(row, day);
+                  // IMPORTANTE: Ottieni tutti gli eventi per questo giorno, non solo quelli che corrispondono all'ora
+                  const cellEvents = row.events.filter(event => {
+                    // Converti le date in oggetti Date
+                    const eventDate = event.start instanceof Date ? event.start : new Date(event.start);
+                    
+                    // Verifica se la data è valida
+                    if (isNaN(eventDate.getTime())) {
+                      console.warn(`ATTENZIONE: Data non valida per evento ${event.id}:`, event.start);
+                      return false;
+                    }
+                    
+                    // Verifica se l'evento è nello stesso giorno
+                    return eventDate.getFullYear() === day.getFullYear() && 
+                           eventDate.getMonth() === day.getMonth() && 
+                           eventDate.getDate() === day.getDate();
+                  });
+                  
+                  console.log(`DIAGNOSTICA - Cella (${day.toISOString().split('T')[0]}, ${row.name}): ${cellEvents.length} eventi`);
+                  
                   return (
                     <div
                       key={`${rowIndex}-${dayIndex}`}
                       className="calendar-cell"
+                      style={{ display: 'flex', flexDirection: 'column', minHeight: 60 }}
                     >
-                      {cellEvents.map((event, eventIndex) => {
+                      {cellEvents.length === 0 ? (
+                        <span style={{ color: '#bbb', fontSize: '0.95em', padding: 8 }}>Nessuna attività</span>
+                      ) : (
+                        cellEvents.map((event, eventIndex) => {
                           let backgroundColor = '#007aff';
                           if (event.type === 'activity') {
                             if (event.color && event.color.startsWith('#')) backgroundColor = event.color;
@@ -375,7 +423,8 @@ export default function WeeklyCalendar({
                               {getEventContent(event)}
                             </div>
                           );
-                        })}
+                        })
+                      )}
                     </div>
                   );
                 })
