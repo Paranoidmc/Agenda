@@ -12,6 +12,7 @@ export default function AttivitaPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const openId = searchParams.get('open');
+  const isNew = searchParams.get('new') === '1';
   const { user, loading } = useAuth();
   const [attivita, setAttivita] = useState([]);
   const [fetching, setFetching] = useState(true);
@@ -26,24 +27,51 @@ export default function AttivitaPage() {
 
   // Effetto: se openId cambia, carica l'attività giusta e apri il pannello
   useEffect(() => {
+    if (isNew) {
+      setIsPanelOpen(true);
+      setIsEditing(true);
+      setSelectedAttivita({
+        descrizione: '',
+        data_inizio: '',
+        data_fine: '',
+        client_id: null,
+        site_id: '',
+        driver_id: '',
+        vehicle_id: '',
+        activity_type_id: '',
+        stato: '',
+        note: ''
+      });
+      setValidationErrors({});
+      return;
+    }
     if (openId) {
       // Se già caricata, seleziona direttamente
       const found = attivita.find(a => String(a.id) === String(openId));
       if (found) {
-        setSelectedAttivita(found);
+        // Patch: se manca status ma esiste stato, copia stato in status (minuscolo)
+        let coerente = { ...found };
+        if (!coerente.status && coerente.stato) {
+          coerente.status = String(coerente.stato).toLowerCase();
+        }
+        setSelectedAttivita(coerente);
         setIsPanelOpen(true);
         setIsEditing(false);
         setValidationErrors({});
-        if (found.client_id) loadSediPerCliente(found.client_id);
+        if (coerente.client_id) loadSediPerCliente(coerente.client_id);
       } else {
         // Se non trovata, fetch singola attività (fallback)
         api.get(`/activities/${openId}`)
           .then(res => {
-            setSelectedAttivita(res.data);
+            let coerente = { ...res.data };
+            if (!coerente.status && coerente.stato) {
+              coerente.status = String(coerente.stato).toLowerCase();
+            }
+            setSelectedAttivita(coerente);
             setIsPanelOpen(true);
             setIsEditing(false);
             setValidationErrors({});
-            if (res.data.client_id) loadSediPerCliente(res.data.client_id);
+            if (coerente.client_id) loadSediPerCliente(coerente.client_id);
           })
           .catch(() => {
             setSelectedAttivita(null);
@@ -57,7 +85,7 @@ export default function AttivitaPage() {
       setValidationErrors({});
     }
     // eslint-disable-next-line
-  }, [openId, attivita]);
+  }, [openId, attivita, isNew]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [tableWidth, setTableWidth] = useState('100%');
@@ -135,20 +163,14 @@ export default function AttivitaPage() {
 
     if (clientKey && sediPerCliente[clientKey]) {
       // Se abbiamo le sedi per questo cliente, le utilizziamo
-      sediOptions = sediPerCliente[clientKey].map(sede => ({ 
-        value: sede.id, 
-        label: sede.nome || sede.name 
+      sediOptions = sediPerCliente[clientKey].map(sede => ({
+        value: sede.id,
+        label: sede.nome || sede.name
       }));
-    } else if (!clienteId) {
-      // Se non c'è un cliente selezionato, non mostriamo sedi
-      sediOptions = [];
     } else {
-      // Se abbiamo un cliente ma non abbiamo ancora le sue sedi, carichiamole
-      loadSediPerCliente(clienteId);
-      // Mostriamo un messaggio di caricamento
-      sediOptions = [{ value: "", label: "Caricamento sedi..." }];
+      sediOptions = [{ value: '', label: 'Seleziona prima un cliente' }];
     }
-    
+
     return [
       { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
       { 
@@ -263,10 +285,13 @@ export default function AttivitaPage() {
         type: 'select', 
         required: true,
         options: [
-          { value: 'Programmata', label: 'Programmata' },
-          { value: 'In corso', label: 'In corso' },
-          { value: 'Completata', label: 'Completata' },
-          { value: 'Annullata', label: 'Annullata' }
+          { value: 'non assegnato', label: 'Non assegnato' },
+          { value: 'assegnato', label: 'Assegnato' },
+          { value: 'doc emesso', label: 'Doc emesso' },
+          { value: 'programmato', label: 'Programmato' },
+          { value: 'in corso', label: 'In corso' },
+          { value: 'completato', label: 'Completato' },
+          { value: 'annullato', label: 'Annullato' }
         ]
       },
       { name: 'note', label: 'Note', type: 'textarea' }
@@ -638,10 +663,12 @@ export default function AttivitaPage() {
         preparedData.data_fine = preparedData.data_inizio;
       }
       
-      // Assicurati che stato sia impostato
-      if (!preparedData.stato) {
-        preparedData.stato = 'Programmata';
-        preparedData.status = 'planned';
+      // Assicura che il campo status venga sempre inviato
+      preparedData.status = formData.status;
+      delete preparedData.stato; // Non inviare mai 'stato', solo 'status'
+      // Se manca status ma esiste stato, fallback (retrocompatibilità)
+      if (!preparedData.status && preparedData.stato) {
+        preparedData.status = String(preparedData.stato).toLowerCase();
       }
       
       // Genera automaticamente un titolo basato sulla data e sul cliente
@@ -677,6 +704,7 @@ export default function AttivitaPage() {
       let response;
       if (preparedData.id) {
         // Aggiornamento
+        console.log('[DEBUG][PUT] Payload inviato:', preparedData);
         console.log(`Invio richiesta PUT a /activities/${preparedData.id}`);
         response = await api.put(`/activities/${preparedData.id}`, preparedData);
         console.log('Risposta aggiornamento attività:', response.data);
@@ -693,6 +721,7 @@ export default function AttivitaPage() {
         alert('Attività aggiornata con successo!');
       } else {
         // Creazione
+        console.log('[DEBUG][POST] Payload inviato:', preparedData);
         console.log('Invio richiesta POST a /activities');
         response = await api.post('/activities', preparedData);
         console.log('Risposta creazione attività:', response.data);
@@ -811,7 +840,7 @@ const handleCreateNew = () => {
   setSelectedAttivita({
     data_inizio: dataInizio,
     data_fine: dataInizio,
-    stato: 'Programmata',
+    status: 'programmato',
     client_id: '',
     site_id: ''
   });
@@ -823,16 +852,25 @@ const handleCreateNew = () => {
 // Funzione per ottenere il colore dello stato
 const getStatusColor = (stato) => {
   switch (stato?.toLowerCase()) {
-    case 'completata':
-      return '#34c759'; // Verde
-    case 'in corso':
-      return '#007aff'; // Blu
+    case 'non assegnato':
+      return '#3b82f6'; // Blu
+    case 'assegnato':
+      return '#eab308'; // Giallo
+    case 'doc emesso':
+      return '#ef4444'; // Rosso
+    case 'programmato':
     case 'programmata':
-      return '#ff9500'; // Arancione
+      return '#8b5cf6'; // Viola
+    case 'in corso':
+      return '#f97316'; // Arancione
+    case 'completato':
+    case 'completata':
+      return '#22c55e'; // Verde
+    case 'annullato':
     case 'annullata':
-      return '#ff3b30'; // Rosso
+      return '#ec4899'; // Rosa
     default:
-      return '#8e8e93'; // Grigio
+      return '#6b7280'; // Grigio scuro
   }
 };
 

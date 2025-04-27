@@ -44,16 +44,24 @@ export default function DeadlineList({ deadlines, onDeadlineClick }) {
 
   // Funzione per determinare lo stato della scadenza
   const getStatusColor = (deadline) => {
-    if (deadline.status === 'completed') return '#4cd964'; // Verde
+    // Se lo stato è specificato, usa i colori standard
+    if (deadline.status === 'completed' || deadline.status === 'completato') return '#22c55e'; // Verde
+    if (deadline.status === 'in corso') return '#f97316'; // Arancione
+    if (deadline.status === 'programmato') return '#8b5cf6'; // Viola
+    if (deadline.status === 'assegnato') return '#eab308'; // Giallo
+    if (deadline.status === 'non assegnato') return '#3b82f6'; // Blu
+    if (deadline.status === 'annullato') return '#ec4899'; // Rosa
+    if (deadline.status === 'doc emesso') return '#ef4444'; // Rosso
     
+    // Altrimenti, usa la logica basata sulla data di scadenza
     const dueDate = new Date(deadline.due_date);
     const today = new Date();
     const diffTime = dueDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 0) return '#ff3b30'; // Rosso - scaduta
-    if (diffDays <= 30) return '#ff9500'; // Arancione - in scadenza
-    return '#007aff'; // Blu - ok
+    if (diffDays < 0) return '#ef4444'; // Rosso - scaduta
+    if (diffDays <= 30) return '#f97316'; // Arancione - in scadenza
+    return '#3b82f6'; // Blu - ok
   };
 
   if (deadlines.length === 0) return <div>Nessuna scadenza trovata.</div>;

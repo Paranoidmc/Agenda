@@ -25,7 +25,7 @@ function NewActivityContent() {
     driver_id: '',
     vehicle_id: '',
     activity_type_id: '',
-    stato: 'Programmata',
+    stato: 'programmato',
     note: ''
   });
 
@@ -186,10 +186,13 @@ function NewActivityContent() {
         type: 'select', 
         required: true,
         options: [
-          { value: 'Programmata', label: 'Programmata' },
-          { value: 'In corso', label: 'In corso' },
-          { value: 'Completata', label: 'Completata' },
-          { value: 'Annullata', label: 'Annullata' }
+          { value: 'non assegnato', label: 'Non assegnato' },
+          { value: 'assegnato', label: 'Assegnato' },
+          { value: 'doc emesso', label: 'Doc emesso' },
+          { value: 'programmato', label: 'Programmato' },
+          { value: 'in corso', label: 'In corso' },
+          { value: 'completato', label: 'Completato' },
+          { value: 'annullato', label: 'Annullato' }
         ]
       },
       { name: 'note', label: 'Note', type: 'textarea' }
@@ -461,8 +464,7 @@ function NewActivityContent() {
       
       // Assicurati che stato sia impostato
       if (!preparedData.stato) {
-        preparedData.stato = 'Programmata';
-        preparedData.status = 'planned';
+        preparedData.stato = 'programmato';
       }
       
       // Genera automaticamente un titolo basato sulla data e sul cliente

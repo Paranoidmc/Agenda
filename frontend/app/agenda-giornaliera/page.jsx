@@ -5,17 +5,126 @@ import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
-import DailyActivitiesModal from "../../components/DailyActivitiesModal";
+import SidePanel from "../../components/SidePanel";
+import EntityForm from "../../components/EntityForm";
 import { exportCalendarToExcel } from "../../lib/excelExport";
 import { exportCalendarToHTML } from "../../lib/htmlExport";
 import "../pianificazione/page.css";
 import "./page.css";
 
+
 /**
  * Pagina dell'agenda giornaliera che mostra le attività di un singolo giorno
  */
+// Funzione per generare dinamicamente i campi del form attività, come in /attivita/new
+function getActivityFields(activityData, clients, sites, drivers, vehicles, activityTypes, handleClientChange) {
+  // Filtra i cantieri in base al cliente selezionato
+  let filteredSites = sites;
+  if (activityData?.client_id) {
+    filteredSites = sites.filter(s => String(s.client_id) === String(activityData.client_id));
+  }
+  return [
+    { name: 'descrizione', label: 'Descrizione', type: 'textarea', required: true },
+    { name: 'data_inizio', label: 'Data/Ora Inizio', type: 'datetime-local', required: true },
+    { name: 'data_fine', label: 'Data/Ora Fine', type: 'datetime-local', required: false },
+    {
+      name: 'client_id',
+      label: 'Cliente',
+      type: 'select',
+      isNumeric: true,
+      required: true,
+      options: Array.isArray(clients) ? clients.map(cliente => ({
+        value: cliente.id,
+        label: cliente.nome || cliente.name || ''
+      })) : [],
+      value: activityData?.client_id !== null && activityData?.client_id !== undefined ? activityData.client_id : '',
+      onChange: handleClientChange
+    },
+    {
+      name: 'site_id',
+      label: 'Sede',
+      type: 'select',
+      isNumeric: true,
+      required: true,
+      options: Array.isArray(filteredSites) && filteredSites.length > 0 ? filteredSites.map(site => ({
+        value: site.id,
+        label: site.nome || site.name || ''
+      })) : [{ value: '', label: activityData?.client_id ? 'Nessun cantiere per questo cliente' : 'Seleziona prima un cliente' }],
+      disabled: !activityData?.client_id || filteredSites.length === 0
+    },
+    {
+      name: 'driver_id',
+      label: 'Autista',
+      type: 'select',
+      isNumeric: true,
+      required: false,
+      options: Array.isArray(drivers) ? drivers.map(driver => ({
+        value: driver.id,
+        label: `${driver.nome || ''} ${driver.cognome || ''}`.trim()
+      })) : []
+    },
+    {
+      name: 'vehicle_id',
+      label: 'Veicolo',
+      type: 'select',
+      isNumeric: true,
+      required: false,
+      options: Array.isArray(vehicles) ? vehicles.map(vehicle => ({
+        value: vehicle.id,
+        label: `${vehicle.targa || ''} - ${vehicle.marca || ''} ${vehicle.modello || ''}`.trim()
+      })) : []
+    },
+    {
+      name: 'activity_type_id',
+      label: 'Tipo Attività',
+      type: 'select',
+      isNumeric: true,
+      required: true,
+      options: Array.isArray(activityTypes) ? activityTypes.map(tipo => ({
+        value: tipo.id,
+        label: tipo.nome || tipo.name || ''
+      })) : []
+    },
+    {
+      name: 'stato',
+      label: 'Stato',
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'non assegnato', label: 'Non assegnato' },
+        { value: 'assegnato', label: 'Assegnato' },
+        { value: 'doc emesso', label: 'Doc emesso' },
+        { value: 'programmato', label: 'Programmato' },
+        { value: 'in corso', label: 'In corso' },
+        { value: 'completato', label: 'Completato' },
+        { value: 'annullato', label: 'Annullato' }
+      ]
+    },
+    { name: 'note', label: 'Note', type: 'textarea', required: false }
+  ];
+}
+
+
 export default function AgendaGiornalieraPage() {
-  const [showDailyModal, setShowDailyModal] = useState(false);
+  // ...
+  // Funzione per gestire il cambio cliente nel form attività
+  function handleClientChange(name, value) {
+    if (value) {
+      setNewActivityData(prev => ({
+        ...prev,
+        client_id: Number(value),
+        site_id: '' // resetta la sede quando cambia cliente
+      }));
+    } else {
+      // Non aggiornare client_id se value è vuoto, lascia quello precedente
+      setNewActivityData(prev => ({
+        ...prev,
+        site_id: ''
+      }));
+    }
+  }
+  const [showPanel, setShowPanel] = useState(false);
+  const [newActivityData, setNewActivityData] = useState(null);
   const router = useRouter();
   const { user, loading } = useAuth();
   const [events, setEvents] = useState([]);
@@ -38,7 +147,17 @@ export default function AgendaGiornalieraPage() {
   const [activityTypesLoading, setActivityTypesLoading] = useState(true);
 
   // --- Utility Functions ---
-  const activityStates = ["non assegnato", "assegnato", "doc emesso", "completato", "annullato"];
+  // Mappa stato attività → colore
+  const statusColorMap = {
+    "non assegnato": "#3b82f6", // Blu
+    "assegnato": "#eab308",     // Giallo
+    "doc emesso": "#ef4444",    // Rosso
+    "programmato": "#8b5cf6",   // Viola
+    "in corso": "#f97316",      // Arancione
+    "completato": "#22c55e",    // Verde
+    "annullato": "#ec4899"      // Rosa
+  };
+  const activityStates = Object.keys(statusColorMap);
 
   // Restituisce solo le attività del giorno selezionato
   const getDailyActivities = () => {
@@ -68,12 +187,16 @@ export default function AgendaGiornalieraPage() {
 
   // Funzione per ottenere il colore della scadenza
   function getDeadlineColor(deadline) {
-    if (deadline.stato === 'non assegnato') return '#e0f2fe';
-    if (deadline.stato === 'assegnato') return '#fef9c3';
-    if (deadline.stato === 'doc emesso') return '#fee2e2';
-    if (deadline.stato === 'completato') return '#bbf7d0';
-    if (deadline.stato === 'annullato') return '#fbcfe8';
-    return '#d1d5db';
+    if (deadline.stato === 'non assegnato') return '#3b82f6'; // Blu
+    if (deadline.stato === 'assegnato') return '#eab308';     // Giallo
+    if (deadline.stato === 'doc emesso') return '#ef4444';    // Rosso
+    if (deadline.stato === 'programmato') return '#8b5cf6';   // Viola
+    if (deadline.stato === 'in corso') return '#f97316';      // Arancione
+    if (deadline.stato === 'programmato') return '#8b5cf6';   // Viola
+    if (deadline.stato === 'in corso') return '#f97316';      // Arancione
+    if (deadline.stato === 'completato') return '#22c55e';    // Verde
+    if (deadline.stato === 'annullato') return '#ec4899';     // Rosa
+    return '#6b7280'; // Grigio scuro per default
   }
 
   // Funzione per andare al giorno precedente
@@ -410,30 +533,48 @@ const activityEvents = activitiesRaw.map(activity => {
   let activityColor = '#007aff'; // Colore predefinito
   let activityTypeName = 'Attività';
 
-  // Verifica se l'attività ha un tipo di attività
+  // IMPORTANTE: Determina il colore SOLO in base allo stato dell'attività
+  if (activity.stato) {
+    const stato = activity.stato.toLowerCase();
+    if (stato === 'non assegnato') {
+      activityColor = '#3b82f6'; // Blu
+    } else if (stato === 'assegnato') {
+      activityColor = '#eab308'; // Giallo
+    } else if (stato === 'doc emesso') {
+      activityColor = '#ef4444'; // Rosso
+    } else if (stato === 'programmato') {
+      activityColor = '#8b5cf6'; // Viola
+    } else if (stato === 'in corso') {
+      activityColor = '#f97316'; // Arancione
+    } else if (stato === 'programmato') {
+      activityColor = '#8b5cf6'; // Viola
+    } else if (stato === 'in corso') {
+      activityColor = '#f97316'; // Arancione
+    } else if (stato === 'completato') {
+      activityColor = '#22c55e'; // Verde
+    } else if (stato === 'annullato') {
+      activityColor = '#ec4899'; // Rosa
+    }
+  }
+
+  // Verifica se l'attività ha un tipo di attività (solo per il nome, non per il colore)
   if (!activity.activityType && activity.activity_type_id && Array.isArray(window.activityTypes)) {
     const tipoAttivita = window.activityTypes.find(tipo => tipo.id === activity.activity_type_id);
     if (tipoAttivita) {
       activity.activityType = {
         id: tipoAttivita.id,
         name: tipoAttivita.name || tipoAttivita.nome,
-        color: tipoAttivita.color || tipoAttivita.colore,
-        nome: tipoAttivita.nome || tipoAttivita.name,
-        colore: tipoAttivita.colore || tipoAttivita.color
+        nome: tipoAttivita.nome || tipoAttivita.name
       };
     }
   }
 
-  if (activity.activityType) {
-    if (activity.activityType.colore && activity.activityType.colore.startsWith('#')) {
-      activityColor = activity.activityType.colore;
-    } else if (activity.activityType.color && activity.activityType.color.startsWith('#')) {
-      activityColor = activity.activityType.color;
-    }
-    if (activity.activityType.nome || activity.activityType.name) {
-      activityTypeName = activity.activityType.nome || activity.activityType.name;
-    }
+  // Ottieni solo il nome del tipo di attività
+  if (activity.activityType && (activity.activityType.nome || activity.activityType.name)) {
+    activityTypeName = activity.activityType.nome || activity.activityType.name;
   }
+  
+  console.log(`Attività ${activity.id}: stato = ${activity.stato}, colore = ${activityColor}`);
 
   return {
     id: `activity-${activity.id}`,
@@ -653,31 +794,7 @@ const activityEvents = activitiesRaw.map(activity => {
       
       {error && <div className="error-message">{error}</div>}
 
-      {/* Pulsante Attività giornaliere */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button
-          style={{ background: '#007aff', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}
-          onClick={() => setShowDailyModal(true)}
-        >
-          Attività giornaliere
-        </button>
-      </div>
 
-      {/* Modale attività giornaliere */}
-      <DailyActivitiesModal
-        isOpen={showDailyModal}
-        onClose={() => setShowDailyModal(false)}
-        date={formatDateISO(currentDate)}
-        drivers={drivers}
-        vehicles={vehicles}
-        sites={sites}
-        clients={clients}
-        activityTypes={activityTypes}
-        activityStates={activityStates}
-        onSaveActivity={handleSaveActivity}
-        initialRows={getDailyActivities()}
-      />
-      
       <div className="calendar-container">
         <div className="calendar-header">
           <div className="calendar-navigation">
@@ -689,6 +806,25 @@ const activityEvents = activitiesRaw.map(activity => {
           <div className="current-date">
             {formatDate(currentDate)}
           </div>
+          <div style={{ flex: 1 }} />
+          <button
+            style={{
+              background: '#007aff',
+              color: '#fff',
+              borderRadius: 6,
+              padding: '8px 18px',
+              fontWeight: 600,
+              fontSize: '1rem',
+              border: 'none',
+              cursor: 'pointer',
+              marginLeft: 16
+            }}
+            onClick={() => {
+              router.push('/attivita?new=1');
+            }}
+          >
+            + Nuova Attività
+          </button>
         </div>
         
         <div className="filters-container">
@@ -817,18 +953,64 @@ const activityEvents = activitiesRaw.map(activity => {
         {fetching ? (
           <div className="loading">Caricamento in corso...</div>
         ) : (
-          <WeeklyCalendar
-            events={events}
-            currentWeek={[currentDate]} // Passa solo il giorno corrente
-            onEventClick={handleEventClick}
-            onPrevWeek={goToPreviousDay}
-            onNextWeek={goToNextDay}
-            viewMode={viewMode}
-            getEventContent={getEventContent}
-            rows={getRows()}
-            selectedDate={formatDateISO(currentDate)}
-          />
+          <div className="daily-events">
+            {getRows()[0]?.events?.map(event => {
+              // Prendi lo stato (preferisci event.data.status, fallback su stato)
+              const status = (event.data?.status || event.data?.stato || '').toLowerCase();
+              const bg = statusColorMap[status] || '#f5f5f7';
+              return (
+                <div
+                  key={event.id}
+                  className="daily-event"
+                  style={{ background: bg, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onClick={() => handleEventClick(event)}
+                >
+                  <div className="daily-event-time" style={{ fontWeight: 600, color: '#333', minWidth: 100 }}>
+                    {event.data?.data_inizio ? event.data.data_inizio.substring(11, 16) : ''}
+                  </div>
+                  <div className="daily-event-details" style={{ flex: 1 }}>
+                    <div className="daily-event-title" style={{ fontWeight: 600, marginBottom: 4 }}>
+                      {event.data?.descrizione || event.data?.description || event.description || ''}
+                    </div>
+                    <div className="daily-event-description" style={{ color: '#555', fontSize: '0.9rem' }}>
+                      {event.data?.activityType?.nome || event.data?.activityType?.name || event.activityTypeName || ''}
+                    </div>
+                  </div>
+                  <div className="daily-event-status" style={{ fontWeight: 500, fontSize: '0.95em', color: '#222', minWidth: 120, textAlign: 'right' }}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
+        {/* SidePanel per nuova attività */}
+        <SidePanel isOpen={showPanel} onClose={() => setShowPanel(false)} title="Nuova Attività">
+          <EntityForm
+            entityType="activity"
+            fields={getActivityFields(newActivityData, clients, sites, drivers, vehicles, activityTypes, handleClientChange)}
+            initialData={newActivityData}
+            isEditing={true}
+            onSave={async (data) => {
+              await handleSaveActivity(data);
+              setShowPanel(false);
+            }}
+            onCancel={() => setShowPanel(false)}
+          />
+        </SidePanel>
+        
+        {/* Legenda degli stati delle attività */}
+        <div className="legend-container" style={{ marginTop: '20px' }}>
+          <h3 className="legend-title" style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '10px' }}>Legenda Stati Attività</h3>
+          <div className="legend-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+            {Object.entries(statusColorMap).map(([status, color]) => (
+              <div key={status} className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="legend-color" style={{ width: '20px', height: '20px', background: color, borderRadius: '4px' }}></div>
+                <span className="legend-label" style={{ fontSize: '0.9rem' }}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -389,6 +389,10 @@ class ActivityController extends Controller
 
         // Map Italian field names to English field names
         $data = [];
+        // Gestione coerente status
+        if ($request->has('status')) {
+            $data['status'] = strtolower($request->input('status'));
+        }
         
         if (isset($validated['data_inizio'])) {
             $data['data_inizio'] = \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_inizio']);
@@ -413,19 +417,6 @@ class ActivityController extends Controller
             $data['site_id'] = $validated['site_id'];
         }
         
-        if (isset($validated['activity_type_id'])) {
-            $data['activity_type_id'] = $validated['activity_type_id'];
-        }
-        
-        if (isset($validated['stato'])) {
-            $data['status'] = $validated['stato'];
-            $data['stato'] = $validated['stato'];
-        }
-        
-        if (isset($validated['start_location'])) {
-            $data['start_location'] = $validated['start_location'];
-        }
-        
         if (isset($validated['end_location'])) {
             $data['end_location'] = $validated['end_location'];
         }
@@ -446,6 +437,8 @@ class ActivityController extends Controller
         try {
             $activity->update($data);
             $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
+            // Risposta coerente: status sempre minuscolo
+            $activity->status = strtolower($activity->status);
             return response()->json($activity);
         } catch (\Exception $e) {
             \Log::error('ActivityController@update - Errore durante update', [

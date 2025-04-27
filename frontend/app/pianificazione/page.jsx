@@ -44,7 +44,7 @@ export default function PianificazionePage() {
   const [sitesLoading, setSitesLoading] = useState(true);
 
   // --- Utility Functions ---
-  const activityStates = ["non assegnato", "assegnato", "doc emesso", "completato", "annullato"];
+  const activityStates = ["non assegnato", "assegnato", "doc emesso", "programmato", "in corso", "programmato", "in corso", "completato", "annullato"];
 
   // Restituisce solo le attività del giorno selezionato
   const getDailyActivities = (date) => {
@@ -88,12 +88,16 @@ export default function PianificazionePage() {
 
   // Funzione per ottenere il colore della scadenza
   function getDeadlineColor(deadline) {
-    if (deadline.stato === 'non assegnato') return '#e0f2fe';
-    if (deadline.stato === 'assegnato') return '#fef9c3';
-    if (deadline.stato === 'doc emesso') return '#fee2e2';
-    if (deadline.stato === 'completato') return '#bbf7d0';
-    if (deadline.stato === 'annullato') return '#fbcfe8';
-    return '#d1d5db';
+    if (deadline.stato === 'non assegnato') return '#3b82f6'; // Blu
+    if (deadline.stato === 'assegnato') return '#eab308';     // Giallo
+    if (deadline.stato === 'doc emesso') return '#ef4444';    // Rosso
+    if (deadline.stato === 'programmato') return '#8b5cf6';   // Viola
+    if (deadline.stato === 'in corso') return '#f97316';      // Arancione
+    if (deadline.stato === 'programmato') return '#8b5cf6';   // Viola
+    if (deadline.stato === 'in corso') return '#f97316';      // Arancione
+    if (deadline.stato === 'completato') return '#22c55e';    // Verde
+    if (deadline.stato === 'annullato') return '#ec4899';     // Rosa
+    return '#6b7280'; // Grigio scuro per default
   }
 
   // Funzione per andare alla settimana precedente
@@ -575,15 +579,23 @@ export default function PianificazionePage() {
         if (activity.stato) {
           const stato = activity.stato.toLowerCase();
           if (stato === 'non assegnato') {
-            activityColor = '#e0f2fe'; // Azzurro chiaro
+            activityColor = '#3b82f6'; // Blu
           } else if (stato === 'assegnato') {
-            activityColor = '#fef9c3'; // Giallo chiaro
+            activityColor = '#eab308'; // Giallo
           } else if (stato === 'doc emesso') {
-            activityColor = '#fee2e2'; // Rosso chiaro
+            activityColor = '#ef4444'; // Rosso
+          } else if (stato === 'programmato') {
+            activityColor = '#8b5cf6'; // Viola
+          } else if (stato === 'in corso') {
+            activityColor = '#f97316'; // Arancione
+          } else if (stato === 'programmato') {
+            activityColor = '#8b5cf6'; // Viola
+          } else if (stato === 'in corso') {
+            activityColor = '#f97316'; // Arancione
           } else if (stato === 'completato') {
-            activityColor = '#bbf7d0'; // Verde chiaro
+            activityColor = '#22c55e'; // Verde
           } else if (stato === 'annullato') {
-            activityColor = '#fbcfe8'; // Rosa chiaro
+            activityColor = '#ec4899'; // Rosa
           }
         }
         
@@ -1010,23 +1022,31 @@ export default function PianificazionePage() {
         <h3 className="legend-title" style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '10px' }}>Legenda Stati Attività</h3>
         <div className="legend-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
           <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#e0f2fe', borderRadius: '4px' }}></div>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#3b82f6', borderRadius: '4px' }}></div>
             <span className="legend-label" style={{ fontSize: '0.9rem' }}>Non assegnato</span>
           </div>
           <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#fef9c3', borderRadius: '4px' }}></div>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#eab308', borderRadius: '4px' }}></div>
             <span className="legend-label" style={{ fontSize: '0.9rem' }}>Assegnato</span>
           </div>
           <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#fee2e2', borderRadius: '4px' }}></div>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#ef4444', borderRadius: '4px' }}></div>
             <span className="legend-label" style={{ fontSize: '0.9rem' }}>Doc emesso</span>
           </div>
           <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#bbf7d0', borderRadius: '4px' }}></div>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#8b5cf6', borderRadius: '4px' }}></div>
+            <span className="legend-label" style={{ fontSize: '0.9rem' }}>Programmato</span>
+          </div>
+          <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#f97316', borderRadius: '4px' }}></div>
+            <span className="legend-label" style={{ fontSize: '0.9rem' }}>In corso</span>
+          </div>
+          <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#22c55e', borderRadius: '4px' }}></div>
             <span className="legend-label" style={{ fontSize: '0.9rem' }}>Completato</span>
           </div>
           <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#fbcfe8', borderRadius: '4px' }}></div>
+            <div className="legend-color" style={{ width: '20px', height: '20px', background: '#ec4899', borderRadius: '4px' }}></div>
             <span className="legend-label" style={{ fontSize: '0.9rem' }}>Annullato</span>
           </div>
         </div>
