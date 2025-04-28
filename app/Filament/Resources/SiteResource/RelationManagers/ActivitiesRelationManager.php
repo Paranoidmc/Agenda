@@ -15,24 +15,17 @@ class ActivitiesRelationManager extends RelationManager
     protected static ?string $label = 'Attività';
     protected static ?string $pluralLabel = 'Attività';
     protected static ?string $title = 'Attività';
-    protected static ?string $recordTitleAttribute = 'date';
+    protected static ?string $recordTitleAttribute = 'data_inizio';
     protected static string $relationship = 'activities';
 
     public function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\DatePicker::make('date')
-                    ->label('Data')
+                Forms\Components\DateTimePicker::make('data_inizio')
+                    ->label('Data/Ora Inizio')
                     ->required(),
-                Forms\Components\Select::make('time_slot')
-                    ->label('Fascia Oraria')
-                    ->options([
-                        'morning' => 'Mattina',
-                        'afternoon' => 'Pomeriggio',
-                        'full_day' => 'Giornata Intera',
-                    ])
-                    ->required(),
+                
                 Forms\Components\Select::make('driver_id')
                     ->label('Autista')
                     ->relationship('driver', 'name')

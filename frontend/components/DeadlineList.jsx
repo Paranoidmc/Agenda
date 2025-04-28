@@ -2,7 +2,7 @@
 import { useState } from 'react';
 
 export default function DeadlineList({ deadlines, onDeadlineClick }) {
-  const [sortField, setSortField] = useState('due_date');
+  const [sortField, setSortField] = useState('expiry_date');
   const [sortDirection, setSortDirection] = useState('asc');
 
   const handleSort = (field) => {
@@ -15,9 +15,9 @@ export default function DeadlineList({ deadlines, onDeadlineClick }) {
   };
 
   const sortedDeadlines = [...deadlines].sort((a, b) => {
-    if (sortField === 'due_date') {
-      const dateA = new Date(a.due_date);
-      const dateB = new Date(b.due_date);
+    if (sortField === 'expiry_date') {
+      const dateA = new Date(a.expiry_date);
+      const dateB = new Date(b.expiry_date);
       return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
     } else if (sortField === 'type') {
       return sortDirection === 'asc'
@@ -77,6 +77,8 @@ export default function DeadlineList({ deadlines, onDeadlineClick }) {
             >
               Tipo {sortField === 'type' && (sortDirection === 'asc' ? '↑' : '↓')}
             </th>
+            <th style={{ textAlign: 'left', padding: 8 }}>Pagato</th>
+            <th style={{ textAlign: 'left', padding: 8 }}>Importo</th>
             <th 
               style={{ textAlign: 'left', padding: 8, cursor: 'pointer' }}
               onClick={() => handleSort('due_date')}
@@ -103,8 +105,10 @@ export default function DeadlineList({ deadlines, onDeadlineClick }) {
               onClick={() => onDeadlineClick && onDeadlineClick(deadline)}
             >
               <td style={{ padding: 8 }}>{deadline.type}</td>
-              <td style={{ padding: 8 }}>{formatDate(deadline.due_date)}</td>
-              <td style={{ padding: 8 }}>{deadline.description}</td>
+              <td style={{ padding: 8 }}>{formatDate(deadline.expiry_date)}</td>
+              <td style={{ padding: 8 }}>{deadline.description || ''}</td>
+              <td style={{ padding: 8, textAlign: 'center' }}>{deadline.pagato ? '✅' : '❌'}</td>
+              <td style={{ padding: 8 }}>{deadline.importo ? `${Number(deadline.importo).toFixed(2)} €` : '-'}</td>
               <td style={{ padding: 8 }}>
                 <span style={{ 
                   display: 'inline-block',

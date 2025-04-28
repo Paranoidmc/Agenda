@@ -82,33 +82,30 @@ export default function DashboardPage() {
         console.log("[DASHBOARD] Numero veicoli:", vehiclesResponse.data.length);
         
         // Array per raccogliere tutte le scadenze
-        let allDeadlines = [];
+        
         
         // Per ogni veicolo, carica le scadenze
         console.log("[DASHBOARD] Caricamento scadenze per ogni veicolo...");
-        for (const vehicle of vehiclesResponse.data) {
-          try {
-            const vehicleDeadlinesResponse = await api.get(`/vehicles/${vehicle.id}/deadlines`, {
-              withCredentials: true,
-              headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-              }
-            });
-            
-            console.log(`[DASHBOARD] Scadenze per veicolo ${vehicle.id} caricate:`, vehicleDeadlinesResponse.status);
-            console.log(`[DASHBOARD] Numero scadenze per veicolo ${vehicle.id}:`, vehicleDeadlinesResponse.data.length);
-            
-            // Aggiungi le scadenze di questo veicolo all'array di tutte le scadenze
-            if (Array.isArray(vehicleDeadlinesResponse.data)) {
-              allDeadlines = [...allDeadlines, ...vehicleDeadlinesResponse.data];
-            }
-          } catch (vehicleDeadlinesError) {
-            console.error(`[DASHBOARD] Errore nel caricamento delle scadenze per il veicolo ${vehicle.id}:`, vehicleDeadlinesError);
+        // Carica tutte le scadenze in un'unica chiamata ottimizzata
+        const deadlinesResponse = await api.get('/vehicle-deadlines/all', {
+          withCredentials: true,
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          params: {
+            start_date: startDate,
+            end_date: endDate
           }
-        }
+        });
+        const allDeadlines = deadlinesResponse.data || [];
+console.log("[DASHBOARD] Tutte le scadenze caricate (API aggregata):", allDeadlines.length, allDeadlines);
+if (allDeadlines.length > 0) {
+  console.log('[DASHBOARD] Esempio struttura deadline:', allDeadlines[0]);
+}
         
         console.log("[DASHBOARD] Tutte le scadenze caricate:", allDeadlines.length);
+        console.log("[DASHBOARD] Struttura delle scadenze:", allDeadlines[0]);
         
         // Filtra le scadenze per il periodo specificato
         const filteredDeadlines = allDeadlines.filter(deadline => {
@@ -412,42 +409,71 @@ export default function DashboardPage() {
                 <thead>
                   <tr style={{ backgroundColor: '#f5f5f7' }}>
                     <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Veicolo</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Tipo</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Scadenza</th>
+<th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Tipo</th>
+<th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Scadenza</th>
+<th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Importo</th>
+<th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Pagato</th>
+<th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Data Pagamento</th>
                   </tr>
                 </thead>
                 <tbody>
                   {deadlines.map((deadline) => (
-                    <tr 
-                      key={deadline.id} 
-                      style={{ 
-                        borderBottom: '1px solid #ddd', 
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onClick={() => router.push(`/scadenze/${deadline.id}`)}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f5f5f7'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <td style={{ padding: '8px 16px' }}>{deadline.vehicle?.targa || 'N/D'}</td>
-                      <td style={{ padding: '8px 16px' }}>{deadline.tipo}</td>
-                      <td style={{ padding: '8px 16px' }}>
-                        <span 
-                          style={{ 
-                            display: 'inline-block', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px', 
-                            backgroundColor: getDeadlineColor(deadline),
-                            color: 'white',
-                            fontWeight: 'bold',
-                            fontSize: '14px'
-                          }}
-                        >
-                          {formatDate(deadline.data_scadenza)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+  <tr 
+    key={deadline.id} 
+    style={{ 
+      borderBottom: '1px solid #ddd', 
+      cursor: 'pointer',
+      transition: 'background-color 0.2s'
+    }}
+    onClick={() => router.push(`/scadenze/${deadline.id}`)}
+    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f5f5f7'}
+    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+  >
+    <td style={{ padding: '8px 16px' }}>
+      {(() => {
+        // Diagnostica struttura dati
+        if (deadline.vehicle && deadline.vehicle.targa) {
+          return deadline.vehicle.targa + (deadline.vehicle.nome ? ` (${deadline.vehicle.nome})` : '');
+        }
+        if (deadline.targa) {
+          return deadline.targa + (deadline.veicolo_nome ? ` (${deadline.veicolo_nome})` : '');
+        }
+        if (deadline.vehicle_name) {
+          return deadline.vehicle_name;
+        }
+        if (deadline.vehicle_id) {
+          return `ID: ${deadline.vehicle_id}`;
+        }
+        return 'N/D';
+      })()}
+    </td>
+    <td style={{ padding: '8px 16px' }}>{deadline.tipo}</td>
+    <td style={{ padding: '8px 16px' }}>
+      <span 
+        style={{ 
+          display: 'inline-block', 
+          padding: '4px 8px', 
+          borderRadius: '4px', 
+          backgroundColor: getDeadlineColor(deadline),
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '14px'
+        }}
+      >
+        {formatDate(deadline.data_scadenza)}
+      </span>
+    </td>
+    <td style={{ padding: '8px 16px' }}>
+      {typeof deadline.importo === 'number' ? deadline.importo.toFixed(2) + ' €' : (deadline.importo ? deadline.importo + ' €' : 'N/D')}
+    </td>
+    <td style={{ padding: '8px 16px' }}>
+      {deadline.pagato === true || deadline.pagato === 1 || deadline.pagato === '1' ? 'Sì' : (deadline.pagato === false || deadline.pagato === 0 || deadline.pagato === '0' ? 'No' : 'N/D')}
+    </td>
+    <td style={{ padding: '8px 16px' }}>
+      {deadline.data_pagamento ? formatDate(deadline.data_pagamento) : 'N/D'}
+    </td>
+  </tr>
+))}
                 </tbody>
               </table>
             </div>

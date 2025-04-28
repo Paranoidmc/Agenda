@@ -18,6 +18,7 @@ Route::get('/vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class
 Route::get('/vehicles/{vehicle}/activities', [App\Http\Controllers\ActivityController::class, 'getVehicleActivities']);
 Route::get('/vehicles/{vehicle}/deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'getVehicleDeadlines']);
 Route::get('/vehicle-deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'index']);
+Route::get('/vehicle-deadlines/all', [App\Http\Controllers\VehicleDeadlineController::class, 'allWithVehicles']);
 
 // Test route for CORS
 Route::get('/cors-test', function (Request $request) {

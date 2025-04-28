@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
+// ...altro codice
+
 import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
@@ -106,6 +108,8 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
 
 
 export default function AgendaGiornalieraPage() {
+  // LOG globale: il componente viene renderizzato
+  console.log('COMPONENT RENDER', new Date());
   // ...
   // Funzione per gestire il cambio cliente nel form attività
   function handleClientChange(name, value) {
@@ -160,9 +164,21 @@ export default function AgendaGiornalieraPage() {
   const activityStates = Object.keys(statusColorMap);
 
   // Restituisce solo le attività del giorno selezionato
+  // Restituisce solo le attività del giorno selezionato - confronta le parti locali della data
   const getDailyActivities = () => {
-    const formattedDate = formatDateISO(currentDate);
-    return events.filter(e => e.type === 'activity' && e.data?.data_inizio?.startsWith(formattedDate));
+    const y = currentDate.getFullYear();
+    const m = currentDate.getMonth();
+    const d = currentDate.getDate();
+    const filtered = events.filter(e => {
+      if (e.type !== 'activity' || !e.data?.data_inizio) return false;
+      const eventDate = new Date(e.data.data_inizio);
+      return (
+        eventDate.getFullYear() === y &&
+        eventDate.getMonth() === m &&
+        eventDate.getDate() === d
+      );
+    });
+    return filtered;
   };
 
   // Salva attività (creazione o update)
@@ -199,23 +215,23 @@ export default function AgendaGiornalieraPage() {
     return '#6b7280'; // Grigio scuro per default
   }
 
+  // Forza il refetch ogni volta che cambia la data selezionata
+  useEffect(() => {
+    setFetching(true);
+  }, [currentDate]);
+
   // Funzione per andare al giorno precedente
   function goToPreviousDay() {
-    const prev = new Date(currentDate);
-    prev.setDate(prev.getDate() - 1);
-    setCurrentDate(prev);
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1, 0, 0, 0, 0));
   }
 
-  // Funzione per andare al giorno successivo
   function goToNextDay() {
-    const next = new Date(currentDate);
-    next.setDate(next.getDate() + 1);
-    setCurrentDate(next);
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1, 0, 0, 0, 0));
   }
 
-  // Funzione per andare al giorno corrente
   function goToCurrentDay() {
-    setCurrentDate(new Date());
+    const now = new Date();
+    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
   }
 
   // Gestisce il click su un evento
@@ -374,35 +390,33 @@ export default function AgendaGiornalieraPage() {
     };
   }, [showExportMenu]);
 
+  // Filtra solo gli eventi di tipo 'activity' per il giorno corrente usando confronto locale
   const getRows = () => {
-    // Filtra solo gli eventi di tipo 'activity' per il giorno corrente
-    const formattedDate = formatDateISO(currentDate);
-    let activityEvents = events.filter(e => 
-      e.type === 'activity' && 
-      e.data?.data_inizio?.startsWith(formattedDate)
-    );
-    
+    const y = currentDate.getFullYear();
+    const m = currentDate.getMonth();
+    const d = currentDate.getDate();
+    let activityEvents = events.filter(e => {
+      if (e.type !== 'activity' || !e.data?.data_inizio) return false;
+      const eventDate = new Date(e.data.data_inizio);
+      return (
+        eventDate.getFullYear() === y &&
+        eventDate.getMonth() === m &&
+        eventDate.getDate() === d
+      );
+    });
     // Applica i filtri in base alle selezioni
     if (selectedSiteId) {
       activityEvents = activityEvents.filter(e => e.siteId === selectedSiteId || e.data?.site?.id === selectedSiteId);
     }
-    
     if (selectedDriverId) {
       activityEvents = activityEvents.filter(e => e.driverId === selectedDriverId || e.data?.driver?.id === selectedDriverId);
     }
-    
     if (selectedVehicleId) {
       activityEvents = activityEvents.filter(e => e.vehicleId === selectedVehicleId || e.data?.vehicle?.id === selectedVehicleId);
     }
-    
     if (selectedActivityTypeId) {
-      activityEvents = activityEvents.filter(e => 
-        e.data?.activity_type_id === selectedActivityTypeId || 
-        e.data?.activityType?.id === selectedActivityTypeId
-      );
+      activityEvents = activityEvents.filter(e => e.activityTypeId === selectedActivityTypeId || e.data?.activityType?.id === selectedActivityTypeId);
     }
-    
-    // Determina quali righe mostrare in base alla modalità di visualizzazione
     switch (viewMode) {
       case 'driver':
         // Se c'è un filtro per autista, mostra solo quell'autista
@@ -717,28 +731,21 @@ const activityEvents = activitiesRaw.map(activity => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <div className="calendar-header calendar-navigation mb-2" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button className="nav-button" onClick={goToPreviousDay} title="Giorno precedente">&#8592;</button>
+        <button className="nav-button" onClick={goToCurrentDay}>Oggi</button>
+        <span className="current-date" style={{ margin: '0 10px', fontWeight: 600 }}>
+          {currentDate.toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+        <button className="nav-button" onClick={goToNextDay} title="Giorno successivo">&#8594;</button>
+        <button className="ml-4 export-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded" onClick={handleExportClick}>
+          Esporta
+        </button>
+      </div>
       <div className="page-header">
         <h1 className="page-title">Agenda Giornaliera</h1>
         
         <div className="nav-buttons">
-          <button
-            onClick={() => setViewMode('driver')}
-            className={`nav-button ${viewMode === 'driver' ? 'active' : ''}`}
-          >
-            Autisti
-          </button>
-          <button
-            onClick={() => setViewMode('vehicle')}
-            className={`nav-button ${viewMode === 'vehicle' ? 'active' : ''}`}
-          >
-            Veicoli
-          </button>
-          <button
-            onClick={() => setViewMode('day')}
-            className={`nav-button ${viewMode === 'day' ? 'active' : ''}`}
-          >
-            Cantieri
-          </button>
           <div style={{ position: 'relative' }} ref={exportMenuRef}>
             <button 
               onClick={handleExportClick} 
@@ -953,36 +960,72 @@ const activityEvents = activitiesRaw.map(activity => {
         {fetching ? (
           <div className="loading">Caricamento in corso...</div>
         ) : (
-          <div className="daily-events">
-            {getRows()[0]?.events?.map(event => {
-              // Prendi lo stato (preferisci event.data.status, fallback su stato)
-              const status = (event.data?.status || event.data?.stato || '').toLowerCase();
-              const bg = statusColorMap[status] || '#f5f5f7';
-              return (
-                <div
-                  key={event.id}
-                  className="daily-event"
-                  style={{ background: bg, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                  onClick={() => handleEventClick(event)}
-                >
-                  <div className="daily-event-time" style={{ fontWeight: 600, color: '#333', minWidth: 100 }}>
-                    {event.data?.data_inizio ? event.data.data_inizio.substring(11, 16) : ''}
-                  </div>
-                  <div className="daily-event-details" style={{ flex: 1 }}>
-                    <div className="daily-event-title" style={{ fontWeight: 600, marginBottom: 4 }}>
-                      {event.data?.descrizione || event.data?.description || event.description || ''}
-                    </div>
-                    <div className="daily-event-description" style={{ color: '#555', fontSize: '0.9rem' }}>
-                      {event.data?.activityType?.nome || event.data?.activityType?.name || event.activityTypeName || ''}
-                    </div>
-                  </div>
-                  <div className="daily-event-status" style={{ fontWeight: 500, fontSize: '0.95em', color: '#222', minWidth: 120, textAlign: 'right' }}>
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+           <div className="daily-events">
+             {getRows()[0]?.events
+               ?.slice() // copia per non mutare array originale
+               .sort((a, b) => {
+                 const da = a.data?.data_inizio || '';
+                 const db = b.data?.data_inizio || '';
+                 return da.localeCompare(db);
+               })
+               .map(event => {
+                 const ora = event.data?.data_inizio
+                   ? new Date(event.data.data_inizio).toLocaleTimeString('it-IT', {
+                       hour: '2-digit',
+                       minute: '2-digit',
+                       hour12: false,
+                       timeZone: 'Europe/Rome'
+                     })
+                   : '';
+
+                 const descrizione = event.data?.descrizione || event.data?.description || event.description || '';
+                 const cliente = event.data?.client?.nome || event.data?.client?.name || event.data?.cliente_nome || 'N/D';
+                 const cantiere = event.data?.site?.nome || event.data?.site?.name || event.data?.cantiere_nome || 'N/D';
+                 const autista = event.data?.driver ? `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : (event.driverName || 'N/D');
+                 const veicolo = event.data?.vehicle ? (event.data.vehicle.targa || event.data.vehicle.modello || '') : (event.vehicleName || 'N/D');
+                 return (
+                   <div
+                     key={event.id}
+                     className="daily-event"
+                     style={{
+                       background: (() => {
+                         const status = (event.data?.status || event.data?.stato || '').toLowerCase();
+                         return statusColorMap[status] || '#f5f5f7';
+                       })(),
+                       borderRadius: 8,
+                       padding: '12px 16px',
+                       marginBottom: 8,
+                       display: 'flex',
+                       flexDirection: 'column',
+                       cursor: 'pointer'
+                     }}
+                     onClick={() => handleEventClick(event)}
+                   >
+                     <div style={{display:'flex',flexWrap:'wrap',gap:'12px',alignItems:'center'}}>
+                       <span><strong>Ora:</strong> {ora}</span>
+                       <span><strong>Descrizione:</strong> {descrizione}</span>
+                       <span><strong>Tipo Attività:</strong> {
+                         event.data?.activityType?.nome
+                       || event.data?.activityType?.name
+                       || event.data?.activity_type_name
+                       || (event.data?.activity_type_id && Array.isArray(activityTypes)
+                            ? (activityTypes.find(t => t.id === event.data.activity_type_id)?.nome
+                                || activityTypes.find(t => t.id === event.data.activity_type_id)?.name)
+                            : undefined)
+                       || event.activityTypeName
+                       || event.activityType?.nome
+                       || event.activityType?.name
+                       || 'N/D'
+                       }</span>
+                       <span><strong>Cliente:</strong> {cliente}</span>
+                       <span><strong>Cantiere:</strong> {cantiere}</span>
+                       <span><strong>Autista:</strong> {autista}</span>
+                       <span><strong>Veicolo:</strong> {veicolo}</span>
+                     </div>
+                   </div>
+                 );
+               })}
+           </div>
         )}
         {/* SidePanel per nuova attività */}
         <SidePanel isOpen={showPanel} onClose={() => setShowPanel(false)} title="Nuova Attività">

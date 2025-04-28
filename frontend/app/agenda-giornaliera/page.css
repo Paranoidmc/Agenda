@@ -1,4 +1,10 @@
 /* Stili per la pagina dell'agenda giornaliera */
+.daily-event span {
+  margin-right: 8px;
+  font-size: 15px;
+  vertical-align: middle;
+}
+
 .page-container {
   padding: 20px;
   max-width: 1400px;

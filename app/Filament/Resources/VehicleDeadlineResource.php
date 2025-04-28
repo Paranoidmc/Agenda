@@ -77,6 +77,13 @@ class VehicleDeadlineResource extends Resource
                                 'completed' => 'Completata',
                             ])
                             ->default('active'),
+                        Forms\Components\Toggle::make('pagato')
+                            ->label('Pagato'),
+                        Forms\Components\TextInput::make('importo')
+                            ->label('Importo')
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.01),
                         Forms\Components\Textarea::make('notes')
                             ->label('Note')
                             ->maxLength(65535)
@@ -115,14 +122,20 @@ class VehicleDeadlineResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
-                    ->label('Stato')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'active' => 'info',
-                        'expired' => 'danger',
-                        'completed' => 'success',
-                        default => 'gray',
-                    }),
+    ->label('Stato')
+    ->badge()
+    ->color(fn (string $state): string => match ($state) {
+        'active' => 'info',
+        'expired' => 'danger',
+        'completed' => 'success',
+        default => 'secondary',
+    }),
+Tables\Columns\IconColumn::make('pagato')
+    ->label('Pagato')
+    ->boolean(),
+Tables\Columns\TextColumn::make('importo')
+    ->label('Importo')
+    ->money('EUR', true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Data Creazione')
                     ->dateTime('d/m/Y H:i')

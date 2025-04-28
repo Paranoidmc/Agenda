@@ -21,18 +21,11 @@ class TodayActivitiesWidget extends BaseWidget
         return $table
             ->query(
                 Activity::query()
-                    ->where('date', now()->format('Y-m-d'))
-                    ->orderBy('time_slot')
+                    ->whereDate('data_inizio', now()->format('Y-m-d'))
+                    ->orderBy('data_inizio')
             )
             ->columns([
-                Tables\Columns\TextColumn::make('time_slot')
-                    ->label('Fascia Oraria')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'morning' => 'Mattina',
-                        'afternoon' => 'Pomeriggio',
-                        'full_day' => 'Giornata Intera',
-                        default => $state,
-                    }),
+                
                 Tables\Columns\TextColumn::make('driver.name')
                     ->label('Autista')
                     ->searchable(),

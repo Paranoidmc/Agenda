@@ -17,6 +17,9 @@ class VehicleDeadline extends Model
         'reminder_date',
         'notes',
         'status',
+        'pagato',
+        'importo',
+        'data_pagamento', // <-- aggiunto!
     ];
 
     protected $casts = [

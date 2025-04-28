@@ -603,15 +603,28 @@ export default function PianificazionePage() {
         
         console.log(`Creazione evento per attività ${activity.id} con colore ${activityColor}`);
         
+        // Mappa colori uniforme con la giornaliera
+        const statusColorMap = {
+          "non assegnato": "#3b82f6",
+          "assegnato": "#eab308",
+          "doc emesso": "#ef4444",
+          "programmato": "#8b5cf6",
+          "in corso": "#f97316",
+          "completato": "#22c55e",
+          "annullato": "#ec4899"
+        };
+        const statoNorm = (activity.stato || '').toLowerCase();
+        const color = statusColorMap[statoNorm] || '#007aff';
         return {
           id: `activity-${activity.id}`,
-          title: `${activity.titolo || 'Attività'} (${activityTypeName})`,
+          // Visualizzazione compatta come la giornaliera
+          title: `${startDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} | ${activity.descrizione || activity.titolo || ''} | ${activityTypeName} | ${(activity.client?.nome || activity.client?.name || activity.client_id || '')} | ${(activity.site?.nome || activity.site_id || '')} | ${(activity.driver ? `${activity.driver.nome || ''} ${activity.driver.cognome || ''}`.trim() : 'N/D')} | ${(activity.vehicle?.targa || activity.vehicle_id || 'N/D')} | ${activity.stato || ''}`,
           start: startDate,
           end: endDate,
           type: 'activity',
-          color: activityColor,
-          backgroundColor: activityColor, // Aggiungiamo anche backgroundColor per sicurezza
-          borderColor: activityColor,     // E borderColor
+          color: color,
+          backgroundColor: color,
+          borderColor: color,
           driverId: activity.driver?.id,
           driverName: activity.driver ? `${activity.driver.nome || ''} ${activity.driver.cognome || ''}`.trim() : 'N/D',
           vehicleId: activity.vehicle?.id,
@@ -620,8 +633,9 @@ export default function PianificazionePage() {
           siteName: activity.site?.nome || 'Cantiere non specificato',
           data: activity,
           activityTypeName: activityTypeName,
-          activityTypeColor: activityColor
+          activityTypeColor: color
         };
+
       });
       
       // Carica le scadenze
@@ -976,10 +990,7 @@ export default function PianificazionePage() {
         </div>
       ) : (
         <div>
-          <div className="calendar-mode-buttons" style={{ marginBottom: 12, display: 'flex', gap: 10 }}>
-            <button className={viewMode === 'driver' ? 'active' : ''} onClick={() => setViewMode('driver')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6, marginRight: 6 }}>Autista</button>
-            <button className={viewMode === 'vehicle' ? 'active' : ''} onClick={() => setViewMode('vehicle')} style={{ padding: '4px 10px', fontSize: '0.92em', borderRadius: 6 }}>Veicolo</button>
-          </div>
+
           {/* Log per debug */}
       {console.log("DIAGNOSTICA - Rendering WeeklyCalendar con:", {
         totalEvents: events.length,
@@ -995,6 +1006,8 @@ export default function PianificazionePage() {
         currentWeek={currentWeek}
         onPrevWeek={goToPreviousWeek}
         onNextWeek={goToNextWeek}
+        prevLabel="Settimana Precedente"
+        nextLabel="Settimana Successiva"
         viewMode={viewMode}
         onEventClick={event => {
           if (event && event.data && event.data.data_inizio) {

@@ -11,6 +11,16 @@ use Illuminate\Support\Facades\Auth;
 class VehicleDeadlineController extends Controller
 {
     /**
+     * Restituisce tutte le scadenze con dati veicolo inclusi (API ottimizzata per dashboard)
+     */
+    public function allWithVehicles(Request $request)
+    {
+        // PATCH: mostra tutte le scadenze senza filtri data per debug
+        $query = VehicleDeadline::with('vehicle');
+        return response()->json($query->get());
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
@@ -123,30 +133,36 @@ class VehicleDeadlineController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'vehicle_id' => 'required|exists:vehicles,id',
-            'type' => 'sometimes|required|string|max:50',
-            'expiry_date' => 'sometimes|required|date',
-            'reminder_date' => 'nullable|date|before:expiry_date',
-            'notes' => 'nullable|string',
-            'status' => 'nullable|string|max:20',
-            // Campi in italiano
-            'tipo' => 'sometimes|required|string|max:50',
-            'data_scadenza' => 'sometimes|required|date',
-            'data_promemoria' => 'nullable|date|before:data_scadenza',
-            'note' => 'nullable|string',
-            'stato' => 'nullable|string|max:20',
-        ]);
+    'vehicle_id' => 'required|exists:vehicles,id',
+    'type' => 'sometimes|required|string|max:50',
+    'expiry_date' => 'sometimes|required|date',
+    'reminder_date' => 'nullable|date|before:expiry_date',
+    'notes' => 'nullable|string',
+    'status' => 'nullable|string|max:20',
+    // Campi in italiano
+    'tipo' => 'sometimes|required|string|max:50',
+    'data_scadenza' => 'sometimes|required|date',
+    'data_promemoria' => 'nullable|date|before:data_scadenza',
+    'note' => 'nullable|string',
+    'stato' => 'nullable|string|max:20',
+    // Campi aggiuntivi
+    'importo' => 'nullable|numeric',
+    'pagato' => 'nullable|boolean',
+    'data_pagamento' => 'nullable|date',
+]);
 
         // Map Italian field names to English field names
         $data = [];
-        
-        // Prioritize English fields, but use Italian if English is not provided
         $data['vehicle_id'] = $validated['vehicle_id'];
         $data['type'] = $validated['type'] ?? $validated['tipo'] ?? null;
         $data['expiry_date'] = $validated['expiry_date'] ?? $validated['data_scadenza'] ?? null;
         $data['reminder_date'] = $validated['reminder_date'] ?? $validated['data_promemoria'] ?? null;
         $data['notes'] = $validated['notes'] ?? $validated['note'] ?? null;
         $data['status'] = $validated['status'] ?? $validated['stato'] ?? 'active';
+        // Campi aggiuntivi
+        if (array_key_exists('importo', $validated)) $data['importo'] = $validated['importo'];
+        if (array_key_exists('pagato', $validated)) $data['pagato'] = $validated['pagato'];
+        if (array_key_exists('data_pagamento', $validated)) $data['data_pagamento'] = $validated['data_pagamento'];
 
         $deadline = VehicleDeadline::create($data);
         
@@ -156,8 +172,17 @@ class VehicleDeadlineController extends Controller
         $deadline->data_promemoria = $deadline->reminder_date;
         $deadline->stato = $deadline->status;
         $deadline->note = $deadline->notes;
-        
-        return response()->json($deadline, 201);
+        // Campi aggiuntivi
+        $deadline->importo = $deadline->importo;
+        $deadline->pagato = $deadline->pagato;
+        $deadline->data_pagamento = $deadline->data_pagamento;
+$deadline->note = $deadline->notes;
+// Campi aggiuntivi
+$deadline->importo = $deadline->importo;
+$deadline->pagato = $deadline->pagato;
+$deadline->data_pagamento = $deadline->data_pagamento;
+
+return response()->json($deadline, 201);
     }
 
     /**
@@ -166,28 +191,46 @@ class VehicleDeadlineController extends Controller
     public function show(VehicleDeadline $vehicleDeadline)
     {
         $vehicleDeadline->load('vehicle');
-        
-        // Aggiungiamo i campi in italiano
-        $vehicleDeadline->tipo = $vehicleDeadline->type;
-        $vehicleDeadline->data_scadenza = $vehicleDeadline->expiry_date;
-        $vehicleDeadline->data_promemoria = $vehicleDeadline->reminder_date;
-        $vehicleDeadline->stato = $vehicleDeadline->status;
-        $vehicleDeadline->note = $vehicleDeadline->notes;
-        
-        // Aggiungiamo i campi in italiano per il veicolo
-        if ($vehicleDeadline->vehicle) {
-            $vehicleDeadline->vehicle->targa = $vehicleDeadline->vehicle->plate;
-            $vehicleDeadline->vehicle->modello = $vehicleDeadline->vehicle->model;
-            $vehicleDeadline->vehicle->marca = $vehicleDeadline->vehicle->brand;
-            $vehicleDeadline->vehicle->colore = $vehicleDeadline->vehicle->color;
-            $vehicleDeadline->vehicle->anno = $vehicleDeadline->vehicle->year;
-            $vehicleDeadline->vehicle->tipo = $vehicleDeadline->vehicle->type;
-            $vehicleDeadline->vehicle->carburante = $vehicleDeadline->vehicle->fuel_type;
-            $vehicleDeadline->vehicle->km = $vehicleDeadline->vehicle->odometer;
-            $vehicleDeadline->vehicle->note = $vehicleDeadline->vehicle->notes;
-        }
-        
-        return response()->json($vehicleDeadline);
+    
+    // Aggiungiamo i campi in italiano
+    $vehicleDeadline->tipo = $vehicleDeadline->type;
+    $vehicleDeadline->data_scadenza = $vehicleDeadline->expiry_date;
+    $vehicleDeadline->data_promemoria = $vehicleDeadline->reminder_date;
+    $vehicleDeadline->stato = $vehicleDeadline->status;
+    $vehicleDeadline->note = $vehicleDeadline->notes;
+    
+    // Aggiungiamo i campi in italiano per il veicolo
+    if ($vehicleDeadline->vehicle) {
+        $vehicleDeadline->vehicle->marca = $vehicleDeadline->vehicle->brand;
+        $vehicleDeadline->vehicle->modello = $vehicleDeadline->vehicle->model;
+        $vehicleDeadline->vehicle->targa = $vehicleDeadline->vehicle->plate;
+        $vehicleDeadline->vehicle->colore = $vehicleDeadline->vehicle->color ?? null;
+        $vehicleDeadline->vehicle->anno = $vehicleDeadline->vehicle->year ?? null;
+        $vehicleDeadline->vehicle->tipo = $vehicleDeadline->vehicle->type ?? null;
+        $vehicleDeadline->vehicle->carburante = $vehicleDeadline->vehicle->fuel_type ?? null;
+        $vehicleDeadline->vehicle->km = $vehicleDeadline->vehicle->odometer ?? null;
+        $vehicleDeadline->vehicle->note = $vehicleDeadline->vehicle->notes ?? null;
+    } else {
+        // Oggetto veicolo vuoto per evitare errori frontend
+        $vehicleDeadline->vehicle = (object)[
+            'id' => null,
+            'plate' => null,
+            'brand' => null,
+            'model' => null,
+            'targa' => null,
+            'marca' => null,
+            'modello' => null,
+            'colore' => null,
+            'anno' => null,
+            'tipo' => null,
+            'carburante' => null,
+            'km' => null,
+            'note' => null
+        ];
+    }
+    
+    return response()->json($vehicleDeadline);
+
     }
 
     /**
@@ -196,58 +239,64 @@ class VehicleDeadlineController extends Controller
     public function update(Request $request, VehicleDeadline $vehicleDeadline)
     {
         $validated = $request->validate([
-            'vehicle_id' => 'sometimes|required|exists:vehicles,id',
-            'type' => 'sometimes|required|string|max:50',
-            'expiry_date' => 'sometimes|required|date',
-            'reminder_date' => 'nullable|date|before:expiry_date',
-            'notes' => 'nullable|string',
-            'status' => 'nullable|string|max:20',
-            // Campi in italiano
-            'tipo' => 'sometimes|required|string|max:50',
-            'data_scadenza' => 'sometimes|required|date',
-            'data_promemoria' => 'nullable|date|before:data_scadenza',
-            'note' => 'nullable|string',
-            'stato' => 'nullable|string|max:20',
-        ]);
+    'vehicle_id' => 'sometimes|required|exists:vehicles,id',
+    'type' => 'sometimes|required|string|max:50',
+    'expiry_date' => 'sometimes|required|date',
+    'reminder_date' => 'nullable|date|before:expiry_date',
+    'notes' => 'nullable|string',
+    'status' => 'nullable|string|max:20',
+    // Campi in italiano
+    'tipo' => 'sometimes|required|string|max:50',
+    'data_scadenza' => 'sometimes|required|date',
+    'data_promemoria' => 'nullable|date|before:data_scadenza',
+    'note' => 'nullable|string',
+    'stato' => 'nullable|string|max:20',
+    // Campi aggiuntivi
+    'importo' => 'nullable|numeric',
+    'pagato' => 'nullable|boolean',
+    'data_pagamento' => 'nullable|date',
+]);
 
         // Map Italian field names to English field names
         $data = [];
-        
-        // Prioritize English fields, but use Italian if English is not provided
-        if (isset($validated['vehicle_id'])) {
-            $data['vehicle_id'] = $validated['vehicle_id'];
-        }
-        
-        if (isset($validated['type']) || isset($validated['tipo'])) {
-            $data['type'] = $validated['type'] ?? $validated['tipo'];
-        }
-        
-        if (isset($validated['expiry_date']) || isset($validated['data_scadenza'])) {
-            $data['expiry_date'] = $validated['expiry_date'] ?? $validated['data_scadenza'];
-        }
-        
-        if (isset($validated['reminder_date']) || isset($validated['data_promemoria'])) {
-            $data['reminder_date'] = $validated['reminder_date'] ?? $validated['data_promemoria'];
-        }
-        
-        if (isset($validated['notes']) || isset($validated['note'])) {
-            $data['notes'] = $validated['notes'] ?? $validated['note'];
-        }
-        
-        if (isset($validated['status']) || isset($validated['stato'])) {
-            $data['status'] = $validated['status'] ?? $validated['stato'];
-        }
+// Prioritize English fields, but use Italian if English is not provided
+if (isset($validated['vehicle_id'])) {
+    $data['vehicle_id'] = $validated['vehicle_id'];
+}
+if (isset($validated['type']) || isset($validated['tipo'])) {
+    $data['type'] = $validated['type'] ?? $validated['tipo'];
+}
+if (isset($validated['expiry_date']) || isset($validated['data_scadenza'])) {
+    $data['expiry_date'] = $validated['expiry_date'] ?? $validated['data_scadenza'];
+}
+if (isset($validated['reminder_date']) || isset($validated['data_promemoria'])) {
+    $data['reminder_date'] = $validated['reminder_date'] ?? $validated['data_promemoria'];
+}
+if (isset($validated['notes']) || isset($validated['note'])) {
+    $data['notes'] = $validated['notes'] ?? $validated['note'];
+}
+if (isset($validated['status']) || isset($validated['stato'])) {
+    $data['status'] = $validated['status'] ?? $validated['stato'];
+}
+// Campi aggiuntivi
+if (array_key_exists('importo', $validated)) $data['importo'] = $validated['importo'];
+if (array_key_exists('pagato', $validated)) $data['pagato'] = $validated['pagato'];
+if (array_key_exists('data_pagamento', $validated)) $data['data_pagamento'] = $validated['data_pagamento'];
 
-        $vehicleDeadline->update($data);
+$vehicleDeadline->update($data);
         
         // Aggiungiamo i campi in italiano
         $vehicleDeadline->tipo = $vehicleDeadline->type;
-        $vehicleDeadline->data_scadenza = $vehicleDeadline->expiry_date;
-        $vehicleDeadline->data_promemoria = $vehicleDeadline->reminder_date;
-        $vehicleDeadline->stato = $vehicleDeadline->status;
-        $vehicleDeadline->note = $vehicleDeadline->notes;
-        
-        return response()->json($vehicleDeadline);
+$vehicleDeadline->data_scadenza = $vehicleDeadline->expiry_date;
+$vehicleDeadline->data_promemoria = $vehicleDeadline->reminder_date;
+$vehicleDeadline->stato = $vehicleDeadline->status;
+$vehicleDeadline->note = $vehicleDeadline->notes;
+// Campi aggiuntivi
+$vehicleDeadline->importo = $vehicleDeadline->importo;
+$vehicleDeadline->pagato = $vehicleDeadline->pagato;
+$vehicleDeadline->data_pagamento = $vehicleDeadline->data_pagamento;
+
+return response()->json($vehicleDeadline);
     }
 
     /**

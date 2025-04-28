@@ -182,16 +182,13 @@ class ActivityResource extends Resource
                         Forms\Components\DatePicker::make('date_to')
                             ->label('A'),
                     ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['date_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '>=', $date),
-                            )
-                            ->when(
-                                $data['date_to'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '<=', $date),
-                            );
+                    ->query(function (Builder $query, array $data) {
+                        if ($data['date_from']) {
+                            $query->whereDate('data_inizio', '>=', $data['date_from']);
+                        }
+                        if ($data['date_to']) {
+                            $query->whereDate('data_inizio', '<=', $data['date_to']);
+                        }
                     }),
                 Tables\Filters\SelectFilter::make('driver_id')
                     ->label('Autista')

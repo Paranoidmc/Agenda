@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import './WeeklyCalendar.css';
 
+// Mappa stato attività → colore (come nella giornaliera)
+const statusColorMap = {
+  "non assegnato": "#3b82f6", // Blu
+  "assegnato": "#eab308",     // Giallo
+  "doc emesso": "#ef4444",    // Rosso
+  "programmato": "#8b5cf6",   // Viola
+  "in corso": "#f97316",      // Arancione
+  "completato": "#22c55e",    // Verde
+  "annullato": "#ec4899"      // Rosa
+};
+
 export default function WeeklyCalendar({ 
   events, 
   currentWeek, 
@@ -57,9 +68,25 @@ export default function WeeklyCalendar({
     setTimeSlots(slots);
   }, []);
 
-  // Formatta la data in formato leggibile
+  // Funzione robusta per formattare una data stringa o oggetto Date
+  const formatDateSafe = (dateInput) => {
+    if (!dateInput) return '-';
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    return isNaN(d) ? '-' : d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  // Funzione per mostrare i dettagli veicolo in modo robusto
+  const formatVehicle = (vehicle) => {
+    if (!vehicle || (!vehicle.plate && !vehicle.targa && !vehicle.brand && !vehicle.marca)) return '-';
+    const targa = vehicle.plate || vehicle.targa || '';
+    const marca = vehicle.brand || vehicle.marca || '';
+    const modello = vehicle.model || vehicle.modello || '';
+    return `${targa}${marca || modello ? ' - ' : ''}${marca} ${modello}`.trim();
+  };
+
+  // Formatta la data in formato leggibile per intestazioni calendario
   const formatDate = (date) => {
-    const dayName = date.toLocaleDateString('it-IT', { weekday: 'short' }).replace(/^\w/, c => c.toUpperCase());
+    const dayName = date.toLocaleDateString('it-IT', { weekday: 'short' }).replace(/^/, c => c.toUpperCase());
     const dayNumber = date.getDate();
     const month = date.toLocaleDateString('it-IT', { month: 'short' });
     return {
@@ -268,10 +295,10 @@ export default function WeeklyCalendar({
     <div className="weekly-calendar">
       <div className="calendar-header">
         <button onClick={onPrevWeek}>
-          ← Giornata Precedente
+          ← Settimana Precedente
         </button>
         <button onClick={onNextWeek}>
-          Giornata Successiva →
+          Settimana Successiva →
         </button>
       </div>
 
@@ -403,24 +430,43 @@ export default function WeeklyCalendar({
                           return (
                             <div
                               key={`${event.id}-${eventIndex}`}
-                              className={`event`}
+                              className="event minicard"
                               style={{
-                                backgroundColor: backgroundColor,
+                                backgroundColor: (event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor,
                                 color: textColor,
-                                borderLeft: `3px solid ${backgroundColor}`,
-                                borderColor: backgroundColor,
+                                borderLeft: `3px solid ${(event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor}`,
+                                borderColor: (event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor,
                                 borderWidth: '2px',
                                 borderStyle: 'solid',
-                                whiteSpace: 'pre-line',
-                                fontSize: '0.85rem',
-                                lineHeight: '1.2',
+                                borderRadius: 8,
+                                whiteSpace: 'normal',
+                                fontSize: '0.92em',
+                                lineHeight: '1.3',
                                 overflow: 'hidden',
-                                marginBottom: 6
+                                marginBottom: 8,
+                                padding: '7px 10px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
                               }}
                               onClick={() => onEventClick?.(event)}
-                              title={getEventContent(event).replace('\n', ' - ')}
+                              title={event.data?.descrizione || event.data?.description || event.description || ''}
                             >
-                              {getEventContent(event)}
+                              <div style={{ fontWeight: 700, fontSize: '1em', marginBottom: 2 }}>
+                                {(() => {
+                                  const startDate = event.start instanceof Date ? event.start : new Date(event.start);
+                                  const endDate = event.end instanceof Date ? event.end : new Date(event.end);
+                                  const formatTime = d => d && !isNaN(d.getTime()) ? d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+                                  const activityType = event.data?.activityType?.nome || event.data?.activityType?.name || event.activityTypeName || '';
+                                  return `${formatTime(startDate)}${formatTime(endDate) ? ' - ' + formatTime(endDate) : ''} ${activityType ? '[' + activityType + ']' : ''}`;
+                                })()}
+                              </div>
+                              <div style={{ fontWeight: 500, marginBottom: 1 }}>{event.data?.descrizione || event.data?.description || event.description || ''}</div>
+                              <div style={{ fontSize: '0.95em', color: textColor, opacity: 0.93 }}>
+                                <span><b>Cliente:</b> {event.data?.client?.nome || event.data?.client?.name || event.clientName || 'N/D'}</span><br/>
+                                <span><b>Cantiere:</b> {event.data?.site?.nome || event.data?.site?.name || event.siteName || 'N/D'}</span><br/>
+                                <span><b>Autista:</b> {event.data?.driver ? `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : event.driverName || 'N/D'}</span><br/>
+                                <span><b>Veicolo:</b> {event.data?.vehicle ? `${event.data.vehicle.targa || ''} ${event.data.vehicle.modello || ''}`.trim() : event.vehicleName || 'N/D'}</span><br/>
+                                <span><b>Stato:</b> {event.data?.status || event.data?.stato || event.stato || 'N/D'}</span>
+                              </div>
                             </div>
                           );
                         })
