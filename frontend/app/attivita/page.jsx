@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import SidePanel from "../../components/SidePanel";
@@ -8,7 +8,8 @@ import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function AttivitaPage() {
+// Componente che utilizza useSearchParams
+function AttivitaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const openId = searchParams.get('open');
@@ -1022,10 +1023,13 @@ return (
               label: 'Stato',
               filterType: 'select',
               filterOptions: [
-                { value: 'Programmata', label: 'Programmata' },
-                { value: 'In corso', label: 'In corso' },
-                { value: 'Completata', label: 'Completata' },
-                { value: 'Annullata', label: 'Annullata' }
+                { value: 'non assegnato', label: 'Non assegnato' },
+                { value: 'assegnato', label: 'Assegnato' },
+                { value: 'doc emesso', label: 'Doc emesso' },
+                { value: 'programmato', label: 'Programmato' },
+                { value: 'in corso', label: 'In corso' },
+                { value: 'completato', label: 'Completato' },
+                { value: 'annullato', label: 'Annullato' }
               ]
             }
           ]}
@@ -1066,5 +1070,14 @@ return (
         )}
       </SidePanel>
     </div>
+  );
+}
+
+// Componente principale che avvolge AttivitaContent in un Suspense
+export default function AttivitaPage() {
+  return (
+    <Suspense fallback={<div className="centered">Caricamento...</div>}>
+      <AttivitaContent />
+    </Suspense>
   );
 }
