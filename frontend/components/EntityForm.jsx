@@ -11,7 +11,8 @@ export default function EntityForm({
   setIsEditing,
   isLoading = false,
   isSaving = false,
-  errors = {}
+  errors = {},
+  extraBelowSite // nuova prop opzionale
 }) {
   const [formData, setFormData] = useState(data || {});
   
@@ -275,8 +276,9 @@ export default function EntityForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    if (validate()) {
+    if (isSaving || isLoading) return;
+    if (onSave) {
+      console.log('[DEBUG][EntityForm] handleSubmit formData.status:', formData.status);
       // Prepara i dati per l'invio, assicurandosi che i tipi siano corretti
       const preparedData = { ...formData };
       
@@ -438,7 +440,7 @@ export default function EntityForm({
               } else if (field.type === 'select') {
                 // --- SELECT RICERCABILE CON REACT-SELECT ---
                 const Select = require('react-select').default;
-                const options = field.options?.map(option => ({ value: option.value, label: option.label })) || [];
+                const options = field.options?.map(option => ({ value: option.value, label: option.label, isDisabled: !!option.isDisabled })) || [];
                 // Trova l'opzione selezionata
                 const selectedOption = options.find(opt => String(opt.value) === String(formData[field.name]));
                 return (
@@ -468,9 +470,16 @@ export default function EntityForm({
                           backgroundColor: (isLoading || isSaving || field.disabled) ? '#f2f2f7' : '#fff',
                           boxShadow: 'none',
                         }),
-                        option: base => ({ ...base, fontSize: '1rem' }),
+                        option: (base, state) => ({
+                          ...base,
+                          fontSize: '1rem',
+                          color: state.isDisabled ? '#aaa' : base.color,
+                          backgroundColor: state.isDisabled ? '#f2f2f7' : base.backgroundColor,
+                          cursor: state.isDisabled ? 'not-allowed' : base.cursor
+                        }),
                         menu: base => ({ ...base, zIndex: 100 }),
                       }}
+                      isOptionDisabled={option => !!option.isDisabled}
                       isClearable
                       isSearchable
                     />
@@ -523,6 +532,8 @@ export default function EntityForm({
           {allErrors[field.name] && (
             <p style={{ color: '#ff3b30', fontSize: '0.8rem', marginTop: '4px' }}>{allErrors[field.name]}</p>
           )}
+          {/* Inserisci qui il pulsante extra se richiesto e se il campo è site_id */}
+          {field.name === 'site_id' && extraBelowSite}
         </div>
       ))}
 

@@ -7,6 +7,7 @@ import EntityForm from "../../components/EntityForm";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import { useRouter, useSearchParams } from "next/navigation";
+import AddFacilityPopup from "../../components/AddFacilityPopup"; // Import the AddFacilityPopup component
 
 // Componente che utilizza useSearchParams
 function AttivitaContent() {
@@ -25,6 +26,7 @@ function AttivitaContent() {
   const [selectedAttivita, setSelectedAttivita] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   // Effetto: se openId cambia, carica l'attività giusta e apri il pannello
   useEffect(() => {
@@ -40,7 +42,7 @@ function AttivitaContent() {
         driver_id: '',
         vehicle_id: '',
         activity_type_id: '',
-        stato: '',
+        status: 'programmato',
         note: ''
       });
       setValidationErrors({});
@@ -247,9 +249,22 @@ function AttivitaContent() {
         isNumeric: true, 
         required: false,
         options: (() => {
+          // Date selezionate per l'attività
+          const attivitaInizio = selectedAttivita?.data_inizio ? new Date(selectedAttivita.data_inizio) : null;
+          const attivitaFine = selectedAttivita?.data_fine ? new Date(selectedAttivita.data_fine) : attivitaInizio;
+          // Funzione per verificare se un veicolo è impegnato in noleggio in quell'intervallo
+          function isNoleggiato(v) {
+            if (!v.contract_start_date || !v.contract_end_date) return false;
+            const start = new Date(v.contract_start_date);
+            const end = new Date(v.contract_end_date);
+            if (!attivitaInizio) return false; // Se non c'è data attività, mostra tutto
+            // Se l'intervallo attività si sovrappone al periodo di noleggio
+            return (attivitaInizio <= end && attivitaFine >= start);
+          }
           let opts = Array.isArray(veicoli) ? veicoli.map(veicolo => ({ 
             value: veicolo.id, 
-            label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() 
+            label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() + (isNoleggiato(veicolo) ? ' (noleggio attivo)' : ''),
+            isDisabled: isNoleggiato(veicolo)
           })) : [];
           const selId = selectedAttivita?.vehicle_id;
           if (
@@ -278,7 +293,7 @@ function AttivitaContent() {
         options: Array.isArray(tipiAttivita) ? tipiAttivita.map(tipo => ({ 
           value: tipo.id, 
           label: tipo.nome || tipo.name || '' 
-        })) : []
+        })) : [],
       },
       { 
         name: 'status', 
@@ -293,7 +308,7 @@ function AttivitaContent() {
           { value: 'in corso', label: 'In corso' },
           { value: 'completato', label: 'Completato' },
           { value: 'annullato', label: 'Annullato' }
-        ]
+        ],
       },
       { name: 'note', label: 'Note', type: 'textarea' }
     ];
@@ -634,7 +649,22 @@ function AttivitaContent() {
     try {
       // Assicuriamoci che i campi ID siano numeri
       const preparedData = { ...formData };
+      // Mappa i valori italiani di status verso quelli inglesi accettati dal backend
+      const statusMap = {
+        'non assegnato': 'unassigned',
+        'assegnato': 'assigned',
+        'doc emesso': 'doc_issued',
+        'programmato': 'planned',
+        'in corso': 'in_progress',
+        'completato': 'completed',
+        'annullato': 'cancelled'
+      };
+      if (preparedData.status) {
+        preparedData.status = statusMap[preparedData.status.toLowerCase()] || 'planned';
+      }
+
       // PATCH: non manipolare mai data_inizio/data_fine, invia esattamente il valore dell'input
+      console.log('[DEBUG][handleSaveAttivita] preparedData.status dopo mappatura:', preparedData.status);
       if (formData.data_inizio) preparedData.data_inizio = formData.data_inizio;
       if (formData.data_fine) preparedData.data_fine = formData.data_fine;
       
@@ -664,13 +694,12 @@ function AttivitaContent() {
         preparedData.data_fine = preparedData.data_inizio;
       }
       
-      // Assicura che il campo status venga sempre inviato
-      preparedData.status = formData.status;
-      delete preparedData.stato; // Non inviare mai 'stato', solo 'status'
-      // Se manca status ma esiste stato, fallback (retrocompatibilità)
+      // Assicura che il campo status venga sempre inviato (NON sovrascrivere la mappatura inglese)
+      // delete preparedData.stato; // Non inviare mai 'stato', solo 'status'
       if (!preparedData.status && preparedData.stato) {
         preparedData.status = String(preparedData.stato).toLowerCase();
       }
+      delete preparedData.stato;
       
       // Genera automaticamente un titolo basato sulla data e sul cliente
       let clienteNome = '';
@@ -895,17 +924,49 @@ return (
         <DataTable 
           data={Array.isArray(attivita) ? attivita : []}
           columns={[
-            { 
-              key: 'activityType',
-              label: 'Tipo Attività',
+            {
+              key: 'client.nome',
+              label: 'Cliente',
+              render: (item) => item.client ? item.client.nome : 'N/D'
+            },
+            {
+              key: 'site.nome',
+              label: 'Sede',
+              render: (item) => item.site ? item.site.nome : 'N/D'
+            },
+            {
+              key: 'descrizione',
+              label: 'Descrizione Attività',
+              render: (item) => item.descrizione || item.titolo || 'N/D'
+            },
+            {
+              key: 'orario',
+              label: 'Orario',
               render: (item) => {
-                
-                // Verifica se l'attività ha un tipo di attività
+                const inizio = formatDate(item.data_inizio);
+                const fine = formatDate(item.data_fine);
+                return (
+                  <span>{inizio}{fine && fine !== inizio ? ' → ' + fine : ''}</span>
+                );
+              }
+            },
+            {
+              key: 'driver',
+              label: 'Autista',
+              render: (item) => item.driver ? `${item.driver.nome} ${item.driver.cognome}` : 'N/D'
+            },
+            {
+              key: 'vehicle',
+              label: 'Veicolo',
+              render: (item) => item.vehicle ? (item.vehicle.targa ? `${item.vehicle.targa} (${item.vehicle.modello || ''})` : item.vehicle.modello || 'N/D') : 'N/D'
+            },
+            {
+              key: 'activityType',
+              label: 'Tipologia di Attività',
+              render: (item) => {
                 if (!item.activityType && item.activity_type_id) {
-                  // Se non ha un tipo ma ha un ID, cerchiamo di recuperarlo dai tipi caricati
                   const tipoAttivita = tipiAttivita.find(tipo => tipo.id === item.activity_type_id);
                   if (tipoAttivita) {
-                    // Aggiorniamo l'attività con il tipo trovato
                     item.activityType = {
                       id: tipoAttivita.id,
                       name: tipoAttivita.name || tipoAttivita.nome,
@@ -914,22 +975,15 @@ return (
                       colore: tipoAttivita.colore || tipoAttivita.color
                     };
                   } else {
-                    console.warn(`Tipo attività con ID ${item.activity_type_id} non trovato durante il rendering`);
                     return `ID: ${item.activity_type_id}`;
                   }
                 }
-                
                 const tipo = item.activityType;
-                if (!tipo) {
-                  console.warn("Nessun tipo attività trovato per:", item);
-                  return 'N/D';
-                }
-                
+                if (!tipo) return 'N/D';
                 const color = tipo.colore || tipo.color || '#007aff';
                 const nome = tipo.nome || tipo.name || 'N/D';
-                
                 return (
-                  <span style={{ 
+                  <span style={{
                     display: 'inline-block',
                     padding: '0.2em 0.6em',
                     borderRadius: '0.25em',
@@ -937,40 +991,15 @@ return (
                     fontWeight: 500,
                     color: '#fff',
                     backgroundColor: color.startsWith('#') ? color : '#007aff'
-                  }}>
-                    {nome}
-                  </span>
+                  }}>{nome}</span>
                 );
               }
             },
-            { 
-              key: 'data_inizio', 
-              label: 'Data Inizio',
-              render: (item) => formatDate(item.data_inizio)
-            },
-            { 
-              key: 'data_fine', 
-              label: 'Data Fine',
-              render: (item) => formatDate(item.data_fine)
-            },
-            { 
-              key: 'client.nome', 
-              label: 'Cliente'
-            },
-            { 
-              key: 'driver', 
-              label: 'Autista',
-              render: (item) => item.driver ? `${item.driver.nome} ${item.driver.cognome}` : 'N/D'
-            },
-            { 
-              key: 'vehicle.targa', 
-              label: 'Veicolo'
-            },
-            { 
-              key: 'status', 
+            {
+              key: 'status',
               label: 'Stato',
               render: (item) => (
-                <span style={{ 
+                <span style={{
                   display: 'inline-block',
                   padding: '0.2em 0.6em',
                   borderRadius: '0.25em',
@@ -978,25 +1007,23 @@ return (
                   fontWeight: 500,
                   color: '#fff',
                   backgroundColor: getStatusColor(item.status)
-                }}>
-                  {item.status || 'N/D'}
-                </span>
+                }}>{item.status || 'N/D'}</span>
               )
             },
-            { 
-              key: 'actions', 
+            {
+              key: 'actions',
               label: 'Azioni',
               render: (item) => (
-                <button 
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleViewDetails(item);
                   }}
-                  style={{ 
-                    background: 'var(--primary)', 
-                    color: '#fff', 
-                    borderRadius: 6, 
-                    padding: '0.4em 1em', 
+                  style={{
+                    background: 'var(--primary)',
+                    color: '#fff',
+                    borderRadius: 6,
+                    padding: '0.4em 1em',
                     fontSize: 14,
                     border: 'none',
                     cursor: 'pointer'
@@ -1007,70 +1034,69 @@ return (
               )
             }
           ]}
-          filterableColumns={[
-            { 
-              key: 'titolo', 
-              label: 'Titolo',
-              filterType: 'text'
-            },
-            { 
-              key: 'client.nome', 
-              label: 'Cliente',
-              filterType: 'text'
-            },
-            { 
-              key: 'status', 
-              label: 'Stato',
-              filterType: 'select',
-              filterOptions: [
-                { value: 'non assegnato', label: 'Non assegnato' },
-                { value: 'assegnato', label: 'Assegnato' },
-                { value: 'doc emesso', label: 'Doc emesso' },
-                { value: 'programmato', label: 'Programmato' },
-                { value: 'in corso', label: 'In corso' },
-                { value: 'completato', label: 'Completato' },
-                { value: 'annullato', label: 'Annullato' }
-              ]
-            }
-          ]}
-          onRowClick={handleViewDetails}
-          selectedRow={selectedAttivita}
-          searchPlaceholder="Cerca per cantiere..."
-          emptyMessage="Nessuna attività trovata"
-          filterFunction={(row, search) => {
-            if (!search) return true;
-            // Cerca solo per nome cantiere (sede)
-            const sede = row.site?.nome || row.site?.name || '';
-            return sede.toLowerCase().includes(search.toLowerCase());
-          }}
         />
-      </div>
 
-      {/* Pannello laterale per i dettagli */}
-      <SidePanel 
-        isOpen={isPanelOpen} 
-        onClose={handleClosePanel} 
-        title={isEditing ? "Modifica Attività" : "Dettagli Attività"}
-      >
-        {selectedAttivita && (
-          <EntityForm
-            key={`form-${selectedAttivita.client_id || ''}-${(sediPerCliente[selectedAttivita.client_id || ''] || []).length}`}
-            data={selectedAttivita}
-            fields={getAttivitaFields(selectedAttivita).map(field => ({
-              ...field,
-              onChange: handleFieldChange,
-              error: validationErrors[field.name] ? validationErrors[field.name][0] : null
-            }))}
-            onSave={handleSaveAttivita}
-            onDelete={handleDeleteAttivita}
-            isEditing={isEditing}
-            setIsEditing={setIsEditing}
-            isLoading={isSaving || isDeleting}
-          />
-        )}
-      </SidePanel>
-    </div>
-  );
+    {/* Pannello laterale per i dettagli */}
+    <SidePanel 
+      isOpen={isPanelOpen} 
+      onClose={handleClosePanel} 
+      title={isEditing ? "Modifica Attività" : "Dettagli Attività"}
+    >
+      {selectedAttivita && (
+        <EntityForm
+          key={`form-${selectedAttivita.client_id || ''}-${(sediPerCliente[selectedAttivita.client_id || ''] || []).length}`}
+          data={selectedAttivita}
+          fields={getAttivitaFields(selectedAttivita).map(field => ({
+            ...field,
+            onChange: handleFieldChange,
+            error: validationErrors[field.name] ? validationErrors[field.name][0] : null
+          }))}
+          onSave={handleSaveAttivita}
+          onDelete={handleDeleteAttivita}
+          isEditing={isEditing}
+          setIsEditing={setIsEditing}
+          isLoading={isSaving || isDeleting}
+          extraBelowSite={
+            <button
+              type="button"
+              onClick={() => setIsPopupOpen(true)}
+              style={{ marginTop: 8, width: '100%', background: '#e5e5ea', color: '#333', border: '1px solid #ccc', borderRadius: 8, padding: '8px', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }}
+            >
+              + Aggiungi Sede
+            </button>
+          }
+        />
+      )}
+    </SidePanel>
+
+    {/* Popup globale, sempre centrato sulla viewport */}
+    <AddFacilityPopup
+      isOpen={isPopupOpen}
+      onClose={() => setIsPopupOpen(false)}
+      onFacilityAdded={async (nuovaSede) => {
+        if (!selectedAttivita?.client_id) return;
+        try {
+          const res = await api.get(`/clients/${selectedAttivita.client_id}/sites`);
+          setSediPerCliente(prev => ({
+            ...prev,
+            [selectedAttivita.client_id]: Array.isArray(res.data) ? res.data : res.data.data || []
+          }));
+          // Seleziona automaticamente la nuova sede appena creata
+          setSelectedAttivita(prev => ({
+            ...prev,
+            site_id: nuovaSede.id
+          }));
+        } catch (err) {
+          setSediPerCliente(prev => ({ ...prev, [selectedAttivita.client_id]: [] }));
+        }
+        setIsPopupOpen(false);
+      }}
+      entityData={selectedAttivita}
+      clienti={clienti}
+    />
+  </div>
+</div>
+);
 }
 
 // Componente principale che avvolge AttivitaContent in un Suspense

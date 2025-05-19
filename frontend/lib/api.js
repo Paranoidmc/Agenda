@@ -242,7 +242,13 @@ console.log('Risposta ricevuta:', {
         break;
         
       case 500: // Server Error
-        console.error('Errore del server:', error.response.data);
+        const serverErrorData = error.response.data;
+        const serverErrorUrl = error.response.config?.url;
+        if (!serverErrorData || (typeof serverErrorData === 'object' && Object.keys(serverErrorData).length === 0)) {
+          console.error(`Errore del server (500) su ${serverErrorUrl}: Nessun dettaglio restituito dal backend.`);
+        } else {
+          console.error(`Errore del server (500) su ${serverErrorUrl}:`, serverErrorData);
+        }
         break;
         
       default:

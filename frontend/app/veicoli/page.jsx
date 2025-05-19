@@ -272,6 +272,10 @@ export default function VeicoliPage() {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       
       let response;
+      // DEBUG: Logga il payload inviato
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Payload inviato al backend (PUT/POST veicolo):', JSON.parse(JSON.stringify(formData)));
+      }
       if (formData.id) {
         // Aggiornamento
         response = await api.put(`/vehicles/${formData.id}`, formData, {

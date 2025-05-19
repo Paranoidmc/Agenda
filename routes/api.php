@@ -109,8 +109,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('vehicle-deadlines', App\Http\Controllers\VehicleDeadlineController::class);
     
     // Rotte aggiuntive per le relazioni
-    // Rotta principale per le sedi dei clienti (accessibile sia con che senza autenticazione)
+    // Rotta principale per le sedi dei clienti (GET: elenco sedi, POST: aggiungi sede)
     Route::get('clients/{client}/sites', [App\Http\Controllers\SiteController::class, 'getClientSites']);
+    Route::post('clients/{client}/sites', [App\Http\Controllers\SiteController::class, 'store']);
     Route::get('sites/{site}/activities', [App\Http\Controllers\ActivityController::class, 'getSiteActivities']);
     Route::get('clients/{client}/activities', [App\Http\Controllers\ActivityController::class, 'getClientActivities']);
     Route::get('drivers/{driver}/activities', [App\Http\Controllers\ActivityController::class, 'getDriverActivities']);

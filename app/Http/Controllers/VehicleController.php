@@ -192,7 +192,7 @@ class VehicleController extends Controller
                 'tomtom' => 'nullable|string|max:255',
                 'tires' => 'nullable|string|max:255',
                 'returned_or_redeemed' => 'nullable|string|max:255',
-                'link' => 'nullable|string',
+
                 // Campi in italiano
                 'targa' => 'sometimes|required|string|max:20|unique:vehicles,plate',
                 'modello' => 'sometimes|required|string|max:255',
@@ -262,7 +262,7 @@ class VehicleController extends Controller
             if (array_key_exists('tomtom', $validated)) $data['tomtom'] = $validated['tomtom'] === '' ? null : $validated['tomtom'];
             if (array_key_exists('tires', $validated)) $data['tires'] = $validated['tires'] === '' ? null : $validated['tires'];
             if (array_key_exists('returned_or_redeemed', $validated)) $data['returned_or_redeemed'] = $validated['returned_or_redeemed'] === '' ? null : $validated['returned_or_redeemed'];
-            if (array_key_exists('link', $validated)) $data['link'] = $validated['link'] === '' ? null : $validated['link'];
+
             if (array_key_exists('status', $validated)) $data['status'] = $validated['status'] === '' ? null : $validated['status'];
 
             $vehicle = Vehicle::create($data);
@@ -526,7 +526,7 @@ class VehicleController extends Controller
                 'tomtom' => 'nullable|string|max:255',
                 'tires' => 'nullable|string|max:255',
                 'returned_or_redeemed' => 'nullable|string|max:255',
-                'link' => 'nullable|string',
+
                 // Campi in italiano
                 'targa' => 'sometimes|required|string|max:20|unique:vehicles,plate,' . $vehicle->id,
                 'modello' => 'sometimes|required|string|max:255',
@@ -622,7 +622,7 @@ class VehicleController extends Controller
             if (array_key_exists('tomtom', $validated)) $data['tomtom'] = $validated['tomtom'] === '' ? null : $validated['tomtom'];
             if (array_key_exists('tires', $validated)) $data['tires'] = $validated['tires'] === '' ? null : $validated['tires'];
             if (array_key_exists('returned_or_redeemed', $validated)) $data['returned_or_redeemed'] = $validated['returned_or_redeemed'] === '' ? null : $validated['returned_or_redeemed'];
-            if (array_key_exists('link', $validated)) $data['link'] = $validated['link'] === '' ? null : $validated['link'];
+
             if (array_key_exists('status', $validated)) $data['status'] = $validated['status'] === '' ? null : $validated['status'];
 
             $vehicle->update($data);

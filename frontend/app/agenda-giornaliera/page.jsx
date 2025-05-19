@@ -26,9 +26,9 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
     filteredSites = sites.filter(s => String(s.client_id) === String(activityData.client_id));
   }
   return [
-    { name: 'descrizione', label: 'Descrizione', type: 'textarea', required: true },
-    { name: 'data_inizio', label: 'Data/Ora Inizio', type: 'datetime-local', required: true },
-    { name: 'data_fine', label: 'Data/Ora Fine', type: 'datetime-local', required: false },
+    { name: 'descrizione', label: 'Descrizione', type: 'textarea', required: true, value: activityData?.descrizione || '', onChange: handleClientChange },
+    { name: 'data_inizio', label: 'Data/Ora Inizio', type: 'datetime-local', required: true, value: activityData?.data_inizio || '', onChange: handleClientChange },
+    { name: 'data_fine', label: 'Data/Ora Fine', type: 'datetime-local', required: false, value: activityData?.data_fine || '', onChange: handleClientChange },
     {
       name: 'client_id',
       label: 'Cliente',
@@ -52,7 +52,9 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
         value: site.id,
         label: site.nome || site.name || ''
       })) : [{ value: '', label: activityData?.client_id ? 'Nessun cantiere per questo cliente' : 'Seleziona prima un cliente' }],
-      disabled: !activityData?.client_id || filteredSites.length === 0
+      disabled: !activityData?.client_id || filteredSites.length === 0,
+      value: activityData?.site_id || '',
+      onChange: handleClientChange
     },
     {
       name: 'driver_id',
@@ -63,7 +65,9 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
       options: Array.isArray(drivers) ? drivers.map(driver => ({
         value: driver.id,
         label: `${driver.nome || ''} ${driver.cognome || ''}`.trim()
-      })) : []
+      })) : [],
+      value: activityData?.driver_id || '',
+      onChange: handleClientChange
     },
     {
       name: 'vehicle_id',
@@ -74,7 +78,9 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
       options: Array.isArray(vehicles) ? vehicles.map(vehicle => ({
         value: vehicle.id,
         label: `${vehicle.targa || ''} - ${vehicle.marca || ''} ${vehicle.modello || ''}`.trim()
-      })) : []
+      })) : [],
+      value: activityData?.vehicle_id || '',
+      onChange: handleClientChange
     },
     {
       name: 'activity_type_id',
@@ -85,10 +91,12 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
       options: Array.isArray(activityTypes) ? activityTypes.map(tipo => ({
         value: tipo.id,
         label: tipo.nome || tipo.name || ''
-      })) : []
+      })) : [],
+      value: activityData?.activity_type_id || '',
+      onChange: handleClientChange
     },
     {
-      name: 'stato',
+      name: 'status',
       label: 'Stato',
       type: 'select',
       required: true,
@@ -100,9 +108,11 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
         { value: 'in corso', label: 'In corso' },
         { value: 'completato', label: 'Completato' },
         { value: 'annullato', label: 'Annullato' }
-      ]
+      ],
+      value: activityData?.status || '',
+      onChange: handleClientChange
     },
-    { name: 'note', label: 'Note', type: 'textarea', required: false }
+    { name: 'note', label: 'Note', type: 'textarea', required: false, value: activityData?.note || '', onChange: handleClientChange }
   ];
 }
 
@@ -962,69 +972,66 @@ const activityEvents = activitiesRaw.map(activity => {
         ) : (
            <div className="daily-events">
              {getRows()[0]?.events
-               ?.slice() // copia per non mutare array originale
-               .sort((a, b) => {
-                 const da = a.data?.data_inizio || '';
-                 const db = b.data?.data_inizio || '';
-                 return da.localeCompare(db);
-               })
-               .map(event => {
-                 const ora = event.data?.data_inizio
-                   ? new Date(event.data.data_inizio).toLocaleTimeString('it-IT', {
-                       hour: '2-digit',
-                       minute: '2-digit',
-                       hour12: false,
-                       timeZone: 'Europe/Rome'
-                     })
-                   : '';
-
-                 const descrizione = event.data?.descrizione || event.data?.description || event.description || '';
-                 const cliente = event.data?.client?.nome || event.data?.client?.name || event.data?.cliente_nome || 'N/D';
-                 const cantiere = event.data?.site?.nome || event.data?.site?.name || event.data?.cantiere_nome || 'N/D';
-                 const autista = event.data?.driver ? `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : (event.driverName || 'N/D');
-                 const veicolo = event.data?.vehicle ? (event.data.vehicle.targa || event.data.vehicle.modello || '') : (event.vehicleName || 'N/D');
-                 return (
-                   <div
-                     key={event.id}
-                     className="daily-event"
-                     style={{
-                       background: (() => {
-                         const status = (event.data?.status || event.data?.stato || '').toLowerCase();
-                         return statusColorMap[status] || '#f5f5f7';
-                       })(),
-                       borderRadius: 8,
-                       padding: '12px 16px',
-                       marginBottom: 8,
-                       display: 'flex',
-                       flexDirection: 'column',
-                       cursor: 'pointer'
-                     }}
-                     onClick={() => handleEventClick(event)}
-                   >
-                     <div style={{display:'flex',flexWrap:'wrap',gap:'12px',alignItems:'center'}}>
-                       <span><strong>Ora:</strong> {ora}</span>
-                       <span><strong>Descrizione:</strong> {descrizione}</span>
-                       <span><strong>Tipo Attività:</strong> {
-                         event.data?.activityType?.nome
-                       || event.data?.activityType?.name
-                       || event.data?.activity_type_name
-                       || (event.data?.activity_type_id && Array.isArray(activityTypes)
-                            ? (activityTypes.find(t => t.id === event.data.activity_type_id)?.nome
-                                || activityTypes.find(t => t.id === event.data.activity_type_id)?.name)
-                            : undefined)
-                       || event.activityTypeName
-                       || event.activityType?.nome
-                       || event.activityType?.name
-                       || 'N/D'
-                       }</span>
-                       <span><strong>Cliente:</strong> {cliente}</span>
-                       <span><strong>Cantiere:</strong> {cantiere}</span>
-                       <span><strong>Autista:</strong> {autista}</span>
-                       <span><strong>Veicolo:</strong> {veicolo}</span>
-                     </div>
-                   </div>
-                 );
-               })}
+  ?.slice()
+  .sort((a, b) => {
+    const da = a.data?.data_inizio || '';
+    const db = b.data?.data_inizio || '';
+    return da.localeCompare(db);
+  })
+  .map(event => {
+    // Orario compatto (inizio - fine)
+    const orario = event.data?.data_inizio
+      ? `${new Date(event.data.data_inizio).toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Rome'})}
+          ${event.data?.data_fine ? ' - ' + new Date(event.data.data_fine).toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Rome'}) : ''}`.replace(/\s+/g,' ')
+      : '';
+    const descrizione = event.data?.descrizione || event.data?.description || event.description || '';
+    const cliente = event.data?.client?.nome || event.data?.client?.name || event.data?.cliente_nome || 'N/D';
+    const cantiere = event.data?.site?.nome || event.data?.site?.name || event.data?.cantiere_nome || 'N/D';
+    const autista = event.data?.driver ? `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : (event.driverName || 'N/D');
+    const veicolo = event.data?.vehicle ? ((event.data.vehicle.targa || '') + (event.data.vehicle.modello ? ' - ' + event.data.vehicle.modello : '')) : (event.vehicleName || 'N/D');
+    const tipologia = event.data?.activityType?.nome
+      || event.data?.activityType?.name
+      || event.data?.activity_type_name
+      || (event.data?.activity_type_id && Array.isArray(activityTypes)
+          ? (activityTypes.find(t => t.id === event.data.activity_type_id)?.nome
+            || activityTypes.find(t => t.id === event.data.activity_type_id)?.name)
+          : undefined)
+      || event.activityTypeName
+      || event.activityType?.nome
+      || event.activityType?.name
+      || 'N/D';
+    const stato = event.data?.status || event.data?.stato || 'N/D';
+    return (
+      <div
+        key={event.id}
+        className="daily-event"
+        style={{
+          background: (() => {
+            const status = (event.data?.status || event.data?.stato || '').toLowerCase();
+            return statusColorMap[status] || '#f5f5f7';
+          })(),
+          borderRadius: 8,
+          padding: '12px 16px',
+          marginBottom: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          cursor: 'pointer'
+        }}
+        onClick={() => handleEventClick(event)}
+      >
+        <div style={{display:'flex',flexWrap:'wrap',gap:'12px',alignItems:'center'}}>
+          <span><strong>Cliente:</strong> {cliente}</span>
+          <span><strong>Sede:</strong> {cantiere}</span>
+          <span><strong>Descrizione:</strong> {descrizione}</span>
+          <span><strong>Orario:</strong> {orario}</span>
+          <span><strong>Autista:</strong> {autista}</span>
+          <span><strong>Veicolo:</strong> {veicolo}</span>
+          <span><strong>Tipologia di Attività:</strong> {tipologia}</span>
+          <span><strong>Stato:</strong> {stato.charAt(0).toUpperCase()+stato.slice(1)}</span>
+        </div>
+      </div>
+    );
+  })}
            </div>
         )}
         {/* SidePanel per nuova attività */}

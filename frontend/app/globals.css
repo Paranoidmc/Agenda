@@ -44,6 +44,27 @@ button:hover {
   background: #005ecb;
 }
 
+.popup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  background: rgba(0,0,0,0.15); /* leggero overlay */
+}
+.popup-content {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.1);
+  padding: 32px 24px;
+  min-width: 400px;
+  max-width: 95vw;
+}
+
 .card {
   background: var(--input-bg);
   border-radius: var(--border-radius);

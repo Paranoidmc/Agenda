@@ -210,7 +210,7 @@ class ActivityController extends Controller
                 'client_id' => $validated['client_id'],
                 'site_id' => $validated['site_id'],
                 'activity_type_id' => $validated['activity_type_id'],
-                'status' => $validated['stato'] ?? 'planned', // Usa solo 'status'
+                'status' => $validated['status'] ?? $validated['stato'] ?? 'planned', // Accetta sia 'status' che 'stato', fallback 'planned'
                 'start_location' => $validated['start_location'] ?? null, // Usa start_location
                 'end_location' => $validated['end_location'] ?? null,   // Usa end_location
                 'note' => $validated['note'] ?? null, // Usa solo 'note'
