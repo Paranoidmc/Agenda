@@ -54,11 +54,13 @@ class VehicleDeadlineController extends Controller
         
         // Filtraggio per data di scadenza
         if ($request->has('start_date')) {
-            // Non filtrare per data di inizio per mostrare anche le scadenze passate
-            // $query->whereDate('expiry_date', '>=', $request->start_date);
-            Log::info('VehicleDeadlineController: start_date presente ma non applicata', [
+            $query->whereDate('expiry_date', '>=', $request->start_date);
+            Log::info('VehicleDeadlineController: start_date APPLICATA', [
                 'start_date' => $request->start_date
             ]);
+        } else {
+            // Se non è specificata una data di inizio, mostra solo scadenze future o odierne
+            $query->whereDate('expiry_date', '>=', date('Y-m-d'));
         }
         
         // Filtraggio per data di fine

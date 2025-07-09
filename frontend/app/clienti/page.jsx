@@ -72,7 +72,8 @@ export default function ClientiPage() {
       params: {
         page: 1, // carica tutto in una pagina
         perPage: 20000,
-        search: searchTerm
+        search: searchTerm,
+        _: new Date().getTime() // Cache-busting
       }
     })
       .then(res => {
@@ -149,32 +150,42 @@ export default function ClientiPage() {
     setIsSaving(true);
     try {
       let response;
-      if (formData.id) {
+      const dataToSend = { ...formData };
+
+      if (dataToSend.id) {
         // Aggiornamento
-        response = await api.put(`/clients/${formData.id}`, formData);
-        
-        // Aggiorna la lista dei clienti
-        setClienti(prev => 
-          prev.map(c => c.id === formData.id ? response.data : c)
-        );
-        
-        // Aggiorna il cliente selezionato
-        setSelectedCliente(response.data);
+        response = await api.put(`/clients/${dataToSend.id}`, dataToSend);
       } else {
-        // Creazione
-        response = await api.post('/clients', formData);
-        
-        // Aggiorna la lista dei clienti
-        setClienti(prev => [...prev, response.data]);
-        
-        // Seleziona il nuovo cliente
-        setSelectedCliente(response.data);
+        response = await api.post('/clients', dataToSend);
       }
       
       setIsEditing(false);
+      await fetchClienti(); 
+      handleClosePanel();
+      
+      const message = dataToSend.id ? 'Cliente aggiornato con successo!' : 'Cliente creato con successo!';
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      } else {
+        alert(message);
+      }
+
     } catch (err) {
-      console.error("Errore durante il salvataggio:", err);
-      alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+      console.error("Errore durante il salvataggio del cliente:", err);
+      setIsEditing(true); // Mantiene il form aperto per correzioni
+      let errorMessage = "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
+      if (err.response && err.response.data && err.response.data.errors) {
+          const validationErrors = Object.values(err.response.data.errors).flat().join('\n');
+          errorMessage = `Errori di validazione:\n${validationErrors}`;
+      } else if (err.response && err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+      }
+      
+      if (typeof showToast === 'function') {
+        showToast(errorMessage, 'error');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setIsSaving(false);
     }

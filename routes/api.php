@@ -20,6 +20,9 @@ Route::get('/vehicles/{vehicle}/deadlines', [App\Http\Controllers\VehicleDeadlin
 Route::get('/vehicle-deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'index']);
 Route::get('/vehicle-deadlines/all', [App\Http\Controllers\VehicleDeadlineController::class, 'allWithVehicles']);
 
+// Rotte pubbliche per le attività
+Route::get('/activities', [App\Http\Controllers\ActivityController::class, 'index']);
+
 // Test route for CORS
 Route::get('/cors-test', function (Request $request) {
     return response()->json([

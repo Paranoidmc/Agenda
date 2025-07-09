@@ -12,11 +12,11 @@ class Vehicle extends Model
 
     protected $fillable = [
         'plate', 'brand', 'model', 'year', 'type', 'status', 'notes',
-        'name', 'fuel_type', 'color', 'odometer', 'engine_hours', 'max_load',
+        'nome', 'fuel_type', 'color', 'odometer', 'engine_hours', 'max_load', // 'name' cambiato in 'nome'
         'chassis_number', 'purchase_date', 'purchase_price', 'front_tire_size',
         'rear_tire_size', 'vin_code', 'engine_capacity', 'engine_code', 'engine_serial_number',
         'fiscal_horsepower', 'power_kw', 'registration_number', 'euro_classification',
-        'groups', 'assigned_driver', 'first_registration_date', 'ownership',
+        'gruppi', 'autista_assegnato', 'first_registration_date', 'ownership', // 'groups' cambiato in 'gruppi', 'assigned_driver' in 'autista_assegnato'
         'current_profitability', 'contract_holder', 'ownership_type', 'rental_type',
         'advance_paid', 'final_installment', 'monthly_fee', 'contract_start_date',
         'contract_end_date', 'monthly_alert', 'end_alert', 'installment_payment_day',

@@ -98,7 +98,7 @@ const [searchText, setSearchText] = useState("");
 
   const loadScadenze = () => {
     setFetching(true);
-    api.get("/vehicle-deadlines")
+    api.get("/vehicle-deadlines", { params: { _: new Date().getTime() } }) // Cache-busting
       .then(res => {
         let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
         setScadenze(arr);
@@ -139,32 +139,49 @@ const [searchText, setSearchText] = useState("");
     setIsSaving(true);
     try {
       let response;
-      if (formData.id) {
+      const dataToSend = { ...formData }; 
+      if (dataToSend.vehicle_id) {
+          dataToSend.vehicle_id = Number(dataToSend.vehicle_id);
+      }
+      if (dataToSend.pagato !== undefined) {
+          dataToSend.pagato = dataToSend.pagato === '1' || dataToSend.pagato === true; // o Number(dataToSend.pagato) se il backend vuole 0/1
+      }
+
+      if (dataToSend.id) {
         // Aggiornamento
-        response = await api.put(`/vehicle-deadlines/${formData.id}`, formData);
-        
-        // Aggiorna la lista delle scadenze
-        setScadenze(prev => 
-          prev.map(s => s.id === formData.id ? response.data : s)
-        );
-        
-        // Aggiorna la scadenza selezionata
-        setSelectedScadenza(response.data);
+        response = await api.put(`/vehicle-deadlines/${dataToSend.id}`, dataToSend);
       } else {
-        // Creazione
-        response = await api.post('/vehicle-deadlines', formData);
-        
-        // Aggiorna la lista delle scadenze
-        setScadenze(prev => [...prev, response.data]);
-        
-        // Seleziona la nuova scadenza
-        setSelectedScadenza(response.data);
+        response = await api.post('/vehicle-deadlines', dataToSend);
       }
       
+      // setSelectedScadenza(response.data); // Opzionale
       setIsEditing(false);
+      await loadScadenze(); 
+      handleClosePanel();
+      
+      const message = dataToSend.id ? 'Scadenza aggiornata con successo!' : 'Scadenza creata con successo!';
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      } else {
+        alert(message);
+      }
+
     } catch (err) {
-      console.error("Errore durante il salvataggio:", err);
-      alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+      console.error("Errore durante il salvataggio della scadenza:", err);
+      setIsEditing(true); // Mantiene il form aperto per correzioni
+      let errorMessage = "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
+      if (err.response && err.response.data && err.response.data.errors) {
+          const validationErrors = Object.values(err.response.data.errors).flat().join('\n');
+          errorMessage = `Errori di validazione:\n${validationErrors}`;
+      } else if (err.response && err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+      }
+      
+      if (typeof showToast === 'function') {
+        showToast(errorMessage, 'error');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setIsSaving(false);
     }

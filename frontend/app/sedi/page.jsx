@@ -72,7 +72,8 @@ export default function SediPage() {
       params: {
         page: 1, // carica tutto in una pagina
         perPage: 20000,
-        search: searchTerm
+        search: searchTerm,
+        _: new Date().getTime() // Cache-busting
       }
     })
       .then(res => {
@@ -161,27 +162,23 @@ export default function SediPage() {
       console.log('Dati sede da salvare:', cleanedData);
       let response;
       if (cleanedData.id) {
-        // Aggiornamento
         response = await api.put(`/sites/${cleanedData.id}`, cleanedData);
-        console.log('Risposta aggiornamento sede:', response.data);
-        // Aggiorna la lista delle sedi
-        setSedi(prev => 
-          prev.map(s => s.id === cleanedData.id ? response.data : s)
-        );
-        // Aggiorna la sede selezionata
-        setSelectedSede(response.data);
       } else {
-        // Creazione
         response = await api.post('/sites', cleanedData);
-        console.log('Risposta creazione sede:', response.data);
-        // Aggiorna la lista delle sedi
-        setSedi(prev => [...prev, response.data]);
-        
-        // Seleziona la nuova sede
-        setSelectedSede(response.data);
       }
+      console.log(cleanedData.id ? 'Risposta aggiornamento sede:' : 'Risposta creazione sede:', response.data);
       
       setIsEditing(false);
+      await fetchSedi(); 
+      handleClosePanel();
+      
+      const message = cleanedData.id ? 'Sede aggiornata con successo!' : 'Sede creata con successo!';
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      } else {
+        alert(message);
+      }
+
     } catch (err) {
       console.error("Errore durante il salvataggio:", err);
       
@@ -195,14 +192,31 @@ export default function SediPage() {
         
         // Mostra un messaggio più specifico se disponibile
         const errorMessage = err.response.data?.message || "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
-        alert(errorMessage);
+        if (typeof showToast === 'function') {
+          showToast(errorMessage, 'error');
+        } else {
+          alert(errorMessage);
+        }
+        setIsEditing(true); // Mantiene il form aperto
       } else if (err.request) {
         // La richiesta è stata effettuata ma non è stata ricevuta alcuna risposta
         console.error("Nessuna risposta ricevuta:", err.request);
-        alert("Nessuna risposta dal server. Verifica la connessione di rete.");
+        const noResponseError = "Nessuna risposta dal server. Controlla la tua connessione o contatta l'assistenza.";
+        if (typeof showToast === 'function') {
+          showToast(noResponseError, 'error');
+        } else {
+          alert(noResponseError);
+        }
+        setIsEditing(true); // Mantiene il form aperto
       } else {
         // Si è verificato un errore durante l'impostazione della richiesta
-        alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+        const setupError = "Errore imprevisto durante la configurazione della richiesta.";
+        if (typeof showToast === 'function') {
+          showToast(setupError, 'error');
+        } else {
+          alert(setupError);
+        }
+        setIsEditing(true); // Mantiene il form aperto
       }
     } finally {
       setIsSaving(false);

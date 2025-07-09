@@ -13,10 +13,19 @@ class ActivityController extends Controller
      */
     public function index(Request $request)
     {
+        Log::info('ActivityController: Richiesta ricevuta', [
+            'parametri' => $request->all(),
+            'user' => $request->user() ? $request->user()->id : 'non autenticato',
+        ]);
+
         $query = Activity::with(['client', 'driver', 'vehicle', 'site', 'activityType']);
         
         // Filtraggio per intervallo date (inclusione se l'attività tocca anche solo parzialmente il range)
         if ($request->has('start_date') && $request->has('end_date')) {
+            Log::info('ActivityController: Filtraggio per date applicato', [
+                'start_date' => $request->start_date,
+                'end_date' => $request->end_date,
+            ]);
             $query->where('data_inizio', '<=', $request->end_date)
                   ->where('data_fine', '>=', $request->start_date);
         }
@@ -85,7 +94,20 @@ class ActivityController extends Controller
         // Carica le relazioni senza specificare i campi
         $query->with(['client', 'driver', 'vehicle', 'site', 'activityType']);
         
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
+        Log::info('ActivityController: Query SQL (prima della paginazione)', [
+            'sql' => $sql,
+            'bindings' => $bindings
+        ]);
+
         $activities = $query->orderBy('data_inizio', 'desc')->paginate($perPage);
+
+        Log::info('ActivityController: Risultati dopo paginazione', [
+            'total' => $activities->total(),
+            'count_items_current_page' => count($activities->items()),
+        ]);
+
         // Aggiungiamo i campi in italiano per ogni attività
         $activities->getCollection()->transform(function ($activity) {
             // Serializza data_inizio e data_fine con offset ISO8601 (Y-m-d\TH:i:sP)

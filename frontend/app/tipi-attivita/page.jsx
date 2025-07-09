@@ -64,7 +64,7 @@ const [searchText, setSearchText] = useState("");
 
   const loadTipiAttivita = () => {
     setFetching(true);
-    api.get("/activity-types")
+    api.get("/activity-types", { params: { _: new Date().getTime() } }) // Cache-busting
       .then(res => {
         let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
         setTipiAttivita(arr);
@@ -99,32 +99,42 @@ const [searchText, setSearchText] = useState("");
     setIsSaving(true);
     try {
       let response;
-      if (formData.id) {
+      const dataToSend = { ...formData };
+
+      if (dataToSend.id) {
         // Aggiornamento
-        response = await api.put(`/activity-types/${formData.id}`, formData);
-        
-        // Aggiorna la lista dei tipi di attività
-        setTipiAttivita(prev => 
-          prev.map(t => t.id === formData.id ? response.data : t)
-        );
-        
-        // Aggiorna il tipo selezionato
-        setSelectedTipo(response.data);
+        response = await api.put(`/activity-types/${dataToSend.id}`, dataToSend);
       } else {
-        // Creazione
-        response = await api.post('/activity-types', formData);
-        
-        // Aggiorna la lista dei tipi di attività
-        setTipiAttivita(prev => [...prev, response.data]);
-        
-        // Seleziona il nuovo tipo
-        setSelectedTipo(response.data);
+        response = await api.post('/activity-types', dataToSend);
       }
       
       setIsEditing(false);
+      await loadTipiAttivita(); 
+      handleClosePanel();
+      
+      const message = dataToSend.id ? 'Tipo attività aggiornato con successo!' : 'Tipo attività creato con successo!';
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      } else {
+        alert(message);
+      }
+
     } catch (err) {
-      console.error("Errore durante il salvataggio:", err);
-      alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+      console.error("Errore durante il salvataggio del tipo attività:", err);
+      setIsEditing(true); // Mantiene il form aperto per correzioni
+      let errorMessage = "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
+      if (err.response && err.response.data && err.response.data.errors) {
+          const validationErrors = Object.values(err.response.data.errors).flat().join('\n');
+          errorMessage = `Errori di validazione:\n${validationErrors}`;
+      } else if (err.response && err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+      }
+      
+      if (typeof showToast === 'function') {
+        showToast(errorMessage, 'error');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setIsSaving(false);
     }

@@ -379,11 +379,13 @@ function AttivitaContent() {
         params: {
           page: currentPage,
           perPage: perPage,
-          search: searchTerm
+          search: searchTerm,
+          _: new Date().getTime() // Cache-busting parameter
         }
       });
       setTotal(attivitaResponse.data.total || 0);
       const attivitaArr = Array.isArray(attivitaResponse.data.data) ? attivitaResponse.data.data : [];
+      console.log('[DEBUG] Dati ricevuti da API:', attivitaResponse.data.data);
       // Se vuoi ordinare le attività per data_inizio (opzionale):
       // attivitaArr.sort((a, b) => new Date(a.data_inizio) - new Date(b.data_inizio));
       // Verifica che ogni attività abbia un tipo di attività
@@ -402,6 +404,8 @@ function AttivitaContent() {
         }
         return attivita;
       });
+      console.log('[DEBUG] Dati processati per setAttivita (attivitaConTipi):', attivitaConTipi);
+      console.log('[DEBUG] Stato attivita attuale PRIMA di setAttivita:', attivita);
       setAttivita(attivitaConTipi);
     } catch (err) {
       console.error("Errore durante il caricamento:", err);
@@ -740,15 +744,17 @@ function AttivitaContent() {
         console.log('Risposta aggiornamento attività:', response.data);
         
         // Aggiorna la lista delle attività
-        setAttivita(prev => 
-          prev.map(a => a.id === preparedData.id ? response.data : a)
-        );
+        // setAttivita(prev => 
+        //   prev.map(a => a.id === preparedData.id ? response.data : a)
+        // ); // Commentato: fetchAttivita dovrebbe ricaricare i dati aggiornati
         
         // Aggiorna l'attività selezionata
         setSelectedAttivita(response.data);
         
         // Mostra un messaggio di successo
-        alert('Attività aggiornata con successo!');
+        // alert('Attività aggiornata con successo!'); // Sostituito con notifica toast
+        // showToast('Attività aggiornata con successo!', 'success'); // Implementare showToast se necessario
+        if (typeof showToast === 'function') showToast('Attività aggiornata con successo!', 'success'); else alert('Attività aggiornata con successo!');
       } else {
         // Creazione
         console.log('[DEBUG][POST] Payload inviato:', preparedData);
@@ -757,7 +763,7 @@ function AttivitaContent() {
         console.log('Risposta creazione attività:', response.data);
         
         // Aggiorna la lista delle attività
-        setAttivita(prev => [...prev, response.data]);
+        // setAttivita(prev => [...prev, response.data]); // Commentato: fetchAttivita dovrebbe ricaricare i dati aggiornati
         
         // Seleziona la nuova attività
         setSelectedAttivita(response.data);
@@ -767,6 +773,8 @@ function AttivitaContent() {
       }
       
       setIsEditing(false);
+      await fetchAttivita(); // Ricarica i dati della tabella
+      handleClosePanel(); // Chiudi il pannello dopo il salvataggio e il refresh dei dati
     } catch (err) {
       console.error("Errore durante il salvataggio:", err);
       
@@ -789,10 +797,16 @@ function AttivitaContent() {
             })
             .join('\n');
           
-          alert(`Errori di validazione:\n${errorMessages}`);
+          // alert(`Errori di validazione:\n${errorMessages}`); // Sostituito con notifica toast
+          // showToast(`Errori di validazione:\n${errorMessages}`, 'error');
+          if (typeof showToast === 'function') showToast(`Errori di validazione:\n${errorMessages}`, 'error'); else alert(`Errori di validazione:\n${errorMessages}`);
+          setIsEditing(true); // Mantiene il form aperto per correzioni
         } else {
           // Fallback se il formato è diverso
-          alert("Si sono verificati errori di validazione. Controlla i dati inseriti.");
+          // alert("Si sono verificati errori di validazione. Controlla i dati inseriti."); // Sostituito con notifica toast
+          // showToast("Si sono verificati errori di validazione. Controlla i dati inseriti.", 'error');
+          if (typeof showToast === 'function') showToast("Si sono verificati errori di validazione. Controlla i dati inseriti.", 'error'); else alert("Si sono verificati errori di validazione. Controlla i dati inseriti.");
+          setIsEditing(true); // Mantiene il form aperto per correzioni
         }
       } else if (err.response) {
         // Altri errori HTTP
@@ -804,14 +818,22 @@ function AttivitaContent() {
         
         // Mostra un messaggio più specifico se disponibile
         const errorMessage = err.response.data?.message || "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
-        alert(errorMessage);
+        // alert(`Errore ${err.response.status}: ${errorMessage}`); // Sostituito con notifica toast
+        // showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error');
+        if (typeof showToast === 'function') showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error'); else alert(`Errore ${err.response.status}: ${errorMessage}`);
+        setIsEditing(true); // Mantiene il form aperto per correzioni
       } else if (err.request) {
-        // La richiesta è stata effettuata ma non è stata ricevuta alcuna risposta
         console.error("Nessuna risposta ricevuta:", err.request);
-        alert("Nessuna risposta dal server. Verifica la connessione di rete.");
+        // alert("Nessuna risposta dal server. Verifica la connessione di rete."); // Sostituito con notifica toast
+        // showToast("Nessuna risposta dal server. Verifica la connessione di rete.", 'error');
+        if (typeof showToast === 'function') showToast("Nessuna risposta dal server. Verifica la connessione di rete.", 'error'); else alert("Nessuna risposta dal server. Verifica la connessione di rete.");
+        setIsEditing(true); // Mantiene il form aperto per correzioni
       } else {
-        // Si è verificato un errore durante l'impostazione della richiesta
-        alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+        console.error("Errore non HTTP:", err.message);
+        // alert("Si è verificato un errore imprevisto durante il salvataggio."); // Sostituito con notifica toast
+        // showToast("Si è verificato un errore imprevisto durante il salvataggio.", 'error');
+        if (typeof showToast === 'function') showToast("Si è verificato un errore imprevisto durante il salvataggio.", 'error'); else alert("Si è verificato un errore imprevisto durante il salvataggio.");
+        setIsEditing(true); // Mantiene il form aperto per correzioni
       }
     } finally {
       setIsSaving(false);
@@ -843,9 +865,13 @@ function AttivitaContent() {
         
         // Mostra un messaggio più specifico se disponibile
         const errorMessage = err.response.data?.message || "Si è verificato un errore durante l'eliminazione. Riprova più tardi.";
-        alert(errorMessage);
+        // alert(`Errore ${err.response.status}: ${errorMessage}`); // Sostituito con notifica toast
+        // showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error');
+        if (typeof showToast === 'function') showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error'); else alert(`Errore ${err.response.status}: ${errorMessage}`);
       } else {
-        alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi.");
+        // alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi."); // Sostituito con notifica toast
+        // showToast("Si è verificato un errore durante l'eliminazione. Riprova più tardi.", 'error');
+        if (typeof showToast === 'function') showToast("Si è verificato un errore durante l'eliminazione. Riprova più tardi.", 'error'); else alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi.");
       }
     } finally {
       setIsDeleting(false);
@@ -907,6 +933,7 @@ const getStatusColor = (stato) => {
 if (loading || fetching) return <div className="centered">Caricamento...</div>;
 if (error) return <div className="centered">{error}</div>;
 
+console.log('[DEBUG] Stato attivita PRIMA di render DataTable:', attivita);
 return (
   <div style={{ padding: 32 }}>
     <PageHeader 

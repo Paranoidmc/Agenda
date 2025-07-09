@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react"; // Aggiunto use
 import { useRouter } from "next/navigation";
 import api from "../../../lib/api";
 
 export default function ScadenzaDetailPage({ params }) {
   const router = useRouter();
-  const { id } = params;
+  const resolvedParams = use(params); // Risolve la Promise params
+  const { id } = resolvedParams; // Estrae id dai parametri risolti
   const [scadenza, setScadenza] = useState(null);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");

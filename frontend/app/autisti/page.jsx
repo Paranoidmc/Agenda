@@ -214,7 +214,7 @@ export default function AutistiPage() {
 
   const loadAutisti = () => {
     setFetching(true);
-    api.get("/drivers?all=1")
+    api.get("/drivers?all=1&_=" + new Date().getTime()) // Cache-busting
       .then(res => {
         // Gestione robusta della risposta: ordina solo se array
         let autistiArr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
@@ -280,32 +280,42 @@ setActivities([]);
     setIsSaving(true);
     try {
       let response;
-      if (formData.id) {
+      const dataToSend = { ...formData };
+
+      if (dataToSend.id) {
         // Aggiornamento
-        response = await api.put(`/drivers/${formData.id}`, formData);
-        
-        // Aggiorna la lista degli autisti
-        setAutisti(prev => 
-          prev.map(a => a.id === formData.id ? response.data : a)
-        );
-        
-        // Aggiorna l'autista selezionato
-        setSelectedAutista(response.data);
+        response = await api.put(`/drivers/${dataToSend.id}`, dataToSend);
       } else {
-        // Creazione
-        response = await api.post('/drivers', formData);
-        
-        // Aggiorna la lista degli autisti
-        setAutisti(prev => [...prev, response.data]);
-        
-        // Seleziona il nuovo autista
-        setSelectedAutista(response.data);
+        response = await api.post('/drivers', dataToSend);
       }
       
       setIsEditing(false);
+      await loadAutisti(); 
+      handleClosePanel();
+      
+      const message = dataToSend.id ? 'Autista aggiornato con successo!' : 'Autista creato con successo!';
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      } else {
+        alert(message);
+      }
+
     } catch (err) {
-      console.error("Errore durante il salvataggio:", err);
-      alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+      console.error("Errore durante il salvataggio dell'autista:", err);
+      setIsEditing(true); // Mantiene il form aperto per correzioni
+      let errorMessage = "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
+      if (err.response && err.response.data && err.response.data.errors) {
+          const validationErrors = Object.values(err.response.data.errors).flat().join('\n');
+          errorMessage = `Errori di validazione:\n${validationErrors}`;
+      } else if (err.response && err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+      }
+      
+      if (typeof showToast === 'function') {
+        showToast(errorMessage, 'error');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setIsSaving(false);
     }

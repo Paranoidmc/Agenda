@@ -31,7 +31,7 @@ export default function VeicoliPage() {
   // Campi del form veicolo - allineati alla migration e al model
   const veicoloFields = [
     { name: 'plate', label: 'Targa', required: true },
-    { name: 'name', label: 'Nome veicolo' },
+    { name: 'nome', label: 'Nome veicolo' }, // Modificato da 'name' a 'nome'
     { name: 'brand', label: 'Marca', required: true },
     { name: 'model', label: 'Modello', required: true },
     { name: 'year', label: 'Anno', type: 'number' },
@@ -63,8 +63,8 @@ export default function VeicoliPage() {
     { name: 'power_kw', label: 'Potenza kW', type: 'number' },
     { name: 'registration_number', label: 'Numero immatricolazione' },
     { name: 'euro_classification', label: 'Classe Euro' },
-    { name: 'groups', label: 'Gruppi' },
-    { name: 'assigned_driver', label: 'Autista assegnato' },
+    { name: 'gruppi', label: 'Gruppi' }, // Modificato da 'groups' a 'gruppi'
+    { name: 'autista_assegnato', label: 'Autista assegnato' }, // Modificato da 'assigned_driver' a 'autista_assegnato'
     { name: 'first_registration_date', label: 'Data prima immatricolazione', type: 'date' },
     { name: 'ownership', label: 'Proprietà' },
     { name: 'current_profitability', label: 'Redditività attuale' },
@@ -160,6 +160,7 @@ export default function VeicoliPage() {
     
     // Usa la rotta standard
     api.get("/vehicles", {
+      params: { _: new Date().getTime() }, // Cache-busting
       withCredentials: true,
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -277,41 +278,48 @@ export default function VeicoliPage() {
         console.log('Payload inviato al backend (PUT/POST veicolo):', JSON.parse(JSON.stringify(formData)));
       }
       if (formData.id) {
-        // Aggiornamento
         response = await api.put(`/vehicles/${formData.id}`, formData, {
           withCredentials: true,
           headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           }
         });
-        
-        // Aggiorna la lista dei veicoli
-        setVeicoli(prev => 
-          prev.map(v => v.id === formData.id ? response.data : v)
-        );
-        
-        // Aggiorna il veicolo selezionato
-        setSelectedVeicolo(response.data);
       } else {
-        // Creazione
         response = await api.post('/vehicles', formData, {
           withCredentials: true,
           headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           }
         });
-        
-        // Aggiorna la lista dei veicoli
-        setVeicoli(prev => [...prev, response.data]);
-        
-        // Seleziona il nuovo veicolo
-        setSelectedVeicolo(response.data);
       }
       
       setIsEditing(false);
+      await loadVeicoli(); 
+      handleClosePanel();
+      
+      const message = formData.id ? 'Veicolo aggiornato con successo!' : 'Veicolo creato con successo!';
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      } else {
+        alert(message);
+      }
+
     } catch (err) {
-      console.error("Errore durante il salvataggio:", err);
-      alert("Si è verificato un errore durante il salvataggio. Riprova più tardi.");
+      console.error("Errore durante il salvataggio del veicolo:", err);
+      setIsEditing(true); // Mantiene il form aperto per correzioni
+      let errorMessage = "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
+      if (err.response && err.response.data && err.response.data.errors) {
+          const validationErrors = Object.values(err.response.data.errors).flat().join('\n');
+          errorMessage = `Errori di validazione:\n${validationErrors}`;
+      } else if (err.response && err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+      }
+      
+      if (typeof showToast === 'function') {
+        showToast(errorMessage, 'error');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setIsSaving(false);
     }
