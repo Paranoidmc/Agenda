@@ -1,0 +1,143 @@
+/* Stili per la mappa dei veicoli */
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.vehicle-map-container {
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.vehicle-map-loading {
+  height: 400px;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+}
+
+.vehicle-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.vehicle-map-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.vehicle-map-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tracking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #666;
+}
+
+.tracking-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #22c55e;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.refresh-button {
+  padding: 6px 12px;
+  font-size: 14px;
+  border: 1px solid #e5e5ea;
+  border-radius: 6px;
+  background-color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+
+.refresh-button:hover {
+  background-color: #f9f9f9;
+}
+
+.last-update {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.no-vehicles-message {
+  height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9f9f9;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  color: #666;
+  text-align: center;
+}
+
+/* Stili per i popup della mappa */
+.leaflet-popup-content {
+  margin: 8px 12px;
+  line-height: 1.4;
+}
+
+.leaflet-popup-content h4 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.vehicle-popup-info {
+  font-size: 14px;
+  color: #666;
+}
+
+.vehicle-popup-info div {
+  margin-bottom: 4px;
+}
+
+.vehicle-popup-coordinates {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #888;
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .vehicle-map-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .vehicle-map-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

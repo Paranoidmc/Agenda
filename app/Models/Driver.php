@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Driver extends Model
 {
@@ -140,9 +140,9 @@ class Driver extends Model
         return implode(', ', array_filter($parts));
     }
 
-    public function activities(): HasMany
+        public function activities()
     {
-        return $this->hasMany(Activity::class);
+        return $this->belongsToMany(Activity::class, 'activity_driver');
     }
     
     // Get the driver's full name

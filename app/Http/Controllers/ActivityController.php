@@ -18,7 +18,7 @@ class ActivityController extends Controller
             'user' => $request->user() ? $request->user()->id : 'non autenticato',
         ]);
 
-        $query = Activity::with(['client', 'driver', 'vehicle', 'site', 'activityType']);
+        $query = Activity::with(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
         
         // Filtraggio per intervallo date (inclusione se l'attività tocca anche solo parzialmente il range)
         if ($request->has('start_date') && $request->has('end_date')) {
@@ -35,15 +35,7 @@ class ActivityController extends Controller
             $query->where('client_id', $request->client_id);
         }
         
-        // Filtraggio per autista
-        if ($request->has('driver_id')) {
-            $query->where('driver_id', $request->driver_id);
-        }
-        
-        // Filtraggio per veicolo
-        if ($request->has('vehicle_id')) {
-            $query->where('vehicle_id', $request->vehicle_id);
-        }
+
         
         // Filtraggio per sede
         if ($request->has('site_id')) {
@@ -91,8 +83,8 @@ class ActivityController extends Controller
             });
         }
         
-        // Carica le relazioni senza specificare i campi
-        $query->with(['client', 'driver', 'vehicle', 'site', 'activityType']);
+        // Carica le relazioni aggiornate
+        $query->with(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
         
         $sql = $query->toSql();
         $bindings = $query->getBindings();
@@ -110,7 +102,7 @@ class ActivityController extends Controller
 
         // Aggiungiamo i campi in italiano per ogni attività
         $activities->getCollection()->transform(function ($activity) {
-            // Serializza data_inizio e data_fine con offset ISO8601 (Y-m-d\TH:i:sP)
+            // Serializza data_inizio e data_fine
             if ($activity->data_inizio) {
                 $activity->data_inizio = $activity->data_inizio instanceof \Carbon\Carbon
                     ? $activity->data_inizio->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
@@ -121,66 +113,46 @@ class ActivityController extends Controller
                     ? $activity->data_fine->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
                     : (string) $activity->data_fine;
             }
-            // Manteniamo solo i campi in italiano
-            
-            // Aggiungiamo i campi in italiano per il cliente
+
+            // Trasformazione dati cliente
             if ($activity->client) {
                 $activity->client->nome = $activity->client->name;
                 $activity->client->indirizzo = $activity->client->address;
-                $activity->client->citta = $activity->client->city;
-                $activity->client->cap = $activity->client->postal_code;
-                $activity->client->provincia = $activity->client->province;
-                $activity->client->telefono = $activity->client->phone;
-                $activity->client->partita_iva = $activity->client->vat_number;
-                $activity->client->codice_fiscale = $activity->client->fiscal_code;
-                $activity->client->note = $activity->client->notes;
             }
-            
-            // Aggiungiamo i campi in italiano per l'autista
-            if ($activity->driver) {
-                $activity->driver->nome = $activity->driver->name;
-                $activity->driver->cognome = $activity->driver->surname;
-                $activity->driver->telefono = $activity->driver->phone;
-                $activity->driver->indirizzo = $activity->driver->address;
-                $activity->driver->citta = $activity->driver->city;
-                $activity->driver->cap = $activity->driver->postal_code;
-                $activity->driver->provincia = $activity->driver->province;
-                $activity->driver->codice_fiscale = $activity->driver->fiscal_code;
-                $activity->driver->patente = $activity->driver->license_number;
-                $activity->driver->scadenza_patente = $activity->driver->license_expiry;
-                $activity->driver->note = $activity->driver->notes;
-            }
-            
-            // Aggiungiamo i campi in italiano per il veicolo
-            if ($activity->vehicle) {
-                $activity->vehicle->targa = $activity->vehicle->plate;
-                $activity->vehicle->modello = $activity->vehicle->model;
-                $activity->vehicle->marca = $activity->vehicle->brand;
-                $activity->vehicle->colore = $activity->vehicle->color;
-                $activity->vehicle->anno = $activity->vehicle->year;
-                $activity->vehicle->tipo = $activity->vehicle->type;
-                $activity->vehicle->carburante = $activity->vehicle->fuel_type;
-                $activity->vehicle->km = $activity->vehicle->odometer;
-                $activity->vehicle->note = $activity->vehicle->notes;
-            }
-            
-            // Aggiungiamo i campi in italiano per la sede
+
+            // Popola i campi drivers e vehicles per retrocompatibilità con la UI attuale (temporaneo)
+            $activity->drivers = $activity->resources->map(function ($resource) {
+                if ($resource->driver) {
+                    $resource->driver->nome = $resource->driver->name;
+                    $resource->driver->cognome = $resource->driver->surname;
+                    return $resource->driver;
+                }
+                return null;
+            })->filter();
+
+            $activity->vehicles = $activity->resources->map(function ($resource) {
+                if ($resource->vehicle) {
+                    $resource->vehicle->targa = $resource->vehicle->plate;
+                    $resource->vehicle->modello = $resource->vehicle->model;
+                    $resource->vehicle->marca = $resource->vehicle->brand;
+                    return $resource->vehicle;
+                }
+                return null;
+            })->filter();
+
+            // Trasformazione dati sede
             if ($activity->site) {
                 $activity->site->nome = $activity->site->name;
-                $activity->site->indirizzo = $activity->site->address;
-                $activity->site->citta = $activity->site->city;
-                $activity->site->cap = $activity->site->postal_code;
-                $activity->site->provincia = $activity->site->province;
-                $activity->site->note = $activity->site->notes;
             }
-            
-            // Aggiungiamo i campi in italiano per il tipo di attività
+
+            // Trasformazione dati tipo attività
             if ($activity->activityType) {
                 $activity->activityType->nome = $activity->activityType->name;
-                $activity->activityType->descrizione = $activity->activityType->description;
-                $activity->activityType->colore = $activity->activityType->color;
             }
-            
+
+            // Mappa 'notes' a 'note' per il frontend
+            $activity->note = $activity->notes;
+
             return $activity;
         });
         
@@ -192,108 +164,45 @@ class ActivityController extends Controller
      */
     public function store(Request $request)
     {
-        Log::info('Raw request data for activity store:', $request->all()); // Log dati grezzi
+        Log::info('ActivityController@store - Dati ricevuti', ['request_data' => $request->all()]);
 
         $validated = $request->validate([
-    
             'descrizione' => 'nullable|string',
             'data_inizio' => 'required|date_format:Y-m-d\TH:i',
-            'data_fine' => 'required|date_format:Y-m-d\TH:i|after_or_equal:data_inizio',
+            'data_fine' => 'nullable|date_format:Y-m-d\TH:i|after_or_equal:data_inizio',
             'client_id' => 'required|exists:clients,id',
-            'driver_id' => 'nullable|exists:drivers,id',
-            'vehicle_id' => 'nullable|exists:vehicles,id',
             'site_id' => 'required|exists:sites,id',
             'activity_type_id' => 'required|exists:activity_types,id',
-            'stato' => 'nullable|string|max:50',
+            'status' => 'nullable|string|max:50',
             'note' => 'nullable|string',
-            'time_slot' => 'nullable|string|in:morning,afternoon,full_day',
-            'ora_inizio' => 'nullable|date_format:H:i',
-            'ora_fine' => 'nullable|date_format:H:i|after:ora_inizio',
-            'start_location' => 'nullable|string|max:255',
-            'end_location' => 'nullable|string|max:255',
+            'resources' => 'nullable|array',
+            'resources.*.driver_id' => 'required|exists:drivers,id',
+            'resources.*.vehicle_id' => 'nullable|exists:vehicles,id',
         ]);
 
-        Log::info('Validated data for activity store:', $validated); // Log dati validati
-        Log::info('Value of stato received:', ['stato' => $validated['stato'] ?? 'Not provided/Null']); // Log specifico per stato
-
         try {
-            Log::info('Dati validati:', $validated);
+            $activityData = collect($validated)->except('resources')->toArray();
             
-            // Verifica se stiamo usando orari specifici o time slot
-            $useSpecificTimes = isset($validated['ora_inizio']) && isset($validated['ora_fine']);
-            
-            // Prepara i dati per la creazione
-            $data = [
-                'descrizione' => $validated['descrizione'] ?? null,
-                'data_inizio' => \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_inizio']),
-                'data_fine' => \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_fine']),
-                'driver_id' => $validated['driver_id'] ?? null,
-                'vehicle_id' => $validated['vehicle_id'] ?? null,
-                'client_id' => $validated['client_id'],
-                'site_id' => $validated['site_id'],
-                'activity_type_id' => $validated['activity_type_id'],
-                'status' => $validated['status'] ?? $validated['stato'] ?? 'planned', // Accetta sia 'status' che 'stato', fallback 'planned'
-                'start_location' => $validated['start_location'] ?? null, // Usa start_location
-                'end_location' => $validated['end_location'] ?? null,   // Usa end_location
-                'note' => $validated['note'] ?? null, // Usa solo 'note'
-            ];
-
-            // Se stiamo usando orari specifici, aggiungili
-            if ($useSpecificTimes) {
-                $data['ora_inizio'] = $validated['ora_inizio'];
-                $data['ora_fine'] = $validated['ora_fine'];
-            }
-
-            Log::info('Data before create:', $data); // Log prima della creazione
-
-            // Verifica l'esistenza dei record prima di procedere
-            $driver = isset($validated['driver_id']) ? \App\Models\Driver::find($validated['driver_id']) : null;
-            $vehicle = isset($validated['vehicle_id']) ? \App\Models\Vehicle::find($validated['vehicle_id']) : null;
-            $client = \App\Models\Client::find($validated['client_id']);
-            $site = \App\Models\Site::find($validated['site_id']);
-            $activityType = \App\Models\ActivityType::find($validated['activity_type_id']);
-
-            
-            if (!$client) {
-                throw new \Exception("Cliente non trovato");
-            }
-            if (!$site) {
-                throw new \Exception("Sede non trovata");
-            }
-            if (!$activityType) {
-                throw new \Exception("Tipo di attività non trovato");
-            }
-
-            // Crea l'attività
-            $activity = Activity::create($data);
-            
-            // Carica solo le relazioni che esistono
-            try {
-                $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
-            } catch (\Exception $e) {
-                Log::error('Errore nel caricamento delle relazioni: ' . $e->getMessage());
-                $activity->load(['client', 'driver', 'vehicle', 'activityType']);
+            // Mappa 'note' a 'notes' per il database
+            if (isset($activityData['note'])) {
+                $activityData['notes'] = $activityData['note'];
+                unset($activityData['note']);
             }
             
+            $resourcesData = $validated['resources'] ?? [];
+
+            $activity = new Activity();
+            $activity->syncResourcesAndSave($activityData, $resourcesData);
+
+            $activity->load(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
+
+            // Mappa 'notes' a 'note' per il frontend
+            $activity->note = $activity->notes;
+
             return response()->json($activity, 201);
         } catch (\Exception $e) {
             Log::error('Errore durante la creazione dell\'attività: ' . $e->getMessage());
-            
-            // Gestione specifica dei conflitti di pianificazione
-            if (strpos($e->getMessage(), "L'autista è già impegnato") !== false) {
-                return response()->json([
-                    'message' => $e->getMessage(),
-                    'errors' => [
-                        'driver_id' => ["L'autista selezionato è già impegnato in questa fascia oraria."]
-                    ]
-                ], 422);
-            }
-            
-            // Gestione degli altri errori
-            return response()->json([
-                'message' => "Si è verificato un errore durante il salvataggio dell'attività.",
-                'error' => $e->getMessage()
-            ], 500);
+            return response()->json(['message' => 'Errore interno del server.'], 500);
         }
     }
 
@@ -302,84 +211,12 @@ class ActivityController extends Controller
      */
     public function show(Activity $activity)
     {
-        // Carica le relazioni senza specificare i campi
-        $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
+        $activity->load(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
         
-        // Serializza data_inizio e data_fine con offset ISO8601 (Y-m-d\TH:i:sP)
-        if ($activity->data_inizio) {
-            $activity->data_inizio = $activity->data_inizio instanceof \Carbon\Carbon
-                ? $activity->data_inizio->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
-                : (string) $activity->data_inizio;
-        }
-        if ($activity->data_fine) {
-            $activity->data_fine = $activity->data_fine instanceof \Carbon\Carbon
-                ? $activity->data_fine->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
-                : (string) $activity->data_fine;
-        }
-        // Aggiungiamo i campi in inglese (per compatibilità)
-        $activity->title = $activity->titolo ?? '';
-        $activity->description = $activity->descrizione ?? '';
+        // Mappa 'notes' a 'note' per il frontend
         $activity->note = $activity->notes;
         
-        // Aggiungiamo i campi in italiano per il cliente
-        if ($activity->client) {
-            $activity->client->nome = $activity->client->name;
-            $activity->client->indirizzo = $activity->client->address;
-            $activity->client->citta = $activity->client->city;
-            $activity->client->cap = $activity->client->postal_code;
-            $activity->client->provincia = $activity->client->province;
-            $activity->client->telefono = $activity->client->phone;
-            $activity->client->partita_iva = $activity->client->vat_number;
-            $activity->client->codice_fiscale = $activity->client->fiscal_code;
-            $activity->client->note = $activity->client->notes;
-        }
-        
-        // Aggiungiamo i campi in italiano per l'autista
-        if ($activity->driver) {
-            $activity->driver->nome = $activity->driver->name;
-            $activity->driver->cognome = $activity->driver->surname;
-            $activity->driver->telefono = $activity->driver->phone;
-            $activity->driver->indirizzo = $activity->driver->address;
-            $activity->driver->citta = $activity->driver->city;
-            $activity->driver->cap = $activity->driver->postal_code;
-            $activity->driver->provincia = $activity->driver->province;
-            $activity->driver->codice_fiscale = $activity->driver->fiscal_code;
-            $activity->driver->patente = $activity->driver->license_number;
-            $activity->driver->scadenza_patente = $activity->driver->license_expiry;
-            $activity->driver->note = $activity->driver->notes;
-        }
-        
-        // Aggiungiamo i campi in italiano per il veicolo
-        if ($activity->vehicle) {
-            $activity->vehicle->targa = $activity->vehicle->plate;
-            $activity->vehicle->modello = $activity->vehicle->model;
-            $activity->vehicle->marca = $activity->vehicle->brand;
-            $activity->vehicle->colore = $activity->vehicle->color;
-            $activity->vehicle->anno = $activity->vehicle->year;
-            $activity->vehicle->tipo = $activity->vehicle->type;
-            $activity->vehicle->carburante = $activity->vehicle->fuel_type;
-            $activity->vehicle->km = $activity->vehicle->odometer;
-            $activity->vehicle->note = $activity->vehicle->notes;
-        }
-        
-        // Aggiungiamo i campi in italiano per la sede
-        if ($activity->site) {
-            $activity->site->nome = $activity->site->name;
-            $activity->site->indirizzo = $activity->site->address;
-            $activity->site->citta = $activity->site->city;
-            $activity->site->cap = $activity->site->postal_code;
-            $activity->site->provincia = $activity->site->province;
-            $activity->site->note = $activity->site->notes;
-        }
-        
-        // Aggiungiamo i campi in italiano per il tipo di attività
-        if ($activity->activityType) {
-            $activity->activityType->nome = $activity->activityType->name;
-            $activity->activityType->descrizione = $activity->activityType->description;
-            $activity->activityType->colore = $activity->activityType->color;
-        }
-        
-        return response()->json($activity)->header('Cache-Control', 'no-store');
+        return response()->json($activity);
     }
 
     /**
@@ -387,115 +224,44 @@ class ActivityController extends Controller
      */
     public function update(Request $request, Activity $activity)
     {
-        \Log::info('ActivityController@update - dati ricevuti', ['all' => $request->all()]);
+        Log::info('ActivityController@update - Dati ricevuti', ['activity_id' => $activity->id, 'request_data' => $request->all()]);
+
         $validated = $request->validate([
-    
             'descrizione' => 'nullable|string',
             'data_inizio' => 'sometimes|required|date_format:Y-m-d\TH:i',
-            'data_fine' => 'sometimes|required|date_format:Y-m-d\TH:i|after_or_equal:data_inizio',
+            'data_fine' => 'nullable|date_format:Y-m-d\TH:i|after_or_equal:data_inizio',
             'client_id' => 'sometimes|required|exists:clients,id',
-            'driver_id' => 'sometimes|required|exists:drivers,id',
-            'vehicle_id' => 'sometimes|required|exists:vehicles,id',
             'site_id' => 'sometimes|required|exists:sites,id',
             'activity_type_id' => 'sometimes|required|exists:activity_types,id',
-            'stato' => 'nullable|string|max:50',
+            'status' => 'nullable|string|max:50',
             'note' => 'nullable|string',
-            'time_slot' => 'nullable|string|in:morning,afternoon,full_day',
-            'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i|after:start_time',
-            'start_location' => 'nullable|string|max:255',
-            'end_location' => 'nullable|string|max:255',
-            'km_inizio' => 'nullable|numeric',
-            'km_fine' => 'nullable|numeric|gte:km_inizio',
+            'resources' => 'nullable|array',
+            'resources.*.driver_id' => 'required|exists:drivers,id',
+            'resources.*.vehicle_id' => 'nullable|exists:vehicles,id',
         ]);
 
-        // Map Italian field names to English field names
-        $data = [];
-        // Gestione coerente status
-        if ($request->has('status')) {
-            $data['status'] = strtolower($request->input('status'));
-        }
-        
-        if (isset($validated['data_inizio'])) {
-            $data['data_inizio'] = \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_inizio']);
-        }
-        if (isset($validated['data_fine'])) {
-            $data['data_fine'] = \Carbon\Carbon::createFromFormat('Y-m-d\TH:i', $validated['data_fine']);
-        }
-        
-        if (isset($validated['driver_id'])) {
-            $data['driver_id'] = $validated['driver_id'];
-        }
-        
-        if (isset($validated['vehicle_id'])) {
-            $data['vehicle_id'] = $validated['vehicle_id'];
-        }
-        
-        if (isset($validated['client_id'])) {
-            $data['client_id'] = $validated['client_id'];
-        }
-        
-        if (isset($validated['site_id'])) {
-            $data['site_id'] = $validated['site_id'];
-        }
-        
-        if (isset($validated['end_location'])) {
-            $data['end_location'] = $validated['end_location'];
-        }
-        
-        if (isset($validated['note'])) {
-            $data['notes'] = $validated['note'];
-            $data['note'] = $validated['note'];
-        }
-        
-        if (isset($validated['titolo'])) {
-            $data['titolo'] = $validated['titolo'];
-        }
-        
-        if (isset($validated['descrizione'])) {
-            $data['descrizione'] = $validated['descrizione'];
-        }
-
         try {
-            $activity->update($data);
-            $activity->load(['client', 'driver', 'vehicle', 'site', 'activityType']);
-            // Risposta coerente: status sempre minuscolo
-            $activity->status = strtolower($activity->status);
-            return response()->json($activity);
-        } catch (\Exception $e) {
-            \Log::error('ActivityController@update - Errore durante update', [
-                'message' => $e->getMessage(),
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'data' => $data,
-            ]);
-            // Check if it's a scheduling conflict
-            if (strpos($e->getMessage(), "L'autista è già impegnato") !== false) {
-                return response()->json([
-                    'message' => $e->getMessage(),
-                    'errors' => [
-                        'driver_id' => ["L'autista selezionato è già impegnato in questa fascia oraria."]
-                    ]
-                ], 422);
-            } elseif (strpos($e->getMessage(), "Il veicolo è già impegnato") !== false) {
-                return response()->json([
-                    'message' => $e->getMessage(),
-                    'errors' => [
-                        'vehicle_id' => ["Il veicolo selezionato è già impegnato in questa fascia oraria."]
-                    ]
-                ], 422);
+            $activityData = collect($validated)->except('resources')->toArray();
+            
+            // Mappa 'note' a 'notes' per il database
+            if (isset($activityData['note'])) {
+                $activityData['notes'] = $activityData['note'];
+                unset($activityData['note']);
             }
             
-            // For other exceptions, return a 500 error
-            return response()->json([
-                'message' => 'Si è verificato un errore durante l\'aggiornamento dell\'attività.',
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTrace()
-            ], 500);
+            $resourcesData = $validated['resources'] ?? [];
+
+            $activity->syncResourcesAndSave($activityData, $resourcesData);
+
+            $activity->load(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
+
+            // Mappa 'notes' a 'note' per il frontend
+            $activity->note = $activity->notes;
+
+            return response()->json($activity);
+        } catch (\Exception $e) {
+            Log::error('Errore durante l\'aggiornamento dell\'attività: ' . $e->getMessage());
+            return response()->json(['message' => 'Errore interno del server.'], 500);
         }
     }
 
@@ -546,17 +312,23 @@ class ActivityController extends Controller
     $allDrivers = \App\Models\Driver::all();
     $allVehicles = \App\Models\Vehicle::all();
 
-    // Trova driver occupati per la data specificata
-    $busyDriverIds = Activity::whereDate('data_inizio', $date)
-        ->where('status', '!=', 'cancelled')
-        ->pluck('driver_id')
-        ->toArray();
+    // Trova le attività che si sovrappongono alla data specificata
+    $activitiesOnDate = Activity::where('status', '!=', 'cancelled')
+        ->where(function ($query) use ($date) {
+            $query->where('data_inizio', '<=', $date . ' 23:59:59')
+                  ->where('data_fine', '>=', $date . ' 00:00:00');
+        })
+        ->with(['drivers:id', 'vehicles:id']) // Carica solo gli ID delle relazioni
+        ->get();
 
-    // Trova veicoli occupati per la data specificata
-    $busyVehicleIds = Activity::whereDate('data_inizio', $date)
-        ->where('status', '!=', 'cancelled')
-        ->pluck('vehicle_id')
-        ->toArray();
+    // Estrai gli ID degli autisti e dei veicoli occupati dalle attività
+    $busyDriverIds = $activitiesOnDate->flatMap(function ($activity) {
+        return $activity->drivers->pluck('id');
+    })->unique()->toArray();
+
+    $busyVehicleIds = $activitiesOnDate->flatMap(function ($activity) {
+        return $activity->vehicles->pluck('id');
+    })->unique()->toArray();
 
     // Filtra driver disponibili
     $availableDrivers = $allDrivers->filter(function($driver) use ($busyDriverIds) {

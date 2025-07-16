@@ -67,7 +67,9 @@ class ClientController extends Controller
                 $client->note = $client->notes;
                 return $client;
             });
-            return response()->json($clients);
+            return response()->json([
+                'data' => $clients
+            ]);
         } else {
             $clients = $query->select($fields)->orderBy('name')->paginate($perPage);
             // Mappa i campi in italiano per ogni cliente

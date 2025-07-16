@@ -121,7 +121,9 @@ class VehicleController extends Controller
                 return $vehicle;
             });
             
-            return response()->json($vehicles);
+            return response()->json([
+                'data' => $vehicles
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Si è verificato un errore durante il caricamento dei veicoli.',

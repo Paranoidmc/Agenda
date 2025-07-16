@@ -12,16 +12,10 @@ Route::get('/test-api', function () {
     return ['status' => 'ok'];
 });
 
-// Rotte senza autenticazione per i veicoli
-Route::get('/vehicles', [App\Http\Controllers\VehicleController::class, 'index']);
-Route::get('/vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'show']);
-Route::get('/vehicles/{vehicle}/activities', [App\Http\Controllers\ActivityController::class, 'getVehicleActivities']);
-Route::get('/vehicles/{vehicle}/deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'getVehicleDeadlines']);
+// Rotte pubbliche per le attività e scadenze
+Route::get('/activities', [App\Http\Controllers\ActivityController::class, 'index']);
 Route::get('/vehicle-deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'index']);
 Route::get('/vehicle-deadlines/all', [App\Http\Controllers\VehicleDeadlineController::class, 'allWithVehicles']);
-
-// Rotte pubbliche per le attività
-Route::get('/activities', [App\Http\Controllers\ActivityController::class, 'index']);
 
 // Test route for CORS
 Route::get('/cors-test', function (Request $request) {
@@ -97,13 +91,20 @@ Route::middleware('api')->post('/refresh', [AuthController::class, 'refresh']);
 Route::middleware(['auth:sanctum'])->group(function () {
     // Le route reali restano sotto
     Route::apiResource('drivers', App\Http\Controllers\DriverController::class);
+    Route::apiResource('clients', App\Http\Controllers\ClientController::class);
+    Route::apiResource('activity-types', App\Http\Controllers\ActivityTypeController::class);
+    Route::apiResource('sites', App\Http\Controllers\SiteController::class);
     Route::get('/activities/new', [App\Http\Controllers\ActivityController::class, 'create']);
+
+    // Rotte per i veicoli (ora tutte autenticate)
+    Route::apiResource('vehicles', App\Http\Controllers\VehicleController::class);
+    Route::get('/vehicles/{vehicle}/activities', [App\Http\Controllers\ActivityController::class, 'getVehicleActivities']);
+    Route::get('/vehicles/{vehicle}/deadlines', [App\Http\Controllers\VehicleDeadlineController::class, 'getVehicleDeadlines']);
     
-    // Per i veicoli, solo le operazioni di modifica richiedono autenticazione
-    Route::post('vehicles', [App\Http\Controllers\VehicleController::class, 'store']);
-    Route::put('vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'update']);
-    Route::patch('vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'update']);
-    Route::delete('vehicles/{vehicle}', [App\Http\Controllers\VehicleController::class, 'destroy']);
+    // Rotte per il tracking GPS dei veicoli
+    Route::get('/vehicles/{vehicle}/position', [App\Http\Controllers\VehicleTrackingController::class, 'getVehiclePosition']);
+    Route::post('/vehicles/{vehicle}/position', [App\Http\Controllers\VehicleTrackingController::class, 'updateVehiclePosition']);
+    Route::post('/vehicles/positions', [App\Http\Controllers\VehicleTrackingController::class, 'getMultipleVehiclePositions']);
     
     Route::apiResource('activities', App\Http\Controllers\ActivityController::class);
     Route::apiResource('clients', App\Http\Controllers\ClientController::class);

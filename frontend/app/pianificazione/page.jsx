@@ -478,8 +478,13 @@ export default function PianificazionePage() {
       }
       setSitesLoading(false);
       
-      // Imposta i tipi di attività
-      setActivityTypes(activityTypesResponse.data);
+      // --- NORMALIZZAZIONE TIPI ATTIVITÀ ---
+      const activityTypesData = Array.isArray(activityTypesResponse.data)
+        ? activityTypesResponse.data
+        : (Array.isArray(activityTypesResponse.data?.data)
+            ? activityTypesResponse.data.data
+            : []);
+      setActivityTypes(activityTypesData);
       setActivityTypesError(null);
 
       // Carica le attività - richiediamo TUTTE le attività senza paginazione e senza filtri di data
@@ -568,7 +573,7 @@ export default function PianificazionePage() {
         if (activity.activityType) {
           activityTypeName = activity.activityType.nome || activity.activityType.name || 'Attività';
         } else if (activity.activity_type_id) {
-          const tipoAttivita = activityTypesResponse.data.find(tipo => tipo.id === activity.activity_type_id);
+          const tipoAttivita = activityTypes.find(tipo => tipo.id === activity.activity_type_id);
           if (tipoAttivita) {
             activityTypeName = tipoAttivita.nome || tipoAttivita.name || 'Attività';
           }
@@ -940,7 +945,7 @@ export default function PianificazionePage() {
             <option value="">
               Tutti i tipi di attività
             </option>
-            {activityTypes.map(type => (
+            {(Array.isArray(activityTypes) ? activityTypes : []).map(type => (
               <option key={type.id} value={type.id}>
                 {type.nome || type.name}
               </option>

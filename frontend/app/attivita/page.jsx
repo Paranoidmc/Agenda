@@ -3,13 +3,37 @@ import { useEffect, useState, useMemo, Suspense } from "react";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import SidePanel from "../../components/SidePanel";
+import ResourcePairing from "../../components/ResourcePairing";
 import EntityForm from "../../components/EntityForm";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import { useRouter, useSearchParams } from "next/navigation";
-import AddFacilityPopup from "../../components/AddFacilityPopup"; // Import the AddFacilityPopup component
+import AddFacilityPopup from "../../components/AddFacilityPopup";
+import dynamic from 'next/dynamic';
+import { useVehicleTracking } from "../../hooks/useVehicleTracking";
+import "../../styles/map.css";
 
-// Componente che utilizza useSearchParams
+// Importa VehicleMap solo lato client per evitare errori SSR
+const VehicleMap = dynamic(() => import("../../components/VehicleMap"), {
+  ssr: false,
+  loading: () => (
+    <div style={{ 
+      height: '350px', 
+      backgroundColor: '#f5f5f5', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      border: '1px solid #e5e5ea',
+      borderRadius: '8px'
+    }}>
+      <div style={{ textAlign: 'center', color: '#666' }}>
+        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🗺️</div>
+        <div>Caricamento mappa...</div>
+      </div>
+    </div>
+  )
+});
+
 function AttivitaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,71 +48,15 @@ function AttivitaContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedAttivita, setSelectedAttivita] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditingState] = useState(false);
+  
+  const setIsEditing = (value) => {
+    console.log('Parent setIsEditing called with:', value);
+    console.log('Current parent isEditing:', isEditing);
+    setIsEditingState(value);
+  };
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-
-  // Effetto: se openId cambia, carica l'attività giusta e apri il pannello
-  useEffect(() => {
-    if (isNew) {
-      setIsPanelOpen(true);
-      setIsEditing(true);
-      setSelectedAttivita({
-        descrizione: '',
-        data_inizio: '',
-        data_fine: '',
-        client_id: null,
-        site_id: '',
-        driver_id: '',
-        vehicle_id: '',
-        activity_type_id: '',
-        status: 'programmato',
-        note: ''
-      });
-      setValidationErrors({});
-      return;
-    }
-    if (openId) {
-      // Se già caricata, seleziona direttamente
-      const found = attivita.find(a => String(a.id) === String(openId));
-      if (found) {
-        // Patch: se manca status ma esiste stato, copia stato in status (minuscolo)
-        let coerente = { ...found };
-        if (!coerente.status && coerente.stato) {
-          coerente.status = String(coerente.stato).toLowerCase();
-        }
-        setSelectedAttivita(coerente);
-        setIsPanelOpen(true);
-        setIsEditing(false);
-        setValidationErrors({});
-        if (coerente.client_id) loadSediPerCliente(coerente.client_id);
-      } else {
-        // Se non trovata, fetch singola attività (fallback)
-        api.get(`/activities/${openId}`)
-          .then(res => {
-            let coerente = { ...res.data };
-            if (!coerente.status && coerente.stato) {
-              coerente.status = String(coerente.stato).toLowerCase();
-            }
-            setSelectedAttivita(coerente);
-            setIsPanelOpen(true);
-            setIsEditing(false);
-            setValidationErrors({});
-            if (coerente.client_id) loadSediPerCliente(coerente.client_id);
-          })
-          .catch(() => {
-            setSelectedAttivita(null);
-            setIsPanelOpen(false);
-          });
-      }
-    } else {
-      setIsPanelOpen(false);
-      setSelectedAttivita(null);
-      setIsEditing(false);
-      setValidationErrors({});
-    }
-    // eslint-disable-next-line
-  }, [openId, attivita, isNew]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [tableWidth, setTableWidth] = useState('100%');
@@ -96,1040 +64,557 @@ function AttivitaContent() {
   const [veicoli, setVeicoli] = useState([]);
   const [autisti, setAutisti] = useState([]);
   const [tipiAttivita, setTipiAttivita] = useState([]);
-  const [sedi, setSedi] = useState([]);
   const [sediPerCliente, setSediPerCliente] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Handler unico per tutte le modifiche ai campi del form
-  const handleFieldChange = (name, value) => {
-    console.log('[DEBUG][handleFieldChange] CAMPO CAMBIATO:', name, value);
-    if (name === 'data_inizio' || name === 'data_fine') {
-      console.log('[DEBUG][handleFieldChange] CAMPO DATA CAMBIATO', name, value);
+  const isEditMode = selectedAttivita && selectedAttivita.id;
+
+  // Estrai i veicoli dall'attività selezionata per il tracking
+  const activityVehicles = useMemo(() => {
+    // Usa le risorse originali per la mappa, non quelle trasformate per il form
+    const resources = selectedAttivita?.originalResources || selectedAttivita?.resources;
+    
+    if (!resources) {
+      console.log('DEBUG: Nessuna risorsa nell\'attività selezionata');
+      return [];
     }
-    setSelectedAttivita(prev => {
-      let newState = { ...prev, [name]: value };
-      // Reset della sede se cambio cliente
-      if (name === 'client_id') {
-        newState.site_id = '';
-        console.log('[DEBUG][handleFieldChange] Reset site_id per cambio cliente');
-      }
-      return newState;
+    
+    console.log('DEBUG: Risorse attività:', resources);
+    
+    // Debug dettagliato delle risorse
+    resources.forEach((resource, index) => {
+      console.log(`DEBUG: Risorsa ${index}:`, resource);
+      console.log(`DEBUG: Risorsa ${index} - vehicle:`, resource.vehicle);
     });
-    // Caricamento risorse disponibili su cambio data/fascia oraria
-    if (name === 'data_inizio' || name === 'time_slot') {
-      setTimeout(() => loadAvailableResources(), 100);
+    
+    const vehicles = resources
+      .map(resource => {
+        console.log('DEBUG: Mapping resource:', resource, 'vehicle:', resource.vehicle);
+        return resource.vehicle;
+      })
+      .filter(Boolean)
+      .map(vehicle => ({
+        ...vehicle,
+        driver: resources.find(r => r.vehicle?.id === vehicle.id)?.driver
+      }));
+      
+    console.log('DEBUG: Veicoli estratti:', vehicles);
+    return vehicles;
+  }, [selectedAttivita?.originalResources, selectedAttivita?.resources]);
+
+  // Hook per il tracking dei veicoli
+  const { 
+    vehiclePositions, 
+    isTracking, 
+    lastUpdate, 
+    refreshPositions 
+  } = useVehicleTracking(selectedAttivita?.id, activityVehicles);
+
+  useEffect(() => {
+    if (isNew) {
+      handleCreateNew();
+    } else if (openId) {
+      const found = attivita.find(a => String(a.id) === String(openId));
+      if (found) {
+        handleViewDetails(found);
+      } else {
+        api.get(`/activities/${openId}`).then(res => handleViewDetails(res.data)).catch(handleClosePanel);
+      }
+    } else {
+      handleClosePanel();
     }
-    // Caricamento sedi per cliente
-    if (name === 'client_id') {
-      console.log('[DEBUG][handleFieldChange] Chiamo loadSediPerCliente con:', value);
-      loadSediPerCliente(value);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, isNew, attivita]);
+
+  const handleSedeAdded = (newSede) => {
+    console.log('handleSedeAdded called with:', newSede);
+    setIsPopupOpen(false);
+    const clienteId = selectedAttivita?.client_id;
+    console.log('Client ID:', clienteId);
+    if (!clienteId) return;
+    
+    // Aggiorna immediatamente la lista delle sedi con la nuova sede
+    const newSedeFormatted = {
+      id: newSede.id,
+      nome: newSede.name || newSede.nome,
+      name: newSede.name || newSede.nome,
+      indirizzo: newSede.address || newSede.indirizzo,
+      citta: newSede.city || newSede.citta,
+      cap: newSede.postal_code || newSede.cap,
+      provincia: newSede.province || newSede.provincia,
+      note: newSede.notes || newSede.note
+    };
+    
+    console.log('New sede formatted:', newSedeFormatted);
+    
+    setSediPerCliente(prev => {
+      const updated = {
+        ...prev,
+        [String(clienteId)]: [...(prev[String(clienteId)] || []), newSedeFormatted]
+      };
+      console.log('Updated sedi per cliente:', updated);
+      return updated;
+    });
+    
+    // Seleziona automaticamente la nuova sede
+    setSelectedAttivita(prev => {
+      const updated = { ...prev, site_id: newSede.id };
+      console.log('Updated selected attivita:', updated);
+      return updated;
+    });
+    
+    // Ricarica anche dal server per sicurezza
+    loadSediPerCliente(clienteId);
+  };
+
+  const handleFormChange = (updatedData) => {
+    const oldClientId = selectedAttivita?.client_id;
+    // Preserva l'ID originale quando aggiorniamo i dati del form
+    const dataWithId = { ...updatedData };
+    if (selectedAttivita?.id && !dataWithId.id) {
+      dataWithId.id = selectedAttivita.id;
+    }
+    setSelectedAttivita(dataWithId);
+
+    if (dataWithId.client_id !== oldClientId) {
+      if (dataWithId.client_id) {
+        loadSediPerCliente(dataWithId.client_id);
+        // Resetta la selezione della sede quando il cliente cambia
+        setSelectedAttivita(prev => ({ ...prev, site_id: '' }));
+      } else {
+        // Pulisci le sedi se il cliente viene deselezionato
+        setSediPerCliente(prev => ({ ...prev, [String(oldClientId)]: [] }));
+      }
     }
   };
 
-  // Funzione per formattare la data in modo leggibile (it-IT)
-  // Parsing manuale che ignora offset e secondi
   const formatDate = (dateString) => {
-  if (!dateString) return 'N/D';
-  // Usa direttamente la stringa ISO 8601 con offset (Europe/Rome)
-  const d = new Date(dateString);
-  // Ricava giorno/mese/anno/ora/minuto in locale Europe/Rome
-  return d.toLocaleString('it-IT', {
-    timeZone: 'Europe/Rome',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).replace(',', '');
-};
+    if (!dateString) return 'N/D';
+    const d = new Date(dateString);
+    return d.toLocaleString('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
+  };
 
-  // Per input type="datetime-local": estrae solo YYYY-MM-DDTHH:mm
   const toInputDatetimeLocal = (dateString) => {
     if (!dateString) return '';
-    const match = dateString.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
-    return match ? match[1] : '';
+    const d = new Date(dateString);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
+  const getAttivitaFields = (currentFormData) => {
+    if (isInitialLoading) return [];
 
-  // Funzione per ottenere i campi del form attività
-  const getAttivitaFields = (selectedAttivita) => {
-    // Determina quali sedi mostrare in base al cliente selezionato
-    let sediOptions = [];
-    const clienteId = selectedAttivita?.client_id;
-    const clientKey = String(clienteId);
-    // Debug log
-    console.log('[DEBUG][getAttivitaFields] sediPerCliente keys:', Object.keys(sediPerCliente));
-    console.log('[DEBUG][getAttivitaFields] clientKey:', clientKey, typeof clientKey);
-    console.log('[DEBUG][getAttivitaFields] sedi trovate:', sediPerCliente[clientKey]);
-    console.log('[DEBUG][getAttivitaFields] clienteId:', clienteId);
-
-    if (clientKey && sediPerCliente[clientKey]) {
-      // Se abbiamo le sedi per questo cliente, le utilizziamo
-      sediOptions = sediPerCliente[clientKey].map(sede => ({
-        value: sede.id,
-        label: sede.nome || sede.name
-      }));
-    } else {
-      sediOptions = [{ value: '', label: 'Seleziona prima un cliente' }];
-    }
+    const selectedClientId = currentFormData?.client_id;
+    const sediOptions = (sediPerCliente[String(selectedClientId)] || []).map(s => ({ value: s.id, label: s.nome || s.name || '' }));
 
     return [
       { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
-      { 
-        name: 'data_inizio', 
-        label: 'Data/Ora Inizio', 
-        type: 'datetime-local', 
-        required: true,
-        value: toInputDatetimeLocal(selectedAttivita?.data_inizio),
-        onChange: handleFieldChange
-      },
-      { 
-        name: 'data_fine', 
-        label: 'Data/Ora Fine', 
-        type: 'datetime-local', 
-        required: false,
-        value: toInputDatetimeLocal(selectedAttivita?.data_fine)
-      },
-      { 
-        name: 'client_id', 
-        label: 'Cliente', 
-        type: 'select', 
-        isNumeric: true, 
-        required: true,
-        options: Array.isArray(clienti) ? clienti.map(cliente => ({ 
-          value: cliente.id, 
-          label: cliente.nome || cliente.name || '' 
-        })) : [],
-        onChange: handleFieldChange
-      },
-      { 
-        name: 'site_id', 
-        label: 'Sede', 
-        type: 'select', 
-        isNumeric: true, 
-        required: true,
-        options: sediOptions,
-        disabled: !clienteId || sediOptions.length === 0 || sediOptions[0]?.value === ''
-      },
-      { 
-        name: 'driver_id', 
-        label: 'Autista', 
-        type: 'select', 
-        isNumeric: true, 
-        required: false,
-        options: (() => {
-          let opts = Array.isArray(autisti) ? autisti.map(autista => ({ 
-            value: autista.id, 
-            label: `${autista.nome || ''} ${autista.cognome || ''}`.trim() 
-          })) : [];
-          // Se il valore selezionato non è tra le opzioni, aggiungilo
-          const selId = selectedAttivita?.driver_id;
-          if (
-            selId &&
-            !opts.some(opt => String(opt.value) === String(selId)) &&
-            selectedAttivita.driver
-          ) {
-            opts = [
-              {
-                value: selectedAttivita.driver.id,
-                label: `${selectedAttivita.driver.nome || ''} ${selectedAttivita.driver.cognome || ''}`.trim() + ' (non disponibile)',
-                isDisabled: true
-              },
-              ...opts
-            ];
-          }
-          return opts;
-        })()
-      },
-      { 
-        name: 'vehicle_id', 
-        label: 'Veicolo', 
-        type: 'select', 
-        isNumeric: true, 
-        required: false,
-        options: (() => {
-          // Date selezionate per l'attività
-          const attivitaInizio = selectedAttivita?.data_inizio ? new Date(selectedAttivita.data_inizio) : null;
-          const attivitaFine = selectedAttivita?.data_fine ? new Date(selectedAttivita.data_fine) : attivitaInizio;
-          // Funzione per verificare se un veicolo è impegnato in noleggio in quell'intervallo
-          function isNoleggiato(v) {
-            if (!v.contract_start_date || !v.contract_end_date) return false;
-            const start = new Date(v.contract_start_date);
-            const end = new Date(v.contract_end_date);
-            if (!attivitaInizio) return false; // Se non c'è data attività, mostra tutto
-            // Se l'intervallo attività si sovrappone al periodo di noleggio
-            return (attivitaInizio <= end && attivitaFine >= start);
-          }
-          let opts = Array.isArray(veicoli) ? veicoli.map(veicolo => ({ 
-            value: veicolo.id, 
-            label: `${veicolo.targa || ''} - ${veicolo.marca || ''} ${veicolo.modello || ''}`.trim() + (isNoleggiato(veicolo) ? ' (noleggio attivo)' : ''),
-            isDisabled: isNoleggiato(veicolo)
-          })) : [];
-          const selId = selectedAttivita?.vehicle_id;
-          if (
-            selId &&
-            !opts.some(opt => String(opt.value) === String(selId)) &&
-            selectedAttivita.vehicle
-          ) {
-            opts = [
-              {
-                value: selectedAttivita.vehicle.id,
-                label: `${selectedAttivita.vehicle.targa || ''} - ${selectedAttivita.vehicle.marca || ''} ${selectedAttivita.vehicle.modello || ''}`.trim() + ' (non disponibile)',
-                isDisabled: true
-              },
-              ...opts
-            ];
-          }
-          return opts;
-        })()
-      },
-      { 
-        name: 'activity_type_id', 
-        label: 'Tipo Attività', 
-        type: 'select', 
-        isNumeric: true, 
-        required: true,
-        options: Array.isArray(tipiAttivita) ? tipiAttivita.map(tipo => ({ 
-          value: tipo.id, 
-          label: tipo.nome || tipo.name || '' 
-        })) : [],
-      },
-      { 
-        name: 'status', 
-        label: 'Stato', 
-        type: 'select', 
-        required: true,
-        options: [
-          { value: 'non assegnato', label: 'Non assegnato' },
-          { value: 'assegnato', label: 'Assegnato' },
-          { value: 'doc emesso', label: 'Doc emesso' },
-          { value: 'programmato', label: 'Programmato' },
-          { value: 'in corso', label: 'In corso' },
-          { value: 'completato', label: 'Completato' },
-          { value: 'annullato', label: 'Annullato' }
-        ],
-      },
-      { name: 'note', label: 'Note', type: 'textarea' }
+      { name: 'data_inizio', label: 'Data/Ora Inizio', type: 'datetime-local', required: true },
+      { name: 'data_fine', label: 'Data/Ora Fine', type: 'datetime-local' },
+      { name: 'client_id', label: 'Cliente', type: 'select', isNumeric: true, required: true, options: clienti.map(c => ({ value: c.id, label: c.nome || c.name || '' })), placeholder: 'Seleziona Cliente' },
+      { name: 'site_id', label: <>Sede {extraBelowSite}</>, type: 'select', isNumeric: true, required: true, options: sediOptions, disabled: !selectedClientId, placeholder: selectedClientId ? 'Seleziona Sede' : 'Prima seleziona un cliente' },
+      { name: 'resources', label: 'Risorse abbinate', type: 'custom', render: (formData, handleChange) => <ResourcePairing value={formData.resources || []} onChange={(newValue) => handleChange({ target: { name: 'resources', value: newValue }})} drivers={autisti} vehicles={veicoli} />, required: true },
+      { name: 'activity_type_id', label: 'Tipo Attività', type: 'select', isNumeric: true, required: true, options: tipiAttivita.map(t => ({ value: t.id, label: t.nome || t.name || '' })), placeholder: 'Seleziona Tipo Attività' },
+      { name: 'status', label: 'Stato', type: 'select', required: true, options: [{ value: 'non assegnato', label: 'Non assegnato' }, { value: 'assegnato', label: 'Assegnato' }, { value: 'doc emesso', label: 'Doc emesso' }, { value: 'programmato', label: 'Programmato' }, { value: 'in corso', label: 'In corso' }, { value: 'completato', label: 'Completato' }, { value: 'annullato', label: 'Annullato' }], placeholder: 'Seleziona Stato' },
+      { name: 'note', label: 'Note', type: 'textarea' },
     ];
   };
 
-  useEffect(() => {
-    if (!loading && user) {
-      Promise.all([
-        loadClienti(),
-        loadVeicoli(),
-        loadAutisti(),
-        loadSedi(),
-        loadTipiAttivita()
-      ]).then(() => {
-        fetchAttivita();
-      });
-    } else if (!loading && !user) {
-      setFetching(false);
-    }
-    // eslint-disable-next-line
-  }, [user, loading, currentPage, perPage, searchTerm]);
+  const extraBelowSite = (
+    <button type="button" onClick={() => setIsPopupOpen(true)} disabled={!selectedAttivita?.client_id} className="btn-add-facility" style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '12px' }}>
+      Aggiungi
+    </button>
+  );
 
-  // Effetto per animare la tabella quando il pannello si apre/chiude
+  // Effetto per caricare i dati della tabella (attività) che dipendono dalla paginazione e ricerca
   useEffect(() => {
-    if (isPanelOpen) {
-      // Riduci la larghezza della tabella con un ritardo per l'animazione
-      setTimeout(() => {
-        setTableWidth('60%');
-      }, 50);
-    } else {
-      // Ripristina la larghezza della tabella
-      setTableWidth('100%');
+    const fetchActivities = async () => {
+      if (loading || !user) return;
+      setFetching(true);
+      try {
+        const activitiesParams = { page: currentPage, per_page: perPage, search: searchTerm };
+        const activitiesRes = await api.get('/activities', { params: activitiesParams });
+        const attivitaData = Array.isArray(activitiesRes.data.data) ? activitiesRes.data.data : [];
+        setAttivita(attivitaData);
+        setTotal(activitiesRes.data.total || activitiesRes.data.meta?.total || 0);
+      } catch (err) {
+        console.error("Errore nel caricamento delle attività", err);
+        setError("Impossibile caricare la lista delle attività.");
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    if (!isInitialLoading) { // Esegui solo dopo che i dati iniziali del form sono stati caricati
+        fetchActivities();
     }
-  }, [isPanelOpen]);
-  
-  // Reset degli errori di validazione quando si cambia modalità di editing
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading, currentPage, perPage, searchTerm, isInitialLoading]);
+
+  // Effetto per caricare i dati di supporto per il form (clienti, tipi, etc.) UNA SOLA VOLTA
   useEffect(() => {
-    setValidationErrors({});
-  }, [isEditing]);
-  
-  // Effetto per ricaricare le sedi quando cambia il cliente selezionato
+    const fetchFormData = async () => {
+      if (loading || !user) return;
+      setIsInitialLoading(true);
+      try {
+        const params = { perPage: 9999 };
+        const [clientsRes, typesRes, driversRes, vehiclesRes] = await Promise.all([
+          api.get('/clients', { params }),
+          api.get('/activity-types', { params }),
+          api.get('/drivers', { params }),
+          api.get('/vehicles', { params })
+        ]);
+
+        setClienti(Array.isArray(clientsRes.data.data) ? clientsRes.data.data : []);
+        setTipiAttivita(Array.isArray(typesRes.data.data) ? typesRes.data.data : []);
+        setAutisti(Array.isArray(driversRes.data.data) ? driversRes.data.data : []);
+        setVeicoli(Array.isArray(vehiclesRes.data.data) ? vehiclesRes.data.data : []);
+
+      } catch (err) {
+        console.error("Errore nel caricamento dei dati del form", err);
+        setError("Impossibile caricare i dati necessari per il form.");
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    fetchFormData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading]);
+
+  useEffect(() => {
+    setTableWidth(isPanelOpen ? '60%' : '100%');
+  }, [isPanelOpen]);
+
   useEffect(() => {
     if (selectedAttivita?.client_id) {
       loadSediPerCliente(selectedAttivita.client_id);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAttivita?.client_id]);
-  
-  // Effetto per caricare autisti e veicoli disponibili quando cambiano data e fascia oraria
-  useEffect(() => {
-    if (selectedAttivita?.data_inizio && (selectedAttivita?.time_slot || selectedAttivita?.data_inizio)) {
-      loadAvailableResources();
-    }
-  }, [selectedAttivita?.data_inizio, selectedAttivita?.time_slot]);
-  
-  // Handler specifici rimossi: ora si usa solo handleFieldChange
 
-  const fetchAttivita = async () => {
-    setFetching(true);
-    try {
-      let tipiAttivitaLocali = tipiAttivita;
-      if (tipiAttivitaLocali.length === 0) {
-        const tipiResponse = await api.get("/activity-types");
-        tipiAttivitaLocali = tipiResponse.data;
-        setTipiAttivita(tipiAttivitaLocali);
-      }
-      // Ora carichiamo le attività (paginata e ricercabile)
-      const attivitaResponse = await api.get("/activities", {
-        params: {
-          page: currentPage,
-          perPage: perPage,
-          search: searchTerm,
-          _: new Date().getTime() // Cache-busting parameter
-        }
-      });
-      setTotal(attivitaResponse.data.total || 0);
-      const attivitaArr = Array.isArray(attivitaResponse.data.data) ? attivitaResponse.data.data : [];
-      console.log('[DEBUG] Dati ricevuti da API:', attivitaResponse.data.data);
-      // Se vuoi ordinare le attività per data_inizio (opzionale):
-      // attivitaArr.sort((a, b) => new Date(a.data_inizio) - new Date(b.data_inizio));
-      // Verifica che ogni attività abbia un tipo di attività
-      const attivitaConTipi = attivitaArr.map(attivita => {
-        if (!attivita.activityType && attivita.activity_type_id) {
-          const tipoAttivita = tipiAttivitaLocali.find(tipo => tipo.id === attivita.activity_type_id);
-          if (tipoAttivita) {
-            attivita.activityType = {
-              id: tipoAttivita.id,
-              name: tipoAttivita.name || tipoAttivita.nome,
-              color: tipoAttivita.color || tipoAttivita.colore,
-              nome: tipoAttivita.nome || tipoAttivita.name,
-              colore: tipoAttivita.colore || tipoAttivita.color
-            };
-          }
-        }
-        return attivita;
-      });
-      console.log('[DEBUG] Dati processati per setAttivita (attivitaConTipi):', attivitaConTipi);
-      console.log('[DEBUG] Stato attivita attuale PRIMA di setAttivita:', attivita);
-      setAttivita(attivitaConTipi);
-    } catch (err) {
-      console.error("Errore durante il caricamento:", err);
-      if (err.response && err.response.status === 401) {
-        setError("Sessione scaduta. Effettua nuovamente il login.");
-      } else {
-        setError("Errore nel caricamento delle attività");
-      }
-    } finally {
-      setFetching(false);
-    }
-  };
-
-  const loadClienti = () => {
-    return api.get("/clients", { params: { perPage: 20000 } })
-      .then(res => {
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
-        let clientiData = [];
-        if (Array.isArray(res.data)) {
-          clientiData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          clientiData = res.data.data;
-        } else {
-          console.error("Formato dati clienti non valido:", res.data);
-        }
-        
-        // console.log("Clienti caricati:", clientiData.length);
-        setClienti(clientiData);
-        return clientiData;
-      })
-      .catch(err => {
-        console.error("Errore nel caricamento dei clienti:", err);
-        return [];
-      });
-  };
-
-  const loadVeicoli = () => {
-    return api.get("/vehicles")
-      .then(res => {
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
-        let veicoliData = [];
-        if (Array.isArray(res.data)) {
-          veicoliData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          veicoliData = res.data.data;
-        } else {
-          console.error("Formato dati veicoli non valido:", res.data);
-        }
-        
-        // console.log("Veicoli caricati:", veicoliData.length);
-        setVeicoli(veicoliData);
-        return veicoliData;
-      })
-      .catch(err => {
-        console.error("Errore nel caricamento dei veicoli:", err);
-        return [];
-      });
-  };
-
-  const loadAutisti = () => {
-    return api.get("/drivers")
-      .then(res => {
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
-        let autistiData = [];
-        if (Array.isArray(res.data)) {
-          autistiData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          autistiData = res.data.data;
-        } else {
-          console.error("Formato dati autisti non valido:", res.data);
-        }
-        
-        // console.log("Autisti caricati:", autistiData.length);
-        setAutisti(autistiData);
-        return autistiData;
-      })
-      .catch(err => {
-        console.error("Errore nel caricamento degli autisti:", err);
-        return [];
-      });
-  };
-
-  const loadTipiAttivita = () => {
-    return api.get("/activity-types")
-      .then(res => {
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
-        let tipiData = [];
-        if (Array.isArray(res.data)) {
-          tipiData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          tipiData = res.data.data;
-        } else {
-          console.error("Formato dati tipi attività non valido:", res.data);
-        }
-        
-        // console.log("Tipi di attività caricati:", tipiData.length);
-        setTipiAttivita(tipiData);
-        return tipiData; // Restituisce i dati per poterli usare in una Promise chain
-      })
-      .catch(err => {
-        console.error("Errore nel caricamento dei tipi di attività:", err);
-        return []; // Restituisce un array vuoto in caso di errore
-      });
-  };
-  
-  const loadSedi = () => {
-    return api.get("/sites")
-      .then(res => {
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
-        let sediData = [];
-        if (Array.isArray(res.data)) {
-          sediData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          sediData = res.data.data;
-        } else {
-          console.error("Formato dati sedi non valido:", res.data);
-        }
-        
-        // console.log("Sedi caricate:", sediData.length);
-        setSedi(sediData);
-        return sediData;
-      })
-      .catch(err => {
-        console.error("Errore nel caricamento delle sedi:", err);
-        return [];
-      });
-  };
-  
   const loadSediPerCliente = (clientId) => {
-    console.log('[DEBUG][loadSediPerCliente] chiamata con clientId:', clientId);
     if (!clientId) {
-      console.log("loadSediPerCliente: clientId non valido", clientId);
-      return;
+       setSediPerCliente(prev => ({ ...prev, [String(selectedAttivita.client_id)]: [] }));
+       return Promise.resolve();
     }
-    
-    // Assicurati che clientId sia un numero
-    const numericClientId = Number(clientId);
-    if (isNaN(numericClientId)) {
-      console.error("loadSediPerCliente: clientId non è un numero valido", clientId);
-      return;
-    }
-    
-    console.log("Caricamento sedi per cliente:", numericClientId);
-    
-    // Carica sempre le sedi per assicurarti di avere i dati più aggiornati
-    // Aggiungiamo un parametro per evitare la cache e impostiamo useCache a false
-    api.get(`/clients/${numericClientId}/sites`, {
-      params: { _t: new Date().getTime() },
-      useCache: false
-    })
+    return api.get(`/clients/${clientId}/sites`)
       .then(res => {
-        console.log("Risposta sedi per cliente:", numericClientId, res.data);
-        
-        // Verifica che res.data sia un array o estrai l'array da res.data.data
-        let sediData = [];
-        if (Array.isArray(res.data)) {
-          sediData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          sediData = res.data.data;
-        } else {
-          console.error("Formato dati sedi per cliente non valido:", res.data);
-        }
-        
-        console.log("Sedi caricate per cliente:", numericClientId, sediData.length);
-        setSediPerCliente(prev => ({
-          ...prev,
-          [String(clientId)]: sediData
-        }));
+        setSediPerCliente(prev => ({ ...prev, [String(clientId)]: res.data.data || [] }));
       })
-      .catch(err => {
-        console.error(`Errore nel caricamento delle sedi per il cliente ${numericClientId}:`, err);
-        
-        // Log dettagliato dell'errore
-        if (err.response) {
-          console.error("Dettagli errore:", {
-            status: err.response.status,
-            data: err.response.data,
-            headers: err.response.headers
-          });
-        
-          // In caso di errore, imposta un array vuoto per evitare errori
-          setSediPerCliente(prev => ({
-            ...prev,
-            [String(clientId)]: []
-          }));
-        } else if (err.request) {
-          console.error("Nessuna risposta ricevuta:", err.request);
-        } else {
-          console.error("Errore di configurazione:", err.message);
-        }
-      });
-  };
-  
-  const loadAvailableResources = () => {
-    if (!selectedAttivita?.data_inizio) return;
-    
-    // Estrai solo la data dalla data_inizio (formato ISO)
-    const date = selectedAttivita.data_inizio.split('T')[0];
-    const timeSlot = selectedAttivita.time_slot || 'full_day';
-    
-    console.log("Caricamento risorse disponibili per:", { date, timeSlot });
-    
-    api.get(`/available-resources?date=${date}&time_slot=${timeSlot}`)
-      .then(res => {
-        console.log("Risorse disponibili:", res.data);
-        
-        // Aggiorna gli autisti e i veicoli disponibili
-        if (res.data.drivers) {
-          setAutisti(res.data.drivers);
-        }
-        
-        if (res.data.vehicles) {
-          setVeicoli(res.data.vehicles);
-        }
-      })
-      .catch(err => {
-        console.error("Errore nel caricamento delle risorse disponibili:", err);
-        // In caso di errore, carica tutti gli autisti e veicoli
-        loadAutisti();
-        loadVeicoli();
+      .catch(() => {
+        setSediPerCliente(prev => ({ ...prev, [String(clientId)]: [] }));
       });
   };
 
   const handleViewDetails = (item) => {
-    // Aggiorna la query string per aprire la SidePanel su quell'attività
-    router.push(`/attivita?open=${item.id}`);
+    const newItem = JSON.parse(JSON.stringify(item)); // Deep copy
+
+    // Preserva le risorse originali per la mappa
+    newItem.originalResources = newItem.resources;
+
+    if (newItem.resources && Array.isArray(newItem.resources)) {
+      const resourcesByVehicle = newItem.resources.reduce((acc, resource) => {
+        if (!resource.vehicle) return acc;
+        const vehicleId = resource.vehicle.id;
+        if (!acc[vehicleId]) {
+          acc[vehicleId] = {
+            vehicle_id: String(vehicleId),
+            driver_ids: [],
+          };
+        }
+        if (resource.driver) {
+          acc[vehicleId].driver_ids.push(String(resource.driver.id));
+        }
+        return acc;
+      }, {});
+      newItem.resources = Object.values(resourcesByVehicle);
+    }
+
+    if (!newItem.status && newItem.stato) {
+      newItem.status = String(newItem.stato).toLowerCase().replace(/_/g, ' ');
+    } else if (newItem.status) {
+      const statusReverseMap = { 'planned': 'programmato', 'in_progress': 'in corso', 'completed': 'completato', 'cancelled': 'annullato', 'doc_issued': 'doc emesso', 'assigned': 'assegnato', 'unassigned': 'non assegnato' };
+      newItem.status = statusReverseMap[newItem.status] || newItem.status.replace(/_/g, ' ');
+    }
+    setSelectedAttivita(newItem);
+    setIsPanelOpen(true);
+    setIsEditingState(false);
+    setValidationErrors({});
+    if (newItem.client_id) loadSediPerCliente(newItem.client_id);
+    router.push(`/attivita?open=${item.id}`, { scroll: false });
   };
 
   const handleClosePanel = () => {
-    // Rimuovi il param "open" dalla query string
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('open');
-    router.replace(`/attivita${params.toString() ? '?' + params.toString() : ''}`);
+    router.push('/attivita', { scroll: false });
     setIsPanelOpen(false);
     setSelectedAttivita(null);
-    setIsEditing(false);
-    setValidationErrors({});
   };
 
+  const handleCreateNew = () => {
+    const now = new Date();
+    const dataInizio = toInputDatetimeLocal(now.toISOString());
+    setSelectedAttivita({ data_inizio: dataInizio, data_fine: dataInizio, status: 'non assegnato', resources: [] });
+    setIsEditing(true);
+    setIsPanelOpen(true);
+    setValidationErrors({});
+    router.push('/attivita?new=1', { scroll: false });
+  };
 
   const handleSaveAttivita = async (formData) => {
+    console.log('handleSaveAttivita called with:', formData);
     setIsSaving(true);
     setValidationErrors({});
-    
-    try {
-      // Assicuriamoci che i campi ID siano numeri
-      const preparedData = { ...formData };
-      // Mappa i valori italiani di status verso quelli inglesi accettati dal backend
-      const statusMap = {
-        'non assegnato': 'unassigned',
-        'assegnato': 'assigned',
-        'doc emesso': 'doc_issued',
-        'programmato': 'planned',
-        'in corso': 'in_progress',
-        'completato': 'completed',
-        'annullato': 'cancelled'
-      };
-      if (preparedData.status) {
-        preparedData.status = statusMap[preparedData.status.toLowerCase()] || 'planned';
-      }
+    const dataToSave = { ...formData };
 
-      // PATCH: non manipolare mai data_inizio/data_fine, invia esattamente il valore dell'input
-      console.log('[DEBUG][handleSaveAttivita] preparedData.status dopo mappatura:', preparedData.status);
-      if (formData.data_inizio) preparedData.data_inizio = formData.data_inizio;
-      if (formData.data_fine) preparedData.data_fine = formData.data_fine;
+    if (dataToSave.resources) {
+      const flattenedResources = dataToSave.resources.flatMap(pair => 
+        (pair.driver_ids && pair.driver_ids.length > 0) ? pair.driver_ids.map(driverId => ({
+          vehicle_id: pair.vehicle_id,
+          driver_id: driverId
+        })) : (pair.vehicle_id ? [{ vehicle_id: pair.vehicle_id, driver_id: null }] : [])
+      );
+      dataToSave.resources = flattenedResources.filter(r => r.vehicle_id);
+    }
+
+    const statusMap = { 'programmato': 'planned', 'in corso': 'in_progress', 'completato': 'completed', 'annullato': 'cancelled', 'doc emesso': 'doc_issued', 'assegnato': 'assigned', 'non assegnato': 'unassigned' };
+    dataToSave.status = statusMap[dataToSave.status] || 'planned';
+    delete dataToSave.stato;
+
+    console.log('Data to save:', dataToSave);
+    console.log('Is edit mode:', isEditMode);
+    console.log('Selected attivita:', selectedAttivita);
+    console.log('Selected attivita ID:', selectedAttivita?.id);
+
+    try {
+      const response = isEditMode ? await api.put(`/activities/${selectedAttivita.id}`, dataToSave) : await api.post('/activities', dataToSave);
+      console.log('Save response:', response);
       
-      // Converti gli ID in numeri
-      ['client_id', 'site_id', 'driver_id', 'vehicle_id', 'activity_type_id'].forEach(field => {
-        if (preparedData[field]) {
-          preparedData[field] = Number(preparedData[field]);
-        }
-      });
+      // Ricarica la lista delle attività
+      console.log('Reloading activities...');
+      const activitiesParams = { page: currentPage, per_page: perPage, search: searchTerm };
+      const activitiesRes = await api.get('/activities', { params: activitiesParams });
+      const attivitaData = Array.isArray(activitiesRes.data.data) ? activitiesRes.data.data : [];
+      setAttivita(attivitaData);
+      setTotal(activitiesRes.data.total || activitiesRes.data.meta?.total || 0);
+      console.log('Activities reloaded:', attivitaData.length, 'items');
       
-      // Assicurati che time_slot sia impostato
-      if (!preparedData.time_slot) {
-        preparedData.time_slot = 'full_day';
-      }
-      
-      // Assicurati che le date siano nel formato corretto
-      if (preparedData.data_inizio && typeof preparedData.data_inizio === 'string') {
-        // Estrai solo la data se è in formato datetime-local
-        if (preparedData.data_inizio.includes('T')) {
-          const [date, time] = preparedData.data_inizio.split('T');
-          preparedData.date = date; // Imposta anche il campo date per il backend
-        }
-      }
-      
-      // Se data_fine non è impostata, usa data_inizio
-      if (!preparedData.data_fine && preparedData.data_inizio) {
-        preparedData.data_fine = preparedData.data_inizio;
-      }
-      
-      // Assicura che il campo status venga sempre inviato (NON sovrascrivere la mappatura inglese)
-      // delete preparedData.stato; // Non inviare mai 'stato', solo 'status'
-      if (!preparedData.status && preparedData.stato) {
-        preparedData.status = String(preparedData.stato).toLowerCase();
-      }
-      delete preparedData.stato;
-      
-      // Genera automaticamente un titolo basato sulla data e sul cliente
-      let clienteNome = '';
-      if (Array.isArray(clienti)) {
-        const cliente = clienti.find(c => c.id === Number(preparedData.client_id));
-        clienteNome = cliente?.nome || '';
-      } else {
-        console.warn('clienti non è un array:', clienti);
-      }
-      const dataFormattata = new Date(preparedData.data_inizio).toLocaleDateString();
-      preparedData.titolo = `${clienteNome} - ${dataFormattata}`;
-      console.log('Titolo generato automaticamente:', preparedData.titolo);
-      
-      // Aggiungi informazioni sul tipo di attività
-      if (preparedData.activity_type_id) {
-        const tipoAttivita = tipiAttivita.find(tipo => tipo.id === Number(preparedData.activity_type_id));
-        if (tipoAttivita) {
-          console.log('Tipo attività trovato:', tipoAttivita);
-          preparedData.activityType = {
-            id: tipoAttivita.id,
-            name: tipoAttivita.name || tipoAttivita.nome,
-            color: tipoAttivita.color || tipoAttivita.colore,
-            nome: tipoAttivita.nome || tipoAttivita.name,
-            colore: tipoAttivita.colore || tipoAttivita.color
-          };
-        }
-      }
-      
-      // Log per debug
-      console.log('Dati attività da salvare:', preparedData);
-      
-      let response;
-      if (preparedData.id) {
-        // Aggiornamento
-        console.log('[DEBUG][PUT] Payload inviato:', preparedData);
-        console.log(`Invio richiesta PUT a /activities/${preparedData.id}`);
-        response = await api.put(`/activities/${preparedData.id}`, preparedData);
-        console.log('Risposta aggiornamento attività:', response.data);
-        
-        // Aggiorna la lista delle attività
-        // setAttivita(prev => 
-        //   prev.map(a => a.id === preparedData.id ? response.data : a)
-        // ); // Commentato: fetchAttivita dovrebbe ricaricare i dati aggiornati
-        
-        // Aggiorna l'attività selezionata
-        setSelectedAttivita(response.data);
-        
-        // Mostra un messaggio di successo
-        // alert('Attività aggiornata con successo!'); // Sostituito con notifica toast
-        // showToast('Attività aggiornata con successo!', 'success'); // Implementare showToast se necessario
-        if (typeof showToast === 'function') showToast('Attività aggiornata con successo!', 'success'); else alert('Attività aggiornata con successo!');
-      } else {
-        // Creazione
-        console.log('[DEBUG][POST] Payload inviato:', preparedData);
-        console.log('Invio richiesta POST a /activities');
-        response = await api.post('/activities', preparedData);
-        console.log('Risposta creazione attività:', response.data);
-        
-        // Aggiorna la lista delle attività
-        // setAttivita(prev => [...prev, response.data]); // Commentato: fetchAttivita dovrebbe ricaricare i dati aggiornati
-        
-        // Seleziona la nuova attività
-        setSelectedAttivita(response.data);
-        
-        // Mostra un messaggio di successo
-        alert('Attività creata con successo!');
-      }
-      
-      setIsEditing(false);
-      await fetchAttivita(); // Ricarica i dati della tabella
-      handleClosePanel(); // Chiudi il pannello dopo il salvataggio e il refresh dei dati
+      console.log('Closing panel...');
+      handleClosePanel();
     } catch (err) {
-      console.error("Errore durante il salvataggio:", err);
-      
-      // Gestione specifica degli errori di validazione (422)
-      if (err.response && err.response.status === 422) {
-        console.error("Errori di validazione:", err.response.data);
-        
-        // Se il backend restituisce errori di validazione in formato Laravel
-        if (err.response.data.errors) {
-          setValidationErrors(err.response.data.errors);
-          
-          // Crea un messaggio di errore leggibile
-          const errorMessages = Object.entries(err.response.data.errors)
-            .map(([field, messages]) => {
-              // Trova il label del campo per un messaggio più user-friendly
-              const fields = getAttivitaFields(selectedAttivita);
-              const fieldConfig = fields.find(f => f.name === field);
-              const fieldLabel = fieldConfig ? fieldConfig.label : field;
-              return `${fieldLabel}: ${messages.join(', ')}`;
-            })
-            .join('\n');
-          
-          // alert(`Errori di validazione:\n${errorMessages}`); // Sostituito con notifica toast
-          // showToast(`Errori di validazione:\n${errorMessages}`, 'error');
-          if (typeof showToast === 'function') showToast(`Errori di validazione:\n${errorMessages}`, 'error'); else alert(`Errori di validazione:\n${errorMessages}`);
-          setIsEditing(true); // Mantiene il form aperto per correzioni
-        } else {
-          // Fallback se il formato è diverso
-          // alert("Si sono verificati errori di validazione. Controlla i dati inseriti."); // Sostituito con notifica toast
-          // showToast("Si sono verificati errori di validazione. Controlla i dati inseriti.", 'error');
-          if (typeof showToast === 'function') showToast("Si sono verificati errori di validazione. Controlla i dati inseriti.", 'error'); else alert("Si sono verificati errori di validazione. Controlla i dati inseriti.");
-          setIsEditing(true); // Mantiene il form aperto per correzioni
-        }
-      } else if (err.response) {
-        // Altri errori HTTP
-        console.error("Dettagli errore:", {
-          status: err.response.status,
-          data: err.response.data,
-          headers: err.response.headers
-        });
-        
-        // Mostra un messaggio più specifico se disponibile
-        const errorMessage = err.response.data?.message || "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
-        // alert(`Errore ${err.response.status}: ${errorMessage}`); // Sostituito con notifica toast
-        // showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error');
-        if (typeof showToast === 'function') showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error'); else alert(`Errore ${err.response.status}: ${errorMessage}`);
-        setIsEditing(true); // Mantiene il form aperto per correzioni
-      } else if (err.request) {
-        console.error("Nessuna risposta ricevuta:", err.request);
-        // alert("Nessuna risposta dal server. Verifica la connessione di rete."); // Sostituito con notifica toast
-        // showToast("Nessuna risposta dal server. Verifica la connessione di rete.", 'error');
-        if (typeof showToast === 'function') showToast("Nessuna risposta dal server. Verifica la connessione di rete.", 'error'); else alert("Nessuna risposta dal server. Verifica la connessione di rete.");
-        setIsEditing(true); // Mantiene il form aperto per correzioni
+      console.error('Save error:', err);
+      if (err.response?.status === 422) {
+        setValidationErrors(err.response.data.errors);
+        console.log('Validation errors:', err.response.data.errors);
       } else {
-        console.error("Errore non HTTP:", err.message);
-        // alert("Si è verificato un errore imprevisto durante il salvataggio."); // Sostituito con notifica toast
-        // showToast("Si è verificato un errore imprevisto durante il salvataggio.", 'error');
-        if (typeof showToast === 'function') showToast("Si è verificato un errore imprevisto durante il salvataggio.", 'error'); else alert("Si è verificato un errore imprevisto durante il salvataggio.");
-        setIsEditing(true); // Mantiene il form aperto per correzioni
+        console.error('Unexpected error:', err.response?.data || err.message);
       }
     } finally {
       setIsSaving(false);
+      console.log('Save process finished');
     }
   };
 
   const handleDeleteAttivita = async (id) => {
     if (!id) return;
-    
     setIsDeleting(true);
     try {
       await api.delete(`/activities/${id}`);
-      
-      // Rimuovi l'attività dalla lista
       setAttivita(prev => prev.filter(a => a.id !== id));
-      
-      // Chiudi il pannello
       handleClosePanel();
     } catch (err) {
-      console.error("Errore durante l'eliminazione:", err);
-      
-      // Mostra dettagli dell'errore per il debug
-      if (err.response) {
-        console.error("Dettagli errore:", {
-          status: err.response.status,
-          data: err.response.data,
-          headers: err.response.headers
-        });
-        
-        // Mostra un messaggio più specifico se disponibile
-        const errorMessage = err.response.data?.message || "Si è verificato un errore durante l'eliminazione. Riprova più tardi.";
-        // alert(`Errore ${err.response.status}: ${errorMessage}`); // Sostituito con notifica toast
-        // showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error');
-        if (typeof showToast === 'function') showToast(`Errore ${err.response.status}: ${errorMessage}`, 'error'); else alert(`Errore ${err.response.status}: ${errorMessage}`);
-      } else {
-        // alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi."); // Sostituito con notifica toast
-        // showToast("Si è verificato un errore durante l'eliminazione. Riprova più tardi.", 'error');
-        if (typeof showToast === 'function') showToast("Si è verificato un errore durante l'eliminazione. Riprova più tardi.", 'error'); else alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi.");
-      }
+      console.error("Errore eliminazione", err);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  
-
-const handleCreateNew = () => {
-  const now = new Date();
-  // Ottieni la data e ora locale Europe/Rome in formato YYYY-MM-DDTHH:mm
-  const toDatetimeLocal = (date) => {
-    const tzDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
-    const year = tzDate.getFullYear();
-    const month = String(tzDate.getMonth() + 1).padStart(2, '0');
-    const day = String(tzDate.getDate()).padStart(2, '0');
-    const hour = String(tzDate.getHours()).padStart(2, '0');
-    const minute = String(tzDate.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hour}:${minute}`;
+  const getStatusColor = (stato) => {
+    const colors = { 'non assegnato': '#3b82f6', 'assegnato': '#eab308', 'doc emesso': '#ef4444', 'programmato': '#8b5cf6', 'programmata': '#8b5cf6', 'in corso': '#f97316', 'completato': '#22c55e', 'completata': '#22c55e', 'annullato': '#ec4899', 'annullata': '#ec4899' };
+    return colors[String(stato)?.toLowerCase()] || '#6b7280';
   };
-  const dataInizio = toDatetimeLocal(now);
-  setSelectedAttivita({
-    data_inizio: dataInizio,
-    data_fine: dataInizio,
-    status: 'programmato',
-    client_id: '',
-    site_id: ''
-  });
-  setIsEditing(true);
-  setIsPanelOpen(true);
-  setValidationErrors({});
-};
 
-// Funzione per ottenere il colore dello stato
-const getStatusColor = (stato) => {
-  switch (stato?.toLowerCase()) {
-    case 'non assegnato':
-      return '#3b82f6'; // Blu
-    case 'assegnato':
-      return '#eab308'; // Giallo
-    case 'doc emesso':
-      return '#ef4444'; // Rosso
-    case 'programmato':
-    case 'programmata':
-      return '#8b5cf6'; // Viola
-    case 'in corso':
-      return '#f97316'; // Arancione
-    case 'completato':
-    case 'completata':
-      return '#22c55e'; // Verde
-    case 'annullato':
-    case 'annullata':
-      return '#ec4899'; // Rosa
-    default:
-      return '#6b7280'; // Grigio scuro
-  }
-};
-
-if (loading || fetching) return <div className="centered">Caricamento...</div>;
-if (error) return <div className="centered">{error}</div>;
-
-console.log('[DEBUG] Stato attivita PRIMA di render DataTable:', attivita);
-return (
-  <div style={{ padding: 32 }}>
-    <PageHeader 
-      title="Attività" 
-      buttonLabel="Nuova Attività" 
-      onAddClick={handleCreateNew} 
-    />
-      <div 
-        style={{ 
-          transition: 'width 0.3s ease-in-out',
-          width: tableWidth,
-          overflow: 'hidden'
-        }}
-      >
-        <DataTable 
-          data={Array.isArray(attivita) ? attivita : []}
-          columns={[
-            {
-              key: 'client.nome',
-              label: 'Cliente',
-              render: (item) => item.client ? item.client.nome : 'N/D'
-            },
-            {
-              key: 'site.nome',
-              label: 'Sede',
-              render: (item) => item.site ? item.site.nome : 'N/D'
-            },
-            {
-              key: 'descrizione',
-              label: 'Descrizione Attività',
-              render: (item) => item.descrizione || item.titolo || 'N/D'
-            },
-            {
-              key: 'orario',
-              label: 'Orario',
-              render: (item) => {
-                const inizio = formatDate(item.data_inizio);
-                const fine = formatDate(item.data_fine);
-                return (
-                  <span>{inizio}{fine && fine !== inizio ? ' → ' + fine : ''}</span>
-                );
-              }
-            },
-            {
-              key: 'driver',
-              label: 'Autista',
-              render: (item) => item.driver ? `${item.driver.nome} ${item.driver.cognome}` : 'N/D'
-            },
-            {
-              key: 'vehicle',
-              label: 'Veicolo',
-              render: (item) => item.vehicle ? (item.vehicle.targa ? `${item.vehicle.targa} (${item.vehicle.modello || ''})` : item.vehicle.modello || 'N/D') : 'N/D'
-            },
-            {
-              key: 'activityType',
-              label: 'Tipologia di Attività',
-              render: (item) => {
-                if (!item.activityType && item.activity_type_id) {
-                  const tipoAttivita = tipiAttivita.find(tipo => tipo.id === item.activity_type_id);
-                  if (tipoAttivita) {
-                    item.activityType = {
-                      id: tipoAttivita.id,
-                      name: tipoAttivita.name || tipoAttivita.nome,
-                      color: tipoAttivita.color || tipoAttivita.colore,
-                      nome: tipoAttivita.nome || tipoAttivita.name,
-                      colore: tipoAttivita.colore || tipoAttivita.color
-                    };
-                  } else {
-                    return `ID: ${item.activity_type_id}`;
-                  }
-                }
-                const tipo = item.activityType;
-                if (!tipo) return 'N/D';
-                const color = tipo.colore || tipo.color || '#007aff';
-                const nome = tipo.nome || tipo.name || 'N/D';
-                return (
-                  <span style={{
-                    display: 'inline-block',
-                    padding: '0.2em 0.6em',
-                    borderRadius: '0.25em',
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: '#fff',
-                    backgroundColor: color.startsWith('#') ? color : '#007aff'
-                  }}>{nome}</span>
-                );
-              }
-            },
-            {
-              key: 'status',
-              label: 'Stato',
-              render: (item) => (
-                <span style={{
-                  display: 'inline-block',
-                  padding: '0.2em 0.6em',
-                  borderRadius: '0.25em',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: '#fff',
-                  backgroundColor: getStatusColor(item.status)
-                }}>{item.status || 'N/D'}</span>
-              )
-            },
-            {
-              key: 'actions',
-              label: 'Azioni',
-              render: (item) => (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleViewDetails(item);
-                  }}
-                  style={{
-                    background: 'var(--primary)',
-                    color: '#fff',
-                    borderRadius: 6,
-                    padding: '0.4em 1em',
-                    fontSize: 14,
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Dettagli
-                </button>
-              )
-            }
-          ]}
-        />
-
-    {/* Pannello laterale per i dettagli */}
-    <SidePanel 
-      isOpen={isPanelOpen} 
-      onClose={handleClosePanel} 
-      title={isEditing ? "Modifica Attività" : "Dettagli Attività"}
-    >
-      {selectedAttivita && (
-        <EntityForm
-          key={`form-${selectedAttivita.client_id || ''}-${(sediPerCliente[selectedAttivita.client_id || ''] || []).length}`}
-          data={selectedAttivita}
-          fields={getAttivitaFields(selectedAttivita).map(field => ({
-            ...field,
-            onChange: handleFieldChange,
-            error: validationErrors[field.name] ? validationErrors[field.name][0] : null
-          }))}
-          onSave={handleSaveAttivita}
-          onDelete={handleDeleteAttivita}
-          isEditing={isEditing}
-          setIsEditing={setIsEditing}
-          isLoading={isSaving || isDeleting}
-          extraBelowSite={
-            <button
-              type="button"
-              onClick={() => setIsPopupOpen(true)}
-              style={{ marginTop: 8, width: '100%', background: '#e5e5ea', color: '#333', border: '1px solid #ccc', borderRadius: 8, padding: '8px', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }}
-            >
-              + Aggiungi Sede
-            </button>
+  const columns = useMemo(() => [
+    { key: 'client.nome', label: 'Cliente', render: (item) => item.client?.nome || 'N/D' },
+    { key: 'site.nome', label: 'Sede', render: (item) => item.site?.nome || 'N/D' },
+    { key: 'orario', label: 'Orario', render: (item) => <span>{formatDate(item.data_inizio)}{item.data_fine && item.data_fine !== item.data_inizio ? ' → ' + formatDate(item.data_fine) : ''}</span> },
+    { key: 'resources', label: 'Risorse', render: (item) => {
+        if (!item.resources || item.resources.length === 0) return 'N/D';
+        
+        const resourcesByVehicle = item.resources.reduce((acc, resource) => {
+          if (!resource.vehicle) return acc;
+          const vehicleKey = `${resource.vehicle.targa || resource.vehicle.modello || resource.vehicle.marca || 'Veicolo'}`;
+          if (!acc[vehicleKey]) {
+            acc[vehicleKey] = [];
           }
-        />
-      )}
-    </SidePanel>
+          if (resource.driver) {
+            acc[vehicleKey].push(`${resource.driver.nome} ${resource.driver.cognome}`);
+          }
+          return acc;
+        }, {});
 
-    {/* Popup globale, sempre centrato sulla viewport */}
-    <AddFacilityPopup
-      isOpen={isPopupOpen}
-      onClose={() => setIsPopupOpen(false)}
-      onFacilityAdded={async (nuovaSede) => {
-        if (!selectedAttivita?.client_id) return;
-        try {
-          const res = await api.get(`/clients/${selectedAttivita.client_id}/sites`);
-          setSediPerCliente(prev => ({
-            ...prev,
-            [selectedAttivita.client_id]: Array.isArray(res.data) ? res.data : res.data.data || []
-          }));
-          // Seleziona automaticamente la nuova sede appena creata
-          setSelectedAttivita(prev => ({
-            ...prev,
-            site_id: nuovaSede.id
-          }));
-        } catch (err) {
-          setSediPerCliente(prev => ({ ...prev, [selectedAttivita.client_id]: [] }));
-        }
-        setIsPopupOpen(false);
-      }}
-      entityData={selectedAttivita}
-      clienti={clienti}
-    />
-  </div>
-</div>
-);
+        return (
+          <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+            {Object.entries(resourcesByVehicle).map(([vehicle, drivers], index) => (
+              <li key={index}>
+                <strong>{vehicle}:</strong> {drivers.join(', ') || 'Nessun autista'}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+    },
+    { key: 'activityType', label: 'Tipologia', render: (item) => {
+        const tipo = item.activityType || tipiAttivita.find(t => t.id === item.activity_type_id);
+        if (!tipo) return 'N/D';
+        return <span className='badge' style={{ backgroundColor: tipo.color || tipo.colore || 'grey' }}>{tipo.name || tipo.nome}</span>;
+      }
+    },
+    { key: 'status', label: 'Stato', render: (item) => <span className='badge' style={{ backgroundColor: getStatusColor(item.status || item.stato) }}>{(item.status || item.stato || 'N/D').replace(/_/g, ' ')}</span> },
+    { key: 'actions', label: 'Azioni', render: (item) => <button data-id={item.id} className='btn-secondary btn-details'>Dettagli</button> }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [tipiAttivita]);
+
+  useEffect(() => {
+    const clickHandler = (e) => {
+      if (e.target.matches('.btn-details')) {
+        const id = e.target.dataset.id;
+        const item = attivita.find(a => String(a.id) === id);
+        if (item) handleViewDetails(item);
+      }
+    };
+    document.addEventListener('click', clickHandler);
+    return () => document.removeEventListener('click', clickHandler);
+  }, [attivita]);
+
+  if (loading) return <div className="centered">Caricamento...</div>;
+  if (error) return <div className="centered">{error}</div>;
+
+  return (
+    <div style={{ padding: 32 }}>
+      <PageHeader title="Attività" buttonLabel="Nuova Attività" onAddClick={handleCreateNew} />
+      <div style={{ transition: 'width 0.3s ease-in-out', width: tableWidth, overflow: 'hidden' }}>
+        {isPopupOpen && selectedAttivita?.client_id && <AddFacilityPopup isOpen={isPopupOpen} onClose={() => setIsPopupOpen(false)} onFacilityAdded={handleSedeAdded} entityData={{client_id: selectedAttivita.client_id, client_name: clienti.find(c => c.id === selectedAttivita.client_id)?.nome || clienti.find(c => c.id === selectedAttivita.client_id)?.name || ''}} clienti={clienti} />}
+        <DataTable
+          data={Array.isArray(attivita) ? attivita : []}
+          columns={columns}
+          onRowClick={handleViewDetails}
+          pagination={{ total, currentPage, perPage, onPageChange: setCurrentPage, onPerPageChange: setPerPage }}
+          search={{ value: searchTerm, onSearch: setSearchTerm }}
+          isStriped={true}
+          isHoverable={true}
+          isLoading={fetching}
+        />
+      </div>
+      {isPanelOpen && selectedAttivita && (
+        <SidePanel isOpen={isPanelOpen} onClose={handleClosePanel} title={isNew ? 'Nuova Attività' : (isEditing ? 'Modifica Attività' : 'Dettagli Attività')}>
+          <EntityForm
+            fields={getAttivitaFields(selectedAttivita)}
+            data={selectedAttivita}
+            onFormChange={handleFormChange}
+            onSave={handleSaveAttivita}
+            onDelete={() => handleDeleteAttivita(selectedAttivita.id)}
+            isEditing={isEditing}
+            setIsEditing={setIsEditing}
+            isSaving={isSaving}
+            isDeleting={isDeleting}
+            validationErrors={validationErrors}
+          />
+          
+          {/* Mappa dei veicoli */}
+          {(() => {
+            console.log('DEBUG: Condizione mappa - selectedAttivita:', !!selectedAttivita, 'activityVehicles.length:', activityVehicles.length);
+            return selectedAttivita && activityVehicles.length > 0;
+          })() && (
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e5ea' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#333' }}>
+                  Posizione Veicoli
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {isTracking && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#666' }}>
+                      <div style={{ 
+                        width: '8px', 
+                        height: '8px', 
+                        backgroundColor: '#22c55e', 
+                        borderRadius: '50%',
+                        animation: 'pulse 2s infinite'
+                      }}></div>
+                      Tracking attivo
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={refreshPositions}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #e5e5ea',
+                      borderRadius: '6px',
+                      backgroundColor: '#fff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    🔄 Aggiorna
+                  </button>
+                </div>
+              </div>
+              
+              {lastUpdate && (
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
+                  Ultimo aggiornamento: {lastUpdate.toLocaleTimeString('it-IT')}
+                </div>
+              )}
+              
+              <VehicleMap
+                vehicles={vehiclePositions}
+                height="350px"
+                onVehicleClick={(vehicle) => {
+                  console.log('Veicolo cliccato:', vehicle);
+                }}
+              />
+              
+              {vehiclePositions.length === 0 && (
+                <div style={{
+                  height: '350px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#f9f9f9',
+                  border: '1px solid #e5e5ea',
+                  borderRadius: '8px',
+                  color: '#666',
+                  textAlign: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>📍</div>
+                    <div>Nessuna posizione disponibile</div>
+                    <div style={{ fontSize: '14px', marginTop: '4px' }}>
+                      I veicoli appariranno qui quando saranno disponibili i dati GPS
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SidePanel>
+      )}
+    </div>
+  );
 }
 
-// Componente principale che avvolge AttivitaContent in un Suspense
 export default function AttivitaPage() {
   return (
-    <Suspense fallback={<div className="centered">Caricamento...</div>}>
+    <Suspense fallback={<div className="centered">Caricamento attività...</div>}>
       <AttivitaContent />
     </Suspense>
   );

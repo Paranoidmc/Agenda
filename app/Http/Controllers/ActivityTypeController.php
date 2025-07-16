@@ -29,7 +29,9 @@ class ActivityTypeController extends Controller
             return $type;
         });
         
-        return response()->json($activityTypes);
+        return response()->json([
+            'data' => $activityTypes
+        ]);
     }
 
     /**

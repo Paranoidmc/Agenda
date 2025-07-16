@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vehicle extends Model
@@ -43,9 +44,9 @@ class Vehicle extends Model
         'power_kw' => 'decimal:2',
     ];
 
-    public function activities(): HasMany
+        public function activities()
     {
-        return $this->hasMany(Activity::class);
+        return $this->belongsToMany(Activity::class, 'activity_vehicle');
     }
 
     public function deadlines(): HasMany

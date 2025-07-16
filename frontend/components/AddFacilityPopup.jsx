@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 
 const AddFacilityPopup = ({ isOpen, onClose, onFacilityAdded, entityData, clienti }) => {
@@ -14,6 +14,23 @@ const AddFacilityPopup = ({ isOpen, onClose, onFacilityAdded, entityData, client
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Reset form when popup opens or entityData changes
+    useEffect(() => {
+        if (isOpen) {
+            setForm({
+                name: entityData?.name || '',
+                indirizzo: '',
+                cap: '',
+                citta: '',
+                provincia: '',
+                note: '',
+                client_id: entityData?.client_id || (clienti && clienti.length > 0 ? clienti[0].id : ''),
+                client_name: entityData?.client_name || (clienti && clienti.length > 0 ? (clienti[0].nome || clienti[0].name) : '')
+            });
+            setError('');
+        }
+    }, [isOpen, entityData, clienti]);
 
     // Aggiorna client_name quando cambia il client_id
     const handleClientChange = (e) => {
@@ -160,7 +177,7 @@ const AddFacilityPopup = ({ isOpen, onClose, onFacilityAdded, entityData, client
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    z-index: 1000;
+                    z-index: 1100;
                 }
                 .styled-popup-content {
                     background: #fff;

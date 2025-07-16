@@ -44,7 +44,9 @@ class DriverController extends Controller
                 
                 return $driver;
             });
-            return response()->json($drivers);
+            return response()->json([
+                'data' => $drivers
+            ]);
         }
         
         $perPage = $request->input('perPage', 25);

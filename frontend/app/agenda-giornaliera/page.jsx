@@ -261,33 +261,36 @@ export default function AgendaGiornalieraPage() {
 
   // Funzione per ottenere il contenuto dell'evento in base alla vista
   const getEventContent = (event) => {
-    // Ottieni il nome completo dell'autista
-    const driverFullName = event.data?.driver ? 
-      `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : 
-      event.driverName || 'N/D';
-    
+    // Mostra tutti gli autisti e veicoli associati
+    const drivers = Array.isArray(event.driverList) && event.driverList.length > 0
+      ? event.driverList.join(', ')
+      : (event.driverName || 'N/D');
+    const vehicles = Array.isArray(event.vehicleList) && event.vehicleList.length > 0
+      ? event.vehicleList.join(', ')
+      : (event.vehicleName || 'N/D');
+
     // Ottieni la descrizione dell'attività
     const description = event.data?.descrizione || event.data?.description || event.description || '';
-    
+
     // Ottieni il tipo di attività
     const activityType = event.data?.activityType?.nome || 
                          event.data?.activityType?.name || 
                          event.activityTypeName || 
                          '';
-    
+
     // Crea una stringa con tipo di attività e descrizione se disponibili
     const activityInfo = [
       activityType ? `[${activityType}]` : '',
       description ? description : ''
     ].filter(Boolean).join(' ');
-    
-    // Contenuto base: mostra autista e veicolo
-    const baseContent = `${driverFullName} - ${event.vehicleName || 'N/D'}`;
-    
+
+    // Contenuto base: mostra TUTTI gli autisti e veicoli
+    const baseContent = `${drivers} - ${vehicles}`;
+
     // Aggiungi le informazioni sull'attività se disponibili
     return activityInfo ? `${baseContent}\n${activityInfo}` : baseContent;
   };
-  
+
   // Stato per il menu di esportazione
   const [showExportMenu, setShowExportMenu] = useState(false);
   
@@ -338,7 +341,7 @@ export default function AgendaGiornalieraPage() {
     
     return { filename, filters };
   };
-  
+
   // Funzione per esportare il calendario in Excel
   const handleExportToExcel = () => {
     try {
@@ -355,7 +358,7 @@ export default function AgendaGiornalieraPage() {
       alert('Si è verificato un errore durante l\'esportazione in Excel. Riprova più tardi.');
     }
   };
-  
+
   // Funzione per esportare il calendario in HTML
   const handleExportToHTML = () => {
     try {
@@ -372,15 +375,15 @@ export default function AgendaGiornalieraPage() {
       alert('Si è verificato un errore durante l\'esportazione in HTML. Riprova più tardi.');
     }
   };
-  
+
   // Funzione per gestire il menu di esportazione
   const handleExportClick = () => {
     setShowExportMenu(!showExportMenu);
   };
-  
+
   // Riferimento al menu di esportazione
   const exportMenuRef = React.useRef(null);
-  
+
   // Effetto per chiudere il menu quando si fa clic all'esterno
   useEffect(() => {
     function handleClickOutside(event) {
@@ -388,12 +391,12 @@ export default function AgendaGiornalieraPage() {
         setShowExportMenu(false);
       }
     }
-    
+
     // Aggiungi l'event listener quando il menu è aperto
     if (showExportMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     // Rimuovi l'event listener quando il componente viene smontato o il menu viene chiuso
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -440,7 +443,7 @@ export default function AgendaGiornalieraPage() {
             }];
           }
         }
-        
+
         // Altrimenti mostra tutti gli autisti con attività
         if (Array.isArray(drivers)) {
           return drivers
@@ -455,7 +458,7 @@ export default function AgendaGiornalieraPage() {
             }));
         }
         break;
-        
+
       case 'vehicle':
         // Se c'è un filtro per veicolo, mostra solo quel veicolo
         if (selectedVehicleId) {
@@ -468,7 +471,7 @@ export default function AgendaGiornalieraPage() {
             }];
           }
         }
-        
+
         // Altrimenti mostra tutti i veicoli con attività
         if (Array.isArray(vehicles)) {
           return vehicles
@@ -483,7 +486,7 @@ export default function AgendaGiornalieraPage() {
             }));
         }
         break;
-        
+
       case 'day':
       default:
         // Una sola riga che contiene tutte le attività del giorno selezionato
@@ -493,7 +496,7 @@ export default function AgendaGiornalieraPage() {
           events: activityEvents
         }];
     }
-    
+
     // Fallback nel caso in cui non ci siano dati validi
     return [{
       id: 'attivita-giornaliere',
@@ -512,16 +515,16 @@ export default function AgendaGiornalieraPage() {
 
     async function fetchData() {
       if (!fetching) return;
-      
+
       try {
         setFetching(true);
-        
+
         // Ottieni la data formattata per il filtro
         const formattedDate = formatDateISO(currentDate);
-        
+
         // Carica le attività per il giorno corrente
         const activitiesResponse = await api.get(`/activities?date=${formattedDate}`, { withCredentials: true });
-        
+
         // Trasforma le attività in eventi per il calendario
         const activitiesRaw = Array.isArray(activitiesResponse.data)
   ? activitiesResponse.data
@@ -529,6 +532,24 @@ export default function AgendaGiornalieraPage() {
     ? activitiesResponse.data.data
     : []);
 const activityEvents = activitiesRaw.map(activity => {
+  // Estrai tutti gli autisti associati
+  let driverList = [];
+  if (Array.isArray(activity.drivers)) {
+    driverList = activity.drivers.map(d => `${d.nome || d.name || ''} ${d.cognome || d.surname || ''}`.trim());
+  } else if (Array.isArray(activity.resources)) {
+    driverList = activity.resources.filter(r => r.driver).map(r => `${r.driver.nome || r.driver.name || ''} ${r.driver.cognome || r.driver.surname || ''}`.trim());
+  } else if (activity.driver) {
+    driverList = [`${activity.driver.nome || activity.driver.name || ''} ${activity.driver.cognome || activity.driver.surname || ''}`.trim()];
+  }
+  // Estrai tutti i veicoli associati
+  let vehicleList = [];
+  if (Array.isArray(activity.vehicles)) {
+    vehicleList = activity.vehicles.map(v => v.targa || v.plate || v.modello || v.model || 'N/D');
+  } else if (Array.isArray(activity.resources)) {
+    vehicleList = activity.resources.filter(r => r.vehicle).map(r => r.vehicle.targa || r.vehicle.plate || r.vehicle.modello || r.vehicle.model || 'N/D');
+  } else if (activity.vehicle) {
+    vehicleList = [activity.vehicle.targa || activity.vehicle.plate || activity.vehicle.modello || activity.vehicle.model || 'N/D'];
+  }
   // Assicuriamoci che le date siano valide
   let startDate = new Date(activity.data_inizio);
   let endDate = new Date(activity.data_fine || activity.data_inizio);
@@ -597,7 +618,7 @@ const activityEvents = activitiesRaw.map(activity => {
   if (activity.activityType && (activity.activityType.nome || activity.activityType.name)) {
     activityTypeName = activity.activityType.nome || activity.activityType.name;
   }
-  
+
   console.log(`Attività ${activity.id}: stato = ${activity.stato}, colore = ${activityColor}`);
 
   return {
@@ -613,6 +634,8 @@ const activityEvents = activitiesRaw.map(activity => {
     driverName: `${activity.driver?.nome || activity.driver?.name || ''} ${activity.driver?.cognome || activity.driver?.surname || ''}`.trim(),
     vehicleId: activity.vehicle?.id,
     vehicleName: activity.vehicle?.targa || activity.vehicle?.plate || activity.vehicle?.modello || activity.vehicle?.model || 'N/D',
+    driverList,
+    vehicleList,
     siteId: activity.site?.id,
     siteName: activity.site?.nome || activity.site?.name || 'N/D',
     clientId: activity.site?.client?.id,

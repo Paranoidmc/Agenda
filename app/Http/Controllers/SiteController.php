@@ -70,13 +70,16 @@ class SiteController extends Controller
      */
     public function store(Request $request)
     {
+        // Se viene chiamato dalla rotta /clients/{client}/sites, usa il client dalla rotta
+        $clientId = $request->route('client') ? $request->route('client') : $request->input('client_id');
+        
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'address' => 'sometimes|required|string|max:255',
             'city' => 'sometimes|required|string|max:100',
             'postal_code' => 'nullable|string|max:10',
             'province' => 'nullable|string|max:50',
-            'client_id' => 'required|exists:clients,id',
+            'client_id' => $clientId ? 'nullable' : 'required|exists:clients,id',
             //'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'notes' => 'nullable|string',
@@ -100,7 +103,7 @@ class SiteController extends Controller
         $data['city'] = $validated['city'] ?? $validated['citta'] ?? null;
         $data['postal_code'] = $validated['postal_code'] ?? $validated['cap'] ?? null;
         $data['province'] = $validated['province'] ?? $validated['provincia'] ?? null;
-        $data['client_id'] = $validated['client_id'];
+        $data['client_id'] = $clientId;
        // $data['phone'] = $validated['phone'] ?? $validated['telefono'] ?? null;
         $data['notes'] = $validated['notes'] ?? $validated['note'] ?? null;
         
@@ -329,6 +332,8 @@ class SiteController extends Controller
             return $site;
         });
         
-        return response()->json($sites);
+        return response()->json([
+            'data' => $sites
+        ]);
     }
 }
