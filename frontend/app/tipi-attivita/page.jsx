@@ -19,6 +19,7 @@ const [searchText, setSearchText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [tableWidth, setTableWidth] = useState('100%');
+  const [dataVersion, setDataVersion] = useState(0);
 
   // Colori predefiniti per i tipi di attività
   const coloriPredefiniti = [
@@ -47,7 +48,8 @@ const [searchText, setSearchText] = useState("");
       // Se non c'è un utente e non sta caricando, imposta fetching a false
       setFetching(false);
     }
-  }, [user, loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading, dataVersion]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -109,7 +111,7 @@ const [searchText, setSearchText] = useState("");
       }
       
       setIsEditing(false);
-      await loadTipiAttivita(); 
+      setDataVersion(v => v + 1);
       handleClosePanel();
       
       const message = dataToSend.id ? 'Tipo attività aggiornato con successo!' : 'Tipo attività creato con successo!';
@@ -147,8 +149,8 @@ const [searchText, setSearchText] = useState("");
     try {
       await api.delete(`/activity-types/${id}`);
       
-      // Rimuovi il tipo dalla lista
-      setTipiAttivita(prev => prev.filter(t => t.id !== id));
+      // Aggiorna la lista dei dati
+      setDataVersion(v => v + 1);
       
       // Chiudi il pannello
       handleClosePanel();

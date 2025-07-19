@@ -21,11 +21,7 @@ export default function DailyActivitiesModal({
   sites = Array.isArray(sites) ? sites : (sites && typeof sites.values === 'function' ? Array.from(sites.values()) : []);
   clients = Array.isArray(clients) ? clients : (clients && typeof clients.values === 'function' ? Array.from(clients.values()) : []);
   // DEBUG: Log dettagliati
-  console.log('[DEBUG][DailyActivitiesModal] typeof drivers:', typeof drivers, 'isArray:', Array.isArray(drivers), 'len:', drivers.length, drivers);
-  console.log('[DEBUG][DailyActivitiesModal] typeof sites:', typeof sites, 'isArray:', Array.isArray(sites), 'len:', sites.length, sites);
-  console.log('[DEBUG][DailyActivitiesModal] typeof clients:', typeof clients, 'isArray:', Array.isArray(clients), 'len:', clients.length, clients);
   // DEBUG: Logga la prop clients ogni volta che la modale viene renderizzata
-  console.log('[DEBUG][DailyActivitiesModal] clients:', clients);
   // Stato delle righe della tabella (sia esistenti che nuove)
 // Mapping robusto: supporta sia struttura piatta che nidificata (es. row.data)
 function mapRow(r) {
@@ -190,17 +186,10 @@ function mapRow(r) {
                       disabled={!row.client_id}
                     >
                       <option value="">Seleziona...</option>
-                      {(Array.isArray(sites) ? sites.filter(site => {
-                        console.log('Filtering sites:', {
-                          siteClientId: site.client_id,
-                          siteClientObjId: site.client?.id,
-                          rowClientId: row.client_id,
-                          matchDirect: site.client_id == row.client_id,
-                          matchNested: site.client?.id == row.client_id
-                        });
-                        return site.client_id == row.client_id || 
-                               (site.client && site.client.id == row.client_id);
-                      }) : []).map(site => (
+                      {(Array.isArray(sites) ? sites.filter(site => 
+                        site.client_id == row.client_id || 
+                        (site.client && site.client.id == row.client_id)
+                      ) : []).map(site => (
                         <option key={site.id} value={site.id}>{site.nome}</option>
                       ))}
                     </select>
@@ -293,17 +282,10 @@ function mapRow(r) {
                       disabled={!row.client_id}
                     >
                       <option value="">Seleziona...</option>
-                      {(Array.isArray(sites) ? sites.filter(site => {
-                        console.log('Filtering sites:', {
-                          siteClientId: site.client_id,
-                          siteClientObjId: site.client?.id,
-                          rowClientId: row.client_id,
-                          matchDirect: site.client_id == row.client_id,
-                          matchNested: site.client?.id == row.client_id
-                        });
-                        return site.client_id == row.client_id || 
-                               (site.client && site.client.id == row.client_id);
-                      }) : []).map(site => (
+                      {(Array.isArray(sites) ? sites.filter(site => 
+                        site.client_id == row.client_id || 
+                        (site.client && site.client.id == row.client_id)
+                      ) : []).map(site => (
                         <option key={site.id} value={site.id}>{site.nome}</option>
                       ))}
                     </select>

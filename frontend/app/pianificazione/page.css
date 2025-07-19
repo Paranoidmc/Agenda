@@ -1,61 +1,95 @@
-.nav-buttons {
-  display: flex;
-  gap: 8px;
+/* Stili per la pagina di pianificazione */
+.page-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.nav-button {
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid #e2e8f0;
-  background-color: #f8fafc;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.calendar-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  margin-top: 20px;
 }
 
-.nav-button:hover {
-  background-color: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.nav-button.active {
-  background-color: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
-}
-
-.page-header {
+.calendar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eaeaea;
 }
 
-.filters-container {
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: #f5f5f7;
-  border-radius: 8px;
+.calendar-navigation {
   display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.nav-button {
+  background: #f5f5f7;
+  border: 1px solid #e5e5ea;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-button:hover {
+  background: #e5e5ea;
+}
+
+.nav-button.current {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.current-date {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+
+.view-selectors {
+  display: flex;
+  gap: 8px;
+  min-width: 240px;
+  justify-content: flex-end;
+}
+
+.view-selector {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e5ea;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.view-selector:hover {
+  background: #f5f5f7;
+}
+
+.view-selector.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
 }
 
 .page-title {
   font-size: 1.5rem;
   font-weight: 600;
   color: #1e293b;
-}
-
-/* Stili per la legenda */
-.legend-container {
-  margin-top: 1.5rem;
-  padding: 1.25rem;
-  background-color: #f8fafc;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
 }
 
 .legend-title {

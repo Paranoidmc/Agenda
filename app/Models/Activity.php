@@ -67,6 +67,14 @@ class Activity extends Model
         return $this->hasMany(ActivityResource::class);
     }
 
+    /**
+     * Relazione molti-a-molti con Vehicle tramite tabella pivot activity_vehicle
+     */
+    public function vehicles(): BelongsToMany
+    {
+        return $this->belongsToMany(Vehicle::class, 'activity_vehicle');
+    }
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);

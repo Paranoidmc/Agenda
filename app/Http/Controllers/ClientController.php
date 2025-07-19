@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use Illuminate\Http\Request;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ClientController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Display a listing of the resource.
      */
@@ -106,6 +109,8 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
+        // $this->authorize('manage-activities');
+
         $validated = $request->validate([
             'nome' => 'required|string|max:255',
             'email' => 'required|email|max:255',
@@ -191,6 +196,8 @@ class ClientController extends Controller
      */
     public function update(Request $request, Client $client)
     {
+        // $this->authorize('manage-activities');
+
         $validated = $request->validate([
             'nome' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|email|max:255',
@@ -273,6 +280,8 @@ class ClientController extends Controller
      */
     public function destroy(Client $client)
     {
+        // $this->authorize('manage-activities');
+
         $client->delete();
         return response()->json(null, 204);
     }

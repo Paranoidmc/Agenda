@@ -26,6 +26,7 @@
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",
     "react-select": "^5.10.1",
+    "sonner": "^2.0.6",
     "tough-cookie": "^5.1.2"
   },
   "devDependencies": {

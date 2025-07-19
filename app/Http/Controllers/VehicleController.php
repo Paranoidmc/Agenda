@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Vehicle;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 
 class VehicleController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Display a listing of the resource.
      */
@@ -79,7 +82,6 @@ class VehicleController extends Controller
                 $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
                 $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
                 $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
-                $vehicle->tomtom = $vehicle->tomtom;
                 $vehicle->pneumatici = $vehicle->tires;
                 $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
                 $vehicle->link_esterno = $vehicle->external_link;
@@ -140,6 +142,8 @@ class VehicleController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('manage-anagrafiche');
+
         try {
             $validated = $request->validate([
                 'plate' => 'sometimes|required|string|max:20|unique:vehicles',
@@ -331,7 +335,6 @@ class VehicleController extends Controller
             $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
             $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
             $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
-            $vehicle->tomtom = $vehicle->tomtom;
             $vehicle->pneumatici = $vehicle->tires;
             $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
             $vehicle->link_esterno = $vehicle->external_link;
@@ -418,7 +421,6 @@ class VehicleController extends Controller
             $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
             $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
             $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
-            $vehicle->tomtom = $vehicle->tomtom;
             $vehicle->pneumatici = $vehicle->tires;
             $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
             $vehicle->link_esterno = $vehicle->external_link;
@@ -474,6 +476,8 @@ class VehicleController extends Controller
      */
     public function update(Request $request, Vehicle $vehicle)
     {
+        $this->authorize('manage-anagrafiche');
+
         try {
             $validated = $request->validate([
                 'plate' => 'sometimes|required|string|max:20|unique:vehicles,plate,' . $vehicle->id,
@@ -691,7 +695,6 @@ class VehicleController extends Controller
             $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
             $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
             $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
-            $vehicle->tomtom = $vehicle->tomtom;
             $vehicle->pneumatici = $vehicle->tires;
             $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
             $vehicle->link_esterno = $vehicle->external_link;
@@ -713,6 +716,8 @@ class VehicleController extends Controller
      */
     public function destroy(Vehicle $vehicle)
     {
+        $this->authorize('manage-anagrafiche');
+
         $vehicle->delete();
         return response()->json(null, 204);
     }

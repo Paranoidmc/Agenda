@@ -31,6 +31,9 @@ export default function ClientiPage() {
   const [activities, setActivities] = useState([]);
   const [loadingSites, setLoadingSites] = useState(false);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
+
+  const canEdit = user?.role === 'admin';
 
   // Campi del form cliente
   const clienteFields = [
@@ -54,7 +57,7 @@ export default function ClientiPage() {
       setFetching(false);
     }
     // eslint-disable-next-line
-  }, [user, loading, currentPage, perPage, searchTerm]);
+  }, [user, loading, currentPage, perPage, searchTerm, dataVersion]);
 
   useEffect(() => {
     if (isPanelOpen) {
@@ -159,8 +162,8 @@ export default function ClientiPage() {
         response = await api.post('/clients', dataToSend);
       }
       
+      setDataVersion(v => v + 1);
       setIsEditing(false);
-      await fetchClienti(); 
       handleClosePanel();
       
       const message = dataToSend.id ? 'Cliente aggiornato con successo!' : 'Cliente creato con successo!';
@@ -198,10 +201,7 @@ export default function ClientiPage() {
     try {
       await api.delete(`/clients/${id}`);
       
-      // Rimuovi il cliente dalla lista
-      setClienti(prev => prev.filter(c => c.id !== id));
-      
-      // Chiudi il pannello
+      setDataVersion(v => v + 1);
       handleClosePanel();
     } catch (err) {
       console.error("Errore durante l'eliminazione:", err);
@@ -224,8 +224,8 @@ export default function ClientiPage() {
     <div style={{ padding: 32 }}>
       <PageHeader 
         title="Clienti" 
-        buttonLabel="Nuovo Cliente" 
-        onAddClick={handleCreateNew} 
+        buttonLabel={canEdit ? "Nuovo Cliente" : ""} 
+        onAddClick={canEdit ? handleCreateNew : null} 
       />
       <div 
         style={{ 
@@ -345,10 +345,10 @@ export default function ClientiPage() {
                   <EntityForm
                     data={selectedCliente}
                     fields={clienteFields}
-                    onSave={handleSaveCliente}
-                    onDelete={handleDeleteCliente}
+                    onSave={canEdit ? handleSaveCliente : null}
+                    onDelete={canEdit ? handleDeleteCliente : null}
                     isEditing={isEditing}
-                    setIsEditing={setIsEditing}
+                    setIsEditing={canEdit ? setIsEditing : () => {}}
                     isLoading={isSaving || isDeleting}
                   />
                 )

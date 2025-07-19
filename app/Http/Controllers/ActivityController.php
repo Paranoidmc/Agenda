@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ActivityController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Display a listing of the resource.
      */
@@ -18,7 +21,7 @@ class ActivityController extends Controller
             'user' => $request->user() ? $request->user()->id : 'non autenticato',
         ]);
 
-        $query = Activity::with(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
+                $query = Activity::with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType']);
         
         // Filtraggio per intervallo date (inclusione se l'attività tocca anche solo parzialmente il range)
         if ($request->has('start_date') && $request->has('end_date')) {
@@ -84,7 +87,7 @@ class ActivityController extends Controller
         }
         
         // Carica le relazioni aggiornate
-        $query->with(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
+                $query->with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType']);
         
         $sql = $query->toSql();
         $bindings = $query->getBindings();
@@ -162,8 +165,10 @@ class ActivityController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+     public function store(Request $request)
     {
+        // $this->authorize('manage-activities');
+
         Log::info('ActivityController@store - Dati ricevuti', ['request_data' => $request->all()]);
 
         $validated = $request->validate([
@@ -222,8 +227,10 @@ class ActivityController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Activity $activity)
+     public function update(Request $request, Activity $activity)
     {
+        // $this->authorize('manage-activities');
+
         Log::info('ActivityController@update - Dati ricevuti', ['activity_id' => $activity->id, 'request_data' => $request->all()]);
 
         $validated = $request->validate([
@@ -268,8 +275,10 @@ class ActivityController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Activity $activity)
+     public function destroy(Activity $activity)
     {
+        // $this->authorize('manage-activities');
+
         $activity->delete();
         return response()->json(null, 204);
     }
@@ -280,7 +289,7 @@ class ActivityController extends Controller
     public function getSiteActivities($siteId)
     {
         $activities = Activity::where('site_id', $siteId)
-            ->with(['client', 'driver', 'vehicle', 'site', 'activityType'])
+            ->with(['client', 'driver', 'vehicle', 'site.client', 'activityType'])
             ->get();
         
         return $this->formatActivitiesResponse($activities);
@@ -292,7 +301,7 @@ class ActivityController extends Controller
     public function getClientActivities($clientId)
     {
         $activities = Activity::where('client_id', $clientId)
-            ->with(['client', 'driver', 'vehicle', 'site', 'activityType'])
+            ->with(['client', 'driver', 'vehicle', 'site.client', 'activityType'])
             ->get();
         
         return $this->formatActivitiesResponse($activities);
@@ -365,7 +374,7 @@ class ActivityController extends Controller
     public function getDriverActivities($driverId)
     {
         $activities = Activity::where('driver_id', $driverId)
-            ->with(['client', 'driver', 'vehicle', 'site', 'activityType'])
+            ->with(['client', 'driver', 'vehicle', 'site.client', 'activityType'])
             ->get();
         
         return $this->formatActivitiesResponse($activities);
@@ -376,8 +385,10 @@ class ActivityController extends Controller
      */
     public function getVehicleActivities($vehicleId)
     {
-        $activities = Activity::where('vehicle_id', $vehicleId)
-            ->with(['client', 'driver', 'vehicle', 'site', 'activityType'])
+        $activities = Activity::whereHas('vehicles', function ($q) use ($vehicleId) {
+                $q->where('vehicles.id', $vehicleId);
+            })
+                        ->with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType', 'vehicles'])
             ->get();
         
         return $this->formatActivitiesResponse($activities);
@@ -418,6 +429,19 @@ class ActivityController extends Controller
                 $activity->client->partita_iva = $activity->client->vat_number;
                 $activity->client->codice_fiscale = $activity->client->fiscal_code;
                 $activity->client->note = $activity->client->notes;
+            }
+
+            // Aggiungiamo i campi in italiano anche per il cliente del cantiere
+            if ($activity->site) {
+                // Se il cantiere ha un indirizzo, lo traduciamo
+                if (isset($activity->site->address)) {
+                    $activity->site->indirizzo = $activity->site->address;
+                }
+                // Manteniamo la logica per il cliente del cantiere, se esiste
+                if ($activity->site->client) {
+                    $activity->site->client->nome = $activity->site->client->name;
+                    $activity->site->client->indirizzo = $activity->site->client->address;
+                }
             }
             
             // Aggiungiamo i campi in italiano per l'autista

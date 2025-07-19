@@ -22,7 +22,7 @@ const authService = {
             });
 
             // 2. Effettua il login
-            const response = await api.post('/login', {
+            const response = await api.post('/session-login-controller', {
                 email,
                 password
             });

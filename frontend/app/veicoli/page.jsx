@@ -10,6 +10,7 @@ import TabPanel from "../../components/TabPanel";
 import ActivityList from "../../components/ActivityList";
 import DeadlineList from "../../components/DeadlineList";
 import DataTable from "../../components/DataTable";
+import VehicleDocumentSection from "../../components/VehicleDocumentSection";
 
 export default function VeicoliPage() {
   const router = useRouter();
@@ -27,6 +28,9 @@ export default function VeicoliPage() {
   const [deadlines, setDeadlines] = useState([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [loadingDeadlines, setLoadingDeadlines] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
+
+  const canEdit = user?.role === 'admin';
 
   // Campi del form veicolo - allineati alla migration e al model
   const veicoloFields = [
@@ -137,7 +141,7 @@ export default function VeicoliPage() {
       // Se non c'è un utente e non sta caricando, imposta fetching a false
       setFetching(false);
     }
-  }, [user, loading]);
+  }, [user, loading, dataVersion]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -275,7 +279,6 @@ export default function VeicoliPage() {
       let response;
       // DEBUG: Logga il payload inviato
       if (process.env.NODE_ENV === 'development') {
-        console.log('Payload inviato al backend (PUT/POST veicolo):', JSON.parse(JSON.stringify(formData)));
       }
       if (formData.id) {
         response = await api.put(`/vehicles/${formData.id}`, formData, {
@@ -293,8 +296,8 @@ export default function VeicoliPage() {
         });
       }
       
+      setDataVersion(v => v + 1);
       setIsEditing(false);
-      await loadVeicoli(); 
       handleClosePanel();
       
       const message = formData.id ? 'Veicolo aggiornato con successo!' : 'Veicolo creato con successo!';
@@ -340,10 +343,7 @@ export default function VeicoliPage() {
         }
       });
       
-      // Rimuovi il veicolo dalla lista
-      setVeicoli(prev => prev.filter(v => v.id !== id));
-      
-      // Chiudi il pannello
+      setDataVersion(v => v + 1);
       handleClosePanel();
     } catch (err) {
       console.error("Errore durante l'eliminazione:", err);
@@ -366,8 +366,8 @@ export default function VeicoliPage() {
     <div style={{ padding: 32 }}>
       <PageHeader 
         title="Veicoli" 
-        buttonLabel="Nuovo Veicolo" 
-        onAddClick={handleCreateNew} 
+        buttonLabel={canEdit ? "Nuovo Veicolo" : ""}
+        onAddClick={canEdit ? handleCreateNew : null} 
       />
       <div 
         style={{ 
@@ -380,44 +380,34 @@ export default function VeicoliPage() {
           data={veicoli}
           columns={[
             { 
-              key: 'targa', 
+              key: 'plate', 
               label: 'Targa'
             },
             { 
-              key: 'marca', 
+              key: 'brand', 
               label: 'Marca'
             },
             { 
-              key: 'modello', 
+              key: 'model', 
               label: 'Modello'
             },
             { 
-              key: 'anno', 
+              key: 'year', 
               label: 'Anno'
             },
             { 
-              key: 'tipo', 
+              key: 'type', 
               label: 'Tipo'
             },
             { 
-              key: 'carburante', 
+              key: 'fuel_type', 
               label: 'Carburante'
             },
             { 
-              key: 'km', 
+              key: 'odometer', 
               label: 'KM'
             },
-            { 
-              key: 'scadenza_assicurazione', 
-              label: 'Scadenza Assicurazione',
-              render: (item) => item.scadenza_assicurazione ? new Date(item.scadenza_assicurazione).toLocaleDateString() : '-'
-            },
-            { 
-              key: 'scadenza_bollo', 
-              label: 'Scadenza Bollo',
-              render: (item) => item.scadenza_bollo ? new Date(item.scadenza_bollo).toLocaleDateString() : '-'
-            },
-            { 
+            {
               key: 'actions', 
               label: 'Azioni',
               render: (item) => (
@@ -443,17 +433,17 @@ export default function VeicoliPage() {
           ]}
           filterableColumns={[
             { 
-              key: 'targa', 
+              key: 'plate', 
               label: 'Targa',
               filterType: 'text'
             },
             { 
-              key: 'marca', 
+              key: 'brand', 
               label: 'Marca',
               filterType: 'text'
             },
             { 
-              key: 'carburante', 
+              key: 'fuel_type', 
               label: 'Carburante',
               filterType: 'select',
               filterOptions: [
@@ -466,7 +456,7 @@ export default function VeicoliPage() {
               ]
             },
             { 
-              key: 'tipo', 
+              key: 'type', 
               label: 'Tipo',
               filterType: 'select',
               filterOptions: [
@@ -482,7 +472,7 @@ export default function VeicoliPage() {
           selectedRow={selectedVeicolo}
           searchPlaceholder="Cerca veicoli..."
           emptyMessage="Nessun veicolo trovato"
-          defaultVisibleColumns={['targa', 'marca', 'modello', 'anno', 'carburante', 'actions']}
+          defaultVisibleColumns={['plate', 'brand', 'model', 'year', 'fuel_type', 'actions']}
         />
       </div>
 
@@ -502,14 +492,36 @@ export default function VeicoliPage() {
                   <EntityForm
                     data={selectedVeicolo}
                     fields={tab.fields}
-                    onSave={handleSaveVeicolo}
-                    onDelete={idx === 0 ? handleDeleteVeicolo : undefined}
+                    onSave={canEdit ? handleSaveVeicolo : null}
+                    onDelete={idx === 0 && canEdit ? handleDeleteVeicolo : undefined}
                     isEditing={isEditing}
-                    setIsEditing={setIsEditing}
+                    setIsEditing={canEdit ? setIsEditing : () => {}}
                     isLoading={isSaving || isDeleting}
                   />
                 )
               })),
+              {
+                id: 'activities',
+                label: 'Attività',
+                content: <ActivityList activities={activities} isLoading={loadingActivities} />
+              },
+              {
+                id: 'deadlines',
+                label: 'Scadenze',
+                content: <DeadlineList deadlines={deadlines} isLoading={loadingDeadlines} />
+              },
+              {
+                id: 'documents',
+                label: 'Documenti',
+                content: (
+                  <div>
+                    <VehicleDocumentSection veicoloId={selectedVeicolo.id} categoria="bollo" />
+                    <VehicleDocumentSection veicoloId={selectedVeicolo.id} categoria="assicurazione" />
+                    <VehicleDocumentSection veicoloId={selectedVeicolo.id} categoria="manutenzione" />
+                  </div>
+                )
+
+              },
               {
                 id: 'deadlines',
                 label: 'Scadenze',

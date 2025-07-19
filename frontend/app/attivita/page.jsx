@@ -51,8 +51,6 @@ function AttivitaContent() {
   const [isEditing, setIsEditingState] = useState(false);
   
   const setIsEditing = (value) => {
-    console.log('Parent setIsEditing called with:', value);
-    console.log('Current parent isEditing:', isEditing);
     setIsEditingState(value);
   };
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -67,8 +65,10 @@ function AttivitaContent() {
   const [sediPerCliente, setSediPerCliente] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [dataVersion, setDataVersion] = useState(0);
 
   const isEditMode = selectedAttivita && selectedAttivita.id;
+  const canEdit = user?.role === 'admin' || user?.role === 'manager';
 
   // Estrai i veicoli dall'attività selezionata per il tracking
   const activityVehicles = useMemo(() => {
@@ -76,21 +76,16 @@ function AttivitaContent() {
     const resources = selectedAttivita?.originalResources || selectedAttivita?.resources;
     
     if (!resources) {
-      console.log('DEBUG: Nessuna risorsa nell\'attività selezionata');
       return [];
     }
     
-    console.log('DEBUG: Risorse attività:', resources);
     
     // Debug dettagliato delle risorse
     resources.forEach((resource, index) => {
-      console.log(`DEBUG: Risorsa ${index}:`, resource);
-      console.log(`DEBUG: Risorsa ${index} - vehicle:`, resource.vehicle);
     });
     
     const vehicles = resources
       .map(resource => {
-        console.log('DEBUG: Mapping resource:', resource, 'vehicle:', resource.vehicle);
         return resource.vehicle;
       })
       .filter(Boolean)
@@ -99,7 +94,6 @@ function AttivitaContent() {
         driver: resources.find(r => r.vehicle?.id === vehicle.id)?.driver
       }));
       
-    console.log('DEBUG: Veicoli estratti:', vehicles);
     return vehicles;
   }, [selectedAttivita?.originalResources, selectedAttivita?.resources]);
 
@@ -128,10 +122,8 @@ function AttivitaContent() {
   }, [openId, isNew, attivita]);
 
   const handleSedeAdded = (newSede) => {
-    console.log('handleSedeAdded called with:', newSede);
     setIsPopupOpen(false);
     const clienteId = selectedAttivita?.client_id;
-    console.log('Client ID:', clienteId);
     if (!clienteId) return;
     
     // Aggiorna immediatamente la lista delle sedi con la nuova sede
@@ -146,21 +138,18 @@ function AttivitaContent() {
       note: newSede.notes || newSede.note
     };
     
-    console.log('New sede formatted:', newSedeFormatted);
     
     setSediPerCliente(prev => {
       const updated = {
         ...prev,
         [String(clienteId)]: [...(prev[String(clienteId)] || []), newSedeFormatted]
       };
-      console.log('Updated sedi per cliente:', updated);
       return updated;
     });
     
     // Seleziona automaticamente la nuova sede
     setSelectedAttivita(prev => {
       const updated = { ...prev, site_id: newSede.id };
-      console.log('Updated selected attivita:', updated);
       return updated;
     });
     
@@ -254,7 +243,7 @@ function AttivitaContent() {
         fetchActivities();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading, currentPage, perPage, searchTerm, isInitialLoading]);
+  }, [user, loading, currentPage, perPage, searchTerm, isInitialLoading, dataVersion]);
 
   // Effetto per caricare i dati di supporto per il form (clienti, tipi, etc.) UNA SOLA VOLTA
   useEffect(() => {
@@ -367,7 +356,6 @@ function AttivitaContent() {
   };
 
   const handleSaveAttivita = async (formData) => {
-    console.log('handleSaveAttivita called with:', formData);
     setIsSaving(true);
     setValidationErrors({});
     const dataToSave = { ...formData };
@@ -386,49 +374,33 @@ function AttivitaContent() {
     dataToSave.status = statusMap[dataToSave.status] || 'planned';
     delete dataToSave.stato;
 
-    console.log('Data to save:', dataToSave);
-    console.log('Is edit mode:', isEditMode);
-    console.log('Selected attivita:', selectedAttivita);
-    console.log('Selected attivita ID:', selectedAttivita?.id);
 
     try {
       const response = isEditMode ? await api.put(`/activities/${selectedAttivita.id}`, dataToSave) : await api.post('/activities', dataToSave);
-      console.log('Save response:', response);
-      
-      // Ricarica la lista delle attività
-      console.log('Reloading activities...');
-      const activitiesParams = { page: currentPage, per_page: perPage, search: searchTerm };
-      const activitiesRes = await api.get('/activities', { params: activitiesParams });
-      const attivitaData = Array.isArray(activitiesRes.data.data) ? activitiesRes.data.data : [];
-      setAttivita(attivitaData);
-      setTotal(activitiesRes.data.total || activitiesRes.data.meta?.total || 0);
-      console.log('Activities reloaded:', attivitaData.length, 'items');
-      
-      console.log('Closing panel...');
+      setDataVersion(v => v + 1); // Trigger re-fetch
       handleClosePanel();
+      setIsEditing(false);
     } catch (err) {
-      console.error('Save error:', err);
-      if (err.response?.status === 422) {
+      console.error('Errore nel salvataggio:', err);
+      if (err.response && err.response.data && err.response.data.errors) {
         setValidationErrors(err.response.data.errors);
-        console.log('Validation errors:', err.response.data.errors);
       } else {
-        console.error('Unexpected error:', err.response?.data || err.message);
+        setError('Si è verificato un errore durante il salvataggio.');
       }
     } finally {
       setIsSaving(false);
-      console.log('Save process finished');
     }
   };
 
   const handleDeleteAttivita = async (id) => {
-    if (!id) return;
     setIsDeleting(true);
     try {
       await api.delete(`/activities/${id}`);
-      setAttivita(prev => prev.filter(a => a.id !== id));
+      setDataVersion(v => v + 1); // Trigger re-fetch
       handleClosePanel();
     } catch (err) {
-      console.error("Errore eliminazione", err);
+      console.error('Errore nell\'eliminazione:', err);
+      setError('Impossibile eliminare l\'attività.');
     } finally {
       setIsDeleting(false);
     }
@@ -497,7 +469,11 @@ function AttivitaContent() {
 
   return (
     <div style={{ padding: 32 }}>
-      <PageHeader title="Attività" buttonLabel="Nuova Attività" onAddClick={handleCreateNew} />
+      <PageHeader 
+        title="Attività" 
+        buttonLabel={canEdit ? "Nuova Attività" : ""}
+        onAddClick={canEdit ? handleCreateNew : null} 
+      />
       <div style={{ transition: 'width 0.3s ease-in-out', width: tableWidth, overflow: 'hidden' }}>
         {isPopupOpen && selectedAttivita?.client_id && <AddFacilityPopup isOpen={isPopupOpen} onClose={() => setIsPopupOpen(false)} onFacilityAdded={handleSedeAdded} entityData={{client_id: selectedAttivita.client_id, client_name: clienti.find(c => c.id === selectedAttivita.client_id)?.nome || clienti.find(c => c.id === selectedAttivita.client_id)?.name || ''}} clienti={clienti} />}
         <DataTable
@@ -517,8 +493,9 @@ function AttivitaContent() {
             fields={getAttivitaFields(selectedAttivita)}
             data={selectedAttivita}
             onFormChange={handleFormChange}
-            onSave={handleSaveAttivita}
-            onDelete={() => handleDeleteAttivita(selectedAttivita.id)}
+            onSave={canEdit ? handleSaveAttivita : undefined}
+            onDelete={canEdit ? () => handleDeleteAttivita(selectedAttivita.id) : undefined}
+            onEdit={canEdit ? () => setIsEditing(true) : undefined}
             isEditing={isEditing}
             setIsEditing={setIsEditing}
             isSaving={isSaving}
@@ -528,7 +505,6 @@ function AttivitaContent() {
           
           {/* Mappa dei veicoli */}
           {(() => {
-            console.log('DEBUG: Condizione mappa - selectedAttivita:', !!selectedAttivita, 'activityVehicles.length:', activityVehicles.length);
             return selectedAttivita && activityVehicles.length > 0;
           })() && (
             <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e5ea' }}>
@@ -579,7 +555,6 @@ function AttivitaContent() {
                 vehicles={vehiclePositions}
                 height="350px"
                 onVehicleClick={(vehicle) => {
-                  console.log('Veicolo cliccato:', vehicle);
                 }}
               />
               

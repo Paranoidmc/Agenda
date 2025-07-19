@@ -29,6 +29,7 @@ export default function SediPage() {
   const [clienti, setClienti] = useState([]);
   const [activities, setActivities] = useState([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
 
   // Campi del form sede
   const sedeFields = [
@@ -51,7 +52,7 @@ export default function SediPage() {
       setFetching(false);
     }
     // eslint-disable-next-line
-  }, [user, loading, currentPage, perPage, searchTerm]);
+  }, [user, loading, currentPage, perPage, searchTerm, dataVersion]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -92,16 +93,12 @@ export default function SediPage() {
   };
 
   const loadClienti = () => {
-    console.log('[DEBUG] Chiamo /clients per la select cantieri...');
     api.get("/clients", { params: { perPage: 20000 } })
       .then(res => {
-        console.log('[DEBUG] Risposta /clients:', res.data);
         if (Array.isArray(res.data)) {
           setClienti(res.data);
-          console.log('[DEBUG] Imposto clienti come array diretto:', res.data.length);
         } else if (res.data && Array.isArray(res.data.data)) {
           setClienti(res.data.data);
-          console.log('[DEBUG] Imposto clienti come res.data.data:', res.data.data.length);
         } else {
           setClienti([]);
           console.warn('[DEBUG] Nessun cliente trovato o formato dati inatteso:', res.data);
@@ -159,17 +156,15 @@ export default function SediPage() {
         cleanedData.client_id = Number(cleanedData.client_id);
       }
       // Log per debug
-      console.log('Dati sede da salvare:', cleanedData);
       let response;
       if (cleanedData.id) {
         response = await api.put(`/sites/${cleanedData.id}`, cleanedData);
       } else {
         response = await api.post('/sites', cleanedData);
       }
-      console.log(cleanedData.id ? 'Risposta aggiornamento sede:' : 'Risposta creazione sede:', response.data);
       
       setIsEditing(false);
-      await fetchSedi(); 
+      setDataVersion(v => v + 1); 
       handleClosePanel();
       
       const message = cleanedData.id ? 'Sede aggiornata con successo!' : 'Sede creata con successo!';
@@ -230,8 +225,8 @@ export default function SediPage() {
     try {
       await api.delete(`/sites/${id}`);
       
-      // Rimuovi la sede dalla lista
-      setSedi(prev => prev.filter(s => s.id !== id));
+      // Aggiorna la lista dei dati
+      setDataVersion(v => v + 1);
       
       // Chiudi il pannello
       handleClosePanel();

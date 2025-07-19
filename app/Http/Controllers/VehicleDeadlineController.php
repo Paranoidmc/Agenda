@@ -7,15 +7,17 @@ use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class VehicleDeadlineController extends Controller
 {
+    use AuthorizesRequests;
     /**
      * Restituisce tutte le scadenze con dati veicolo inclusi (API ottimizzata per dashboard)
      */
     public function allWithVehicles(Request $request)
     {
-        // PATCH: mostra tutte le scadenze senza filtri data per debug
+        // L'autorizzazione è gestita automaticamente dalla VehicleDeadlinePolicy
         $query = VehicleDeadline::with('vehicle');
         return response()->json($query->get());
     }
@@ -25,6 +27,7 @@ class VehicleDeadlineController extends Controller
      */
     public function index(Request $request)
     {
+        // L'autorizzazione è gestita automaticamente dalla VehicleDeadlinePolicy
         // Log dei parametri della richiesta
         Log::info('VehicleDeadlineController: Richiesta ricevuta', [
             'parametri' => $request->all(),
@@ -174,17 +177,8 @@ class VehicleDeadlineController extends Controller
         $deadline->data_promemoria = $deadline->reminder_date;
         $deadline->stato = $deadline->status;
         $deadline->note = $deadline->notes;
-        // Campi aggiuntivi
-        $deadline->importo = $deadline->importo;
-        $deadline->pagato = $deadline->pagato;
-        $deadline->data_pagamento = $deadline->data_pagamento;
-$deadline->note = $deadline->notes;
-// Campi aggiuntivi
-$deadline->importo = $deadline->importo;
-$deadline->pagato = $deadline->pagato;
-$deadline->data_pagamento = $deadline->data_pagamento;
 
-return response()->json($deadline, 201);
+        return response()->json($deadline, 201);
     }
 
     /**
@@ -293,10 +287,6 @@ $vehicleDeadline->data_scadenza = $vehicleDeadline->expiry_date;
 $vehicleDeadline->data_promemoria = $vehicleDeadline->reminder_date;
 $vehicleDeadline->stato = $vehicleDeadline->status;
 $vehicleDeadline->note = $vehicleDeadline->notes;
-// Campi aggiuntivi
-$vehicleDeadline->importo = $vehicleDeadline->importo;
-$vehicleDeadline->pagato = $vehicleDeadline->pagato;
-$vehicleDeadline->data_pagamento = $vehicleDeadline->data_pagamento;
 
 return response()->json($vehicleDeadline);
     }

@@ -55,6 +55,38 @@ class Vehicle extends Model
     }
     
     /**
+     * Relazione: tutti i documenti associati al veicolo
+     */
+    public function documentiVeicolo(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\DocumentoVeicolo::class, 'veicolo_id');
+    }
+
+    /**
+     * Documenti categoria "Bolli"
+     */
+    public function bolli(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->documentiVeicolo()->where('categoria', 'bollo');
+    }
+
+    /**
+     * Documenti categoria "Assicurazioni"
+     */
+    public function assicurazioni(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->documentiVeicolo()->where('categoria', 'assicurazione');
+    }
+
+    /**
+     * Documenti categoria "Manutenzioni"
+     */
+    public function manutenzioni(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->documentiVeicolo()->where('categoria', 'manutenzione');
+    }
+
+    /**
      * Verifica se l'assicurazione è scaduta
      */
     public function isInsuranceExpired(): bool

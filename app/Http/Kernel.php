@@ -43,17 +43,10 @@ class Kernel extends HttpKernel
         ],
 
         'api' => [
-            \App\Http\Middleware\HandleCors::class,
-            \App\Http\Middleware\AddCorsHeaders::class,
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
-            \Illuminate\Cookie\Middleware\EncryptCookies::class,
-            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-            \Illuminate\Session\Middleware\StartSession::class,
-            // Rimuoviamo la verifica CSRF per le API
-            // \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
+
     ];
 
     /**

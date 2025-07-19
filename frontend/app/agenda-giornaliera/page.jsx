@@ -119,7 +119,6 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
 
 export default function AgendaGiornalieraPage() {
   // LOG globale: il componente viene renderizzato
-  console.log('COMPONENT RENDER', new Date());
   // ...
   // Funzione per gestire il cambio cliente nel form attività
   function handleClientChange(name, value) {
@@ -154,6 +153,7 @@ export default function AgendaGiornalieraPage() {
   const [selectedDriverId, setSelectedDriverId] = useState(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [selectedActivityTypeId, setSelectedActivityTypeId] = useState(null);
+  const [sortBy, setSortBy] = useState('time'); // 'time', 'site', 'activityType'
   const [driversLoading, setDriversLoading] = useState(true);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [sitesLoading, setSitesLoading] = useState(true);
@@ -170,6 +170,23 @@ export default function AgendaGiornalieraPage() {
     "in corso": "#f97316",      // Arancione
     "completato": "#22c55e",    // Verde
     "annullato": "#ec4899"      // Rosa
+  };
+
+  const statusTranslationMap = {
+    'not assigned': 'non assegnato',
+    'assigned': 'assegnato',
+    'document issued': 'doc emesso',
+    'planned': 'programmato',
+    'in progress': 'in corso',
+    'in_progress': 'in corso',
+    'completed': 'completato',
+    'cancelled': 'annullato'
+  };
+
+  const normalizeStatus = (status) => {
+    if (!status) return 'non assegnato';
+    const lowerCaseStatus = status.toLowerCase().replace('_', ' ');
+    return statusTranslationMap[lowerCaseStatus] || lowerCaseStatus;
   };
   const activityStates = Object.keys(statusColorMap);
 
@@ -246,13 +263,10 @@ export default function AgendaGiornalieraPage() {
 
   // Gestisce il click su un evento
   function handleEventClick(event) {
-    console.log("Click su evento:", event);
     
     if (event.type === 'activity' && event.data && event.data.id) {
-      console.log(`Navigazione a /attivita/${event.data.id}`);
       router.push(`/attivita?open=${event.data.id}`);
     } else if (event.type === 'deadline' && event.data && event.data.id) {
-      console.log(`Navigazione a /scadenze?id=${event.data.id}`);
       router.push(`/scadenze?id=${event.data.id}`);
     } else {
       console.error("Impossibile navigare: dati evento non validi", event);
@@ -346,7 +360,6 @@ export default function AgendaGiornalieraPage() {
   const handleExportToExcel = () => {
     try {
       const { filename, filters } = prepareExportData();
-      console.log('Esportazione agenda giornaliera in Excel con filtri:', filters);
       
       // Crea un array con solo il giorno corrente per l'esportazione
       const singleDayArray = [currentDate];
@@ -363,7 +376,6 @@ export default function AgendaGiornalieraPage() {
   const handleExportToHTML = () => {
     try {
       const { filename, filters } = prepareExportData();
-      console.log('Esportazione agenda giornaliera in HTML con filtri:', filters);
       
       // Crea un array con solo il giorno corrente per l'esportazione
       const singleDayArray = [currentDate];
@@ -619,7 +631,6 @@ const activityEvents = activitiesRaw.map(activity => {
     activityTypeName = activity.activityType.nome || activity.activityType.name;
   }
 
-  console.log(`Attività ${activity.id}: stato = ${activity.stato}, colore = ${activityColor}`);
 
   return {
     id: `activity-${activity.id}`,
@@ -681,9 +692,7 @@ const activityEvents = activitiesRaw.map(activity => {
       if (!driversLoading) return;
       try {
         const response = await api.get('/drivers', { withCredentials: true });
-        console.log('API /drivers response', response.data);
         const normalized = Array.isArray(response.data) ? response.data : (response.data && Array.isArray(response.data.data) ? response.data.data : []);
-        console.log('Normalized drivers:', normalized);
         setDrivers(normalized);
         setDriversLoading(false);
       } catch (error) {
@@ -711,9 +720,7 @@ const activityEvents = activitiesRaw.map(activity => {
       if (!sitesLoading) return;
       try {
         const response = await api.get('/sites', { withCredentials: true });
-        console.log('API /sites response', response.data);
         const normalized = Array.isArray(response.data) ? response.data : (response.data && Array.isArray(response.data.data) ? response.data.data : []);
-        console.log('Normalized sites:', normalized);
         setSites(normalized);
         setSitesLoading(false);
       } catch (error) {
@@ -745,9 +752,7 @@ const activityEvents = activitiesRaw.map(activity => {
     async function fetchClients() {
       try {
         const response = await api.get('/clients', { params: { perPage: 20000 }, withCredentials: true });
-        console.log('API /clients response', response.data);
         const normalized = Array.isArray(response.data) ? response.data : (response.data && Array.isArray(response.data.data) ? response.data.data : []);
-        console.log('Normalized clients:', normalized);
         setClients(normalized);
       } catch (error) {
         console.error('Errore nel caricamento dei clienti:', error);
@@ -963,6 +968,27 @@ const activityEvents = activitiesRaw.map(activity => {
               ))}
             </select>
           </div>
+
+          <div style={{ flex: '1', minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Ordina per
+            </label>
+            <select 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ 
+                width: '100%', 
+                padding: '8px', 
+                borderRadius: '4px', 
+                border: '1px solid #ddd',
+                fontSize: '0.9rem'
+              }}
+            >
+              <option value="time">Ora</option>
+              <option value="site">Cantiere</option>
+              <option value="activityType">Tipo Attività</option>
+            </select>
+          </div>
           
           <div style={{ 
             display: 'flex', 
@@ -997,9 +1023,21 @@ const activityEvents = activitiesRaw.map(activity => {
              {getRows()[0]?.events
   ?.slice()
   .sort((a, b) => {
-    const da = a.data?.data_inizio || '';
-    const db = b.data?.data_inizio || '';
-    return da.localeCompare(db);
+    switch (sortBy) {
+      case 'site':
+        const siteA = a.data?.site?.nome || a.siteName || '';
+        const siteB = b.data?.site?.nome || b.siteName || '';
+        return siteA.localeCompare(siteB);
+      case 'activityType':
+        const typeA = a.data?.activityType?.nome || a.activityTypeName || '';
+        const typeB = b.data?.activityType?.nome || b.activityTypeName || '';
+        return typeA.localeCompare(typeB);
+      case 'time':
+      default:
+        const timeA = a.data?.data_inizio || '';
+        const timeB = b.data?.data_inizio || '';
+        return timeA.localeCompare(timeB);
+    }
   })
   .map(event => {
     // Orario compatto (inizio - fine)
@@ -1007,39 +1045,48 @@ const activityEvents = activitiesRaw.map(activity => {
       ? `${new Date(event.data.data_inizio).toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Rome'})}
           ${event.data?.data_fine ? ' - ' + new Date(event.data.data_fine).toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Rome'}) : ''}`.replace(/\s+/g,' ')
       : '';
+
     const descrizione = event.data?.descrizione || event.data?.description || event.description || '';
     const cliente = event.data?.client?.nome || event.data?.client?.name || event.data?.cliente_nome || 'N/D';
-    const cantiere = event.data?.site?.nome || event.data?.site?.name || event.data?.cantiere_nome || 'N/D';
-    const autista = event.data?.driver ? `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : (event.driverName || 'N/D');
-    const veicolo = event.data?.vehicle ? ((event.data.vehicle.targa || '') + (event.data.vehicle.modello ? ' - ' + event.data.vehicle.modello : '')) : (event.vehicleName || 'N/D');
-    const tipologia = event.data?.activityType?.nome
-      || event.data?.activityType?.name
-      || event.data?.activity_type_name
-      || (event.data?.activity_type_id && Array.isArray(activityTypes)
-          ? (activityTypes.find(t => t.id === event.data.activity_type_id)?.nome
-            || activityTypes.find(t => t.id === event.data.activity_type_id)?.name)
-          : undefined)
-      || event.activityTypeName
-      || event.activityType?.nome
-      || event.activityType?.name
-      || 'N/D';
-    const stato = event.data?.status || event.data?.stato || 'N/D';
+        const nomeSede = event.data?.site?.nome || event.data?.site?.name || event.data?.cantiere_nome;
+        const indirizzo = event.data?.site?.address;
+    const cantiere = nomeSede ? `${nomeSede}${indirizzo ? `, ${indirizzo}` : ''}` : 'N/D';
+    const autisti = Array.isArray(event.driverList) && event.driverList.length > 0 ? event.driverList.join(', ') : 'N/D';
+    const veicoli = Array.isArray(event.vehicleList) && event.vehicleList.length > 0 ? event.vehicleList.join(', ') : 'N/D';
+    const tipologia = event.data?.activity_type?.name || 'N/D';
+    const stato = normalizeStatus(event.data?.status || event.data?.stato);
     return (
       <div
         key={event.id}
         className="daily-event"
-        style={{
-          background: (() => {
-            const status = (event.data?.status || event.data?.stato || '').toLowerCase();
-            return statusColorMap[status] || '#f5f5f7';
-          })(),
-          borderRadius: 8,
-          padding: '12px 16px',
-          marginBottom: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          cursor: 'pointer'
-        }}
+        style={(() => {
+          const normalizedStatus = normalizeStatus(event.data?.status || event.data?.stato);
+          const backgroundColor = statusColorMap[normalizedStatus] || '#f3f4f6'; // Grigio chiaro di default
+
+          // Sfondi scuri che necessitano di testo bianco
+          const darkBackgrounds = [
+            statusColorMap['non assegnato'],
+            statusColorMap['doc emesso'],
+            statusColorMap['programmato'],
+            statusColorMap['in corso'],
+            statusColorMap['completato'],
+            statusColorMap['annullato']
+          ];
+
+          const color = darkBackgrounds.includes(backgroundColor) ? '#ffffff' : '#111827';
+
+          return {
+            background: backgroundColor,
+            color: color,
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            cursor: 'pointer',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+          };
+        })()}
         onClick={() => handleEventClick(event)}
       >
         <div style={{display:'flex',flexWrap:'wrap',gap:'12px',alignItems:'center'}}>
@@ -1047,8 +1094,8 @@ const activityEvents = activitiesRaw.map(activity => {
           <span><strong>Sede:</strong> {cantiere}</span>
           <span><strong>Descrizione:</strong> {descrizione}</span>
           <span><strong>Orario:</strong> {orario}</span>
-          <span><strong>Autista:</strong> {autista}</span>
-          <span><strong>Veicolo:</strong> {veicolo}</span>
+          <span><strong>Autisti:</strong> {autisti}</span>
+          <span><strong>Veicoli:</strong> {veicoli}</span>
           <span><strong>Tipologia di Attività:</strong> {tipologia}</span>
           <span><strong>Stato:</strong> {stato.charAt(0).toUpperCase()+stato.slice(1)}</span>
         </div>

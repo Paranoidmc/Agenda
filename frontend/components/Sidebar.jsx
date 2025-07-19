@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -37,10 +38,12 @@ const protectedPaths = [
   "/tipi-attivita",
   "/pianificazione",
   "/agenda-giornaliera",
-  "/calendario-scadenze"
+  "/calendario-scadenze",
+  "/utenti"
 ];
 
 export default function Sidebar() {
+  const { user } = useAuth();
   const pathname = usePathname();
   // Mostra solo su pagine protette
   if (!protectedPaths.some(p => pathname.startsWith(p))) return null;
@@ -62,7 +65,13 @@ export default function Sidebar() {
       overflowY: 'auto',
       paddingTop: '80px' // Aggiunto padding-top per spostare il menu più in basso
     }}>
+      {/* NavItems principali */}
       {navItems.map((item, index) => {
+        // Nasconde 'Anagrafiche' per gli utenti non-admin
+        if (item.label === "Anagrafiche" && user?.role !== 'admin') {
+          return null;
+        }
+
         // Se l'elemento ha un sottomenu
         if (item.submenu) {
           // Verifica se qualche elemento del sottomenu è attivo
@@ -132,6 +141,24 @@ export default function Sidebar() {
           );
         }
       })}
+      {/* Voce menu Gestione Utenti solo per admin, in fondo */}
+      {user?.role === 'admin' && (
+        <Link href="/utenti" style={{
+          display: 'block',
+          padding: '0.7em 1.5em',
+          fontWeight: 600,
+          color: pathname === '/utenti' ? 'var(--primary)' : '#555',
+          fontSize: '1rem',
+          borderRadius: 6,
+          background: pathname === '/utenti' ? '#f0f0f0' : 'none',
+          marginTop: 36,
+          marginBottom: 10,
+          textDecoration: 'none',
+          letterSpacing: 0.5
+        }}>
+          Gestione Utenti
+        </Link>
+      )}
     </aside>
   );
 }

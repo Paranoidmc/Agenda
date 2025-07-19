@@ -37,6 +37,9 @@ export default function AutistiPage() {
   const [sedi, setSedi] = useState([]);
   const [sediPerCliente, setSediPerCliente] = useState({});
   const [newActivity, setNewActivity] = useState(null);
+  const [dataVersion, setDataVersion] = useState(0);
+
+  const canEdit = user?.role === 'admin';
 
   // Caricamento risorse per il form attività (come in /attivita/new/page.jsx)
   useEffect(() => {
@@ -197,7 +200,7 @@ export default function AutistiPage() {
       // Se non c'è un utente e non sta caricando, imposta fetching a false
       setFetching(false);
     }
-  }, [user, loading]);
+  }, [user, loading, dataVersion]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -289,8 +292,8 @@ setActivities([]);
         response = await api.post('/drivers', dataToSend);
       }
       
+      setDataVersion(v => v + 1);
       setIsEditing(false);
-      await loadAutisti(); 
       handleClosePanel();
       
       const message = dataToSend.id ? 'Autista aggiornato con successo!' : 'Autista creato con successo!';
@@ -328,10 +331,7 @@ setActivities([]);
     try {
       await api.delete(`/drivers/${id}`);
       
-      // Rimuovi l'autista dalla lista
-      setAutisti(prev => prev.filter(a => a.id !== id));
-      
-      // Chiudi il pannello
+      setDataVersion(v => v + 1);
       handleClosePanel();
     } catch (err) {
       console.error("Errore durante l'eliminazione:", err);
@@ -346,8 +346,6 @@ setActivities([]);
     setIsEditing(true);
     setIsPanelOpen(true);
   };
-
-  // Funzione per formattare la data
   const formatDate = (dateString) => {
     if (!dateString) return 'N/D';
     const date = new Date(dateString);
@@ -367,12 +365,12 @@ setActivities([]);
   </div>
 );
 
-  return (
+return (
     <div style={{ padding: 32 }}>
       <PageHeader 
         title="Autisti" 
-        buttonLabel="Nuovo Autista" 
-        onAddClick={handleCreateNew} 
+        buttonLabel={canEdit ? "Nuovo Autista" : ""}
+        onAddClick={canEdit ? handleCreateNew : null} 
       />
       <div style={{margin: '18px 0 12px 0'}}>
         <input
@@ -390,115 +388,92 @@ setActivities([]);
           overflow: 'hidden'
         }}
       >
-        <DataTable 
-          data={autisti.filter(a => {
-            const testo = (a.nome || "") + " " + (a.cognome || "");
-            return testo.toLowerCase().includes(searchText.toLowerCase());
-          })}
-          columns={[
-            { 
-              key: 'nome', 
-              label: 'Nome'
-            },
-            { 
-              key: 'cognome', 
-              label: 'Cognome'
-            },
-            { 
-              key: 'telefono', 
-              label: 'Telefono'
-            },
-            { 
-              key: 'email', 
-              label: 'Email'
-            },
-            { 
-              key: 'patente', 
-              label: 'Patente'
-            },
-            { 
-              key: 'scadenza_patente', 
-              label: 'Scadenza Patente',
-              render: (item) => formatDate(item.scadenza_patente)
-            },
-            { 
-              key: 'tipo_contratto', 
-              label: 'Tipo Contratto',
-              render: (item) => {
-                const tipiContratto = {
-                  'indeterminato': 'Tempo Indeterminato',
-                  'determinato': 'Tempo Determinato',
-                  'partita_iva': 'Partita IVA',
-                  'occasionale': 'Occasionale'
-                };
-                return tipiContratto[item.tipo_contratto] || item.tipo_contratto || 'N/D';
+          <DataTable 
+            data={autisti.filter(a => {
+              const testo = (a.nome || "") + " " + (a.cognome || "");
+              return testo.toLowerCase().includes(searchText.toLowerCase());
+            })}
+            columns={[
+              { key: 'nome', label: 'Nome' },
+              { key: 'cognome', label: 'Cognome' },
+              { key: 'telefono', label: 'Telefono' },
+              { key: 'email', label: 'Email' },
+              { key: 'patente', label: 'Patente' },
+              { 
+                key: 'scadenza_patente', 
+                label: 'Scadenza Patente',
+                render: (item) => formatDate(item.scadenza_patente)
+              },
+              {
+                key: 'tipo_contratto', 
+                label: 'Tipo Contratto',
+                render: (item) => {
+                  const tipiContratto = {
+                    'indeterminato': 'Tempo Indeterminato',
+                    'determinato': 'Tempo Determinato',
+                    'partita_iva': 'Partita IVA',
+                    'occasionale': 'Occasionale'
+                  };
+                  return tipiContratto[item.tipo_contratto] || item.tipo_contratto || 'N/D';
+                }
+              },
+              {
+                key: 'actions', 
+                label: 'Azioni',
+                render: (item) => (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewDetails(item);
+                    }}
+                    style={{ 
+                      background: 'var(--primary)', 
+                      color: '#fff', 
+                      borderRadius: 6, 
+                      padding: '0.4em 1em', 
+                      fontSize: 14,
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Dettagli
+                  </button>
+                )
               }
-            },
-            { 
-              key: 'actions', 
-              label: 'Azioni',
-              render: (item) => (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleViewDetails(item);
-                  }}
-                  style={{ 
-                    background: 'var(--primary)', 
-                    color: '#fff', 
-                    borderRadius: 6, 
-                    padding: '0.4em 1em', 
-                    fontSize: 14,
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Dettagli
-                </button>
-              )
-            }
-          ]}
-          filterableColumns={[
-            { 
-              key: 'nome', 
-              label: 'Nome',
-              filterType: 'text'
-            },
-            { 
-              key: 'cognome', 
-              label: 'Cognome',
-              filterType: 'text'
-            },
-            { 
-              key: 'patente', 
-              label: 'Patente',
-              filterType: 'select',
-              filterOptions: [
-                { value: 'B', label: 'B' },
-                { value: 'C', label: 'C' },
-                { value: 'D', label: 'D' },
-                { value: 'CE', label: 'CE' },
-                { value: 'DE', label: 'DE' }
-              ]
-            },
-            { 
-              key: 'tipo_contratto', 
-              label: 'Tipo Contratto',
-              filterType: 'select',
-              filterOptions: [
-                { value: 'indeterminato', label: 'Tempo Indeterminato' },
-                { value: 'determinato', label: 'Tempo Determinato' },
-                { value: 'partita_iva', label: 'Partita IVA' },
-                { value: 'occasionale', label: 'Occasionale' }
-              ]
-            }
-          ]}
-          onRowClick={handleViewDetails}
-          selectedRow={selectedAutista}
-          searchPlaceholder="Cerca autisti..."
-          emptyMessage="Nessun autista trovato"
-          defaultVisibleColumns={['nome', 'cognome', 'telefono', 'patente', 'scadenza_patente', 'actions']}
-        />
+            ]}
+            filterableColumns={[
+              { key: 'nome', label: 'Nome', filterType: 'text' },
+              { key: 'cognome', label: 'Cognome', filterType: 'text' },
+              {
+                key: 'patente',
+                label: 'Patente',
+                filterType: 'select',
+                filterOptions: [
+                  { value: 'B', label: 'B' },
+                  { value: 'C', label: 'C' },
+                  { value: 'D', label: 'D' },
+                  { value: 'CE', label: 'CE' },
+                  { value: 'DE', label: 'DE' },
+                ]
+              },
+              {
+                key: 'tipo_contratto',
+                label: 'Tipo Contratto',
+                filterType: 'select',
+                filterOptions: [
+                  { value: 'indeterminato', label: 'Tempo Indeterminato' },
+                  { value: 'determinato', label: 'Tempo Determinato' },
+                  { value: 'partita_iva', label: 'Partita IVA' },
+                  { value: 'occasionale', label: 'Occasionale' },
+                ]
+              }
+            ]}
+            onRowClick={handleViewDetails}
+            selectedRow={selectedAutista}
+            searchPlaceholder="Cerca autisti..."
+            emptyMessage="Nessun autista trovato"
+            defaultVisibleColumns={['nome', 'cognome', 'telefono', 'patente', 'scadenza_patente', 'actions']}
+          />
       </div>
 
       {/* Pannello laterale per i dettagli */}
@@ -517,10 +492,10 @@ setActivities([]);
                   <EntityForm
                     data={selectedAutista}
                     fields={autistaFields}
-                    onSave={handleSaveAutista}
-                    onDelete={handleDeleteAutista}
+                    onSave={canEdit ? handleSaveAutista : null}
+                    onDelete={canEdit ? handleDeleteAutista : null}
                     isEditing={isEditing}
-                    setIsEditing={setIsEditing}
+                    setIsEditing={canEdit ? setIsEditing : () => {}}
                     isLoading={isSaving || isDeleting}
                   />
                 )
@@ -547,20 +522,22 @@ setActivities([]);
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                       <h3 style={{ margin: 0 }}>Attività dell'autista</h3>
-                      <button
-                        onClick={() => setIsNewActivityPanelOpen(true)}
-                        style={{ 
-                          background: 'var(--primary)', 
-                          color: '#fff', 
-                          borderRadius: 6, 
-                          padding: '0.4em 1em', 
-                          fontSize: 14,
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Nuova Attività
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => setIsNewActivityPanelOpen(true)}
+                          style={{ 
+                            background: 'var(--primary)', 
+                            color: '#fff', 
+                            borderRadius: 6, 
+                            padding: '0.4em 1em', 
+                            fontSize: 14,
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Nuova Attività
+                        </button>
+                      )}
                     </div>
                     {loadingActivities ? (
                       <div>Caricamento attività...</div>
@@ -585,15 +562,17 @@ setActivities([]);
         onClose={() => setIsNewActivityPanelOpen(false)}
         title={selectedAutista ? `Nuova Attività per ${selectedAutista.nome || ''} ${selectedAutista.cognome || ''}` : 'Nuova Attività'}
       >
-        <EntityForm
-          data={newActivity}
-          fields={getAttivitaFields(newActivity)}
-          onSave={handleSaveNewActivity}
-          onCancel={() => setIsNewActivityPanelOpen(false)}
-          isSaving={newActivitySaving}
-          isEditing={true}
-          errors={newActivityValidationErrors}
-        />
+        {newActivity && (
+          <EntityForm
+            data={newActivity}
+            fields={getAttivitaFields(newActivity)}
+            onSave={handleSaveNewActivity}
+            onCancel={() => setIsNewActivityPanelOpen(false)}
+            isSaving={newActivitySaving}
+            isEditing={true}
+            errors={newActivityValidationErrors}
+          />
+        )}
       </SidePanel>
     </div>
   );

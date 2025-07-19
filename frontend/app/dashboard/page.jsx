@@ -46,17 +46,16 @@ export default function DashboardPage() {
     return { startDate, endDate };
   });
   
+  const [activityTypes, setActivityTypes] = useState([]);
   // Carica i dati quando la pagina viene caricata
   useEffect(() => {
     console.group("[DASHBOARD] Inizializzazione dashboard");
     
     if (loading) {
-      console.log("[DASHBOARD] Autenticazione in corso, attesa...");
       console.groupEnd();
       return; // Attendi che l'autenticazione sia verificata
     }
     
-    console.log("[DASHBOARD] Stato autenticazione:", { user: !!user, loading });
     
     // Verifica che l'utente sia autenticato
     if (loading) {
@@ -64,13 +63,11 @@ export default function DashboardPage() {
       return;
     }
     if (!user) {
-      console.log("[DASHBOARD] Utente non autenticato, reindirizzamento al login");
       setFetching(false);
       router.replace("/login");
       return;
     }
     // Carica i dati
-    console.log("[DASHBOARD] Utente autenticato:", user);
     loadData();
     
     console.groupEnd();
@@ -84,7 +81,6 @@ export default function DashboardPage() {
       setCurrentDateRange({ startDate: start, endDate: end });
       // Se l'utente ha selezionato un range valido, ricarica i dati
       if (start && end) {
-        console.log('[DashboardPage] Date range changed, reloading data with:', { startDate: start, endDate: end });
         loadData(); // Assumendo che loadData usi lo stato aggiornato
       }
     } else {
@@ -98,7 +94,6 @@ export default function DashboardPage() {
   const loadData = async () => {
     console.group("[DASHBOARD] Caricamento dati");
     try {
-      console.log("[DASHBOARD] Inizio caricamento dati");
       setFetching(true);
       setError("");
 
@@ -119,14 +114,11 @@ export default function DashboardPage() {
         effectiveEndDate = thirtyDaysLater.toISOString().split('T')[0];
       }
       
-      console.log("[DASHBOARD] Intervallo date per API:", { startDate: effectiveStartDate, endDate: effectiveEndDate });
       
       // Carica i veicoli e poi le scadenze per ogni veicolo
-      console.log("[DASHBOARD] Caricamento veicoli...");
       try {
         // Ottieni il token da localStorage se disponibile
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        console.log("[DASHBOARD] Token di autenticazione:", token ? "Presente" : "Non presente");
         
         // Carica tutti i veicoli
         const vehiclesResponse = await api.get('/vehicles', {
@@ -137,14 +129,11 @@ export default function DashboardPage() {
           }
         });
         
-        console.log("[DASHBOARD] Veicoli caricati:", vehiclesResponse.status);
-        console.log("[DASHBOARD] Numero veicoli:", vehiclesResponse.data.length);
         
         // Array per raccogliere tutte le scadenze
         
         
         // Per ogni veicolo, carica le scadenze
-        console.log("[DASHBOARD] Caricamento scadenze per ogni veicolo...");
         // Carica tutte le scadenze in un'unica chiamata ottimizzata
         const deadlinesResponse = await api.get('/vehicle-deadlines/all', {
           withCredentials: true,
@@ -157,235 +146,70 @@ export default function DashboardPage() {
             end_date: effectiveEndDate
           }
         });
-        console.log("[DASHBOARD] Risposta API vehicle-deadlines:", JSON.stringify(deadlinesResponse.data, null, 2));
         let allDeadlines = deadlinesResponse.data || [];
-console.log("[DASHBOARD] Tutte le scadenze caricate (API aggregata):", allDeadlines.length, allDeadlines);
 if (allDeadlines.length > 0) {
-  console.log('[DASHBOARD] Esempio struttura deadline:', allDeadlines[0]);
 }
         
-        console.log("[DASHBOARD] Tutte le scadenze caricate:", allDeadlines.length);
-        console.log("[DASHBOARD] Struttura delle scadenze:", allDeadlines[0]);
         
         // Filtra le scadenze per il periodo specificato
-        // Filtra e separa le scadenze in pagate e non pagate
         const { paidDeadlines, unpaidDeadlines } = allDeadlines.reduce((acc, deadline) => {
           const dateStringToParse = deadline.expiry_date || deadline.data_scadenza;
-          if (!dateStringToParse) return acc; // Salta se non ci sono date valide
-          
+          if (!dateStringToParse) return acc;
+
           try {
-            // Estrai la parte YYYY-MM-DD dalla data
             const deadlineDateString = dateStringToParse.substring(0, 10);
-            
-            // Verifica se la scadenza è nel range di date
-            const isInDateRange = deadlineDateString >= effectiveStartDate && 
-                                deadlineDateString <= effectiveEndDate;
-            
-            if (!isInDateRange) return acc;
-            
-            console.log('[DASHBOARD] Scadenza elaborata:', {
-              id: deadline.id,
-              type: deadline.type,
-              expiry_date: deadlineDateString,
-              pagato: deadline.pagato,
-              in_range: isInDateRange
-            });
-            
-            // Aggiungi alla lista appropriata in base allo stato di pagamento
-            if (deadline.pagato === 1 || deadline.pagato === true) {
-              acc.paidDeadlines.push(deadline);
-            } else {
-              acc.unpaidDeadlines.push(deadline);
+            const isInDateRange = deadlineDateString >= effectiveStartDate && deadlineDateString <= effectiveEndDate;
+
+            if (isInDateRange) {
+              if (deadline.pagato === 1 || deadline.pagato === true) {
+                acc.paidDeadlines.push(deadline);
+              } else {
+                acc.unpaidDeadlines.push(deadline);
+              }
             }
           } catch (error) {
             console.error('[DASHBOARD] Errore nell\'elaborazione della scadenza:', error, deadline);
           }
-          
           return acc;
         }, { paidDeadlines: [], unpaidDeadlines: [] });
-        
-        console.log("[DASHBOARD] Scadenze trovate - Pagate:", paidDeadlines.length, "Non pagate:", unpaidDeadlines.length);
-        
-        // Carica le attività recenti
-        console.log("[DASHBOARD] Caricamento attività recenti...");
-        try {
-          // Prima prova con i parametri completi
-          console.log("[DASHBOARD] Tentativo 1: Con filtri data");
-          const activitiesResponse = await api.get('/activities', {
-            params: {
-              start_date: effectiveStartDate,
-              end_date: effectiveEndDate,
-              per_page: 10,
-              sort: 'data_inizio',
-              order: 'desc'
-            }
-          });
-          
-          console.log("[DASHBOARD] Risposta attività (con filtri):", {
-            status: activitiesResponse.status,
-            data: activitiesResponse.data,
-            total: activitiesResponse.data?.total || 0
-          });
-          
-          let activitiesData = [];
-          
-          // Se non ci sono dati, prova senza filtri
-          if (!activitiesResponse.data?.data?.length) {
-            console.warn("[DASHBOARD] Nessuna attività trovata con i filtri. Provo senza filtri...");
-            const allActivities = await api.get('/activities', {
-              params: { 
-                per_page: 10, 
-                sort: 'data_inizio', 
-                order: 'desc' 
-              }
-            });
-            console.log("[DASHBOARD] Risposta attività (senza filtri):", allActivities.data);
-            activitiesData = allActivities.data?.data || [];
-          } else {
-            activitiesData = activitiesResponse.data.data || [];
-          }
-          
-          console.log("[DASHBOARD] Attività da mostrare:", activitiesData);
-          setActivities(activitiesData);
-        } catch (error) {
-          console.error("[DASHBOARD] Errore nel caricamento attività:", error);
-          setActivities([]);
-        }
-        
-        // Funzione di ordinamento per data
+
         const sortByDate = (a, b) => {
-          const dateAString = a.expiry_date || a.data_scadenza;
-          const dateBString = b.expiry_date || b.data_scadenza;
-          if (!dateAString || !dateBString) return 0;
-          
-          const dateA = new Date(dateAString);
-          const dateB = new Date(dateBString);
-          if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
-          
+          const dateA = new Date(a.expiry_date || a.data_scadenza);
+          const dateB = new Date(b.expiry_date || b.data_scadenza);
           return dateA - dateB;
         };
-        
-        // Ordina entrambe le liste
-        const sortedPaidDeadlines = [...paidDeadlines].sort(sortByDate);
-        const sortedUnpaidDeadlines = [...unpaidDeadlines].sort(sortByDate);
-        
-        // Aggiorna lo stato con entrambe le liste
-        setDeadlines({
-          paid: sortedPaidDeadlines,
-          unpaid: sortedUnpaidDeadlines
-        });
-        
-        console.log("[DASHBOARD] Scadenze aggiornate - Pagate:", 
-          JSON.stringify(sortedPaidDeadlines, null, 2), 
-          "\nNon pagate:", 
-          JSON.stringify(sortedUnpaidDeadlines, null, 2)
-        );
+
+        paidDeadlines.sort(sortByDate);
+        unpaidDeadlines.sort(sortByDate);
+
+        setDeadlines({ paid: paidDeadlines, unpaid: unpaidDeadlines });
+
       } catch (deadlinesError) {
         console.error("[DASHBOARD] Errore nel caricamento delle scadenze:", deadlinesError);
-        if (deadlinesError.response && deadlinesError.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento delle scadenze. " + (deadlinesError.response?.data?.message || deadlinesError.message));
-        }
-        setFetching(false);
-        console.groupEnd();
-        return;
+        setError("Errore nel caricamento delle scadenze.");
       }
-      
-      // Carica i tipi di attività prima delle attività
-      console.log("[DASHBOARD] Caricamento tipi di attività...");
-      let activityTypes = [];
+
       try {
-        const activityTypesResponse = await api.get('/activity-types', {
-          withCredentials: true,
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+        const activitiesResponse = await api.get('/activities', {
+          params: {
+            start_date: effectiveStartDate,
+            end_date: effectiveEndDate,
+            per_page: 5,
+            sort: 'data_inizio',
+            order: 'desc'
           }
         });
-        
-        console.log("[DASHBOARD] Tipi di attività caricati:", activityTypesResponse.status);
-        console.log("[DASHBOARD] Numero tipi di attività:", activityTypesResponse.data.length);
-        
-        activityTypes = activityTypesResponse.data;
-      } catch (typesError) {
-        console.error("[DASHBOARD] Errore nel caricamento dei tipi di attività:", typesError);
-        // Continuiamo comunque con il caricamento delle attività
-      }
-      
-      // Carica le attività recenti
-      console.log("[DASHBOARD] Caricamento attività recenti...");
-      try {
-        // Ottieni il token da localStorage se disponibile
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        
-        const activitiesResponse = await api.get(`/activities?start_date=${effectiveStartDate}&end_date=${effectiveEndDate}`, {
-          withCredentials: true,
-          headers: {
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        });
-        
-        console.log("[DASHBOARD] Attività caricate:", activitiesResponse.status);
-        console.log("[DASHBOARD] Numero attività:", activitiesResponse.data.length);
-        
-        // Ordina le attività per data
-        // Controllo robusto per array paginato o array diretto
-        console.log("[DASHBOARD] Risposta API activities:", JSON.stringify(activitiesResponse.data, null, 2));
-        let activitiesArr = [];
-        if (Array.isArray(activitiesResponse.data.data)) {
-          activitiesArr = activitiesResponse.data.data;
-        } else if (Array.isArray(activitiesResponse.data)) {
-          activitiesArr = activitiesResponse.data;
-        } else {
-          activitiesArr = [];
-        }
-        const sortedActivities = activitiesArr.sort((a, b) => {
-          return new Date(a.data_inizio) - new Date(b.data_inizio);
-        });
-        
-        // Ricostruisci activityType se mancante
-        console.log("[DASHBOARD] Elaborazione dati attività...");
-        const activitiesWithType = sortedActivities.map(activity => {
-          if (!activity.activityType && activity.activity_type_id) {
-            const tipo = activityTypes.find(t => t.id === activity.activity_type_id);
-            if (tipo) {
-              activity.activityType = {
-                id: tipo.id,
-                nome: tipo.nome || tipo.name,
-                color: tipo.color || tipo.colore,
-              };
-            }
-          }
-          return activity;
-        });
-        
-        // Prendi solo le prime 5 attività
-        setActivities(activitiesWithType);
-        console.log("[DASHBOARD] Stato activities aggiornato con:", JSON.stringify(activitiesWithType, null, 2));
-        console.log("[DASHBOARD] Attività elaborate e salvate nello stato");
+        setActivities(activitiesResponse.data.data || []);
       } catch (activitiesError) {
         console.error("[DASHBOARD] Errore nel caricamento delle attività:", activitiesError);
-        if (activitiesError.response && activitiesError.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento delle attività. " + (activitiesError.response?.data?.message || activitiesError.message));
-        }
+        setError("Errore nel caricamento delle attività.");
       }
-      
-      console.log("[DASHBOARD] Caricamento dati completato con successo");
+
     } catch (err) {
       console.error("[DASHBOARD] Errore generale nel caricamento dei dati:", err);
-      if (err.response && err.response.status === 401) {
-        setError("Sessione scaduta. Effettua nuovamente il login.");
-      } else {
-        setError("Si è verificato un errore durante il caricamento dei dati. Riprova più tardi.");
-      }
+      setError("Si è verificato un errore generale.");
     } finally {
       setFetching(false);
-      console.log("[DASHBOARD] Stato fetching impostato a:", false);
       console.groupEnd();
     }
   };
@@ -448,7 +272,6 @@ if (allDeadlines.length > 0) {
     return null; // Non mostrare nulla se l'utente non è autenticato
   }
   
-  console.log('[DashboardPage] Just before return statement. currentDateRange is:', currentDateRange);
   return (
     <div style={{ padding: '32px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>

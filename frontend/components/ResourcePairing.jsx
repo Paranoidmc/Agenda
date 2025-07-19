@@ -6,7 +6,6 @@ const ResourcePairing = ({ value = [], onChange, drivers = [], vehicles = [] }) 
 
   const handleAddPair = () => {
     const newValue = [...currentValue, { vehicle_id: '', driver_ids: [] }];
-    console.log('Adding new pair, new value:', newValue);
     onChange(newValue);
   };
 

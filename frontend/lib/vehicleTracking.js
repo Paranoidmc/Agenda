@@ -103,12 +103,10 @@ export function simulateGPSUpdates(vehicleId, options = {}) {
       };
       
       await updateVehiclePosition(vehicleId, position);
-      console.log(`GPS simulato per veicolo ${vehicleId}:`, position);
       
       updateCount++;
       if (updateCount >= maxUpdates) {
         clearInterval(interval);
-        console.log(`Simulazione GPS completata per veicolo ${vehicleId}`);
       }
     } catch (error) {
       console.error(`Errore nella simulazione GPS per veicolo ${vehicleId}:`, error);
@@ -118,7 +116,6 @@ export function simulateGPSUpdates(vehicleId, options = {}) {
   // Restituisce una funzione per fermare la simulazione
   return () => {
     clearInterval(interval);
-    console.log(`Simulazione GPS fermata per veicolo ${vehicleId}`);
   };
 }
 

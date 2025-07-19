@@ -7,11 +7,11 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
       setLoading(true);
-      // console.log("[AUTH] Verificando stato autenticazione...");
       
       // Controlla se abbiamo un utente in localStorage
       let userFromStorage = null;
@@ -22,12 +22,10 @@ export const AuthProvider = ({ children }) => {
           const userJson = localStorage.getItem('user');
           if (userJson) {
             userFromStorage = JSON.parse(userJson);
-            // console.log("[AUTH] Utente trovato in localStorage");
           }
           
           tokenFromStorage = localStorage.getItem('token');
           if (tokenFromStorage) {
-            // console.log("[AUTH] Token trovato in localStorage");
           }
         } catch (error) {
           console.error("[AUTH] Errore nel parsing dei dati utente da localStorage:", error);
@@ -37,11 +35,16 @@ export const AuthProvider = ({ children }) => {
       }
       
       // Se abbiamo un utente in localStorage, lo usiamo temporaneamente
-      if (userFromStorage) {
-        setUser(userFromStorage);
+      // Se non c'è un utente in localStorage, non c'è bisogno di verificare con il server.
+      // Interrompiamo il processo e consideriamo l'utente come non loggato.
+      if (!userFromStorage) {
+        setLoading(false);
+        return;
       }
+
+      // Se c'è un utente, lo impostiamo temporaneamente e VERIFICHIAMO con il server.
+      setUser(userFromStorage);
       
-      // Verifica con il server se l'utente è ancora autenticato
       try {
         const res = await api.get("/user", { 
           withCredentials: true,
@@ -51,35 +54,36 @@ export const AuthProvider = ({ children }) => {
         });
         
         if (res.data) {
-          // console.log("[AUTH] Utente autenticato confermato dal server");
           setUser(res.data);
-          
-          // Aggiorna i dati utente in localStorage
           if (typeof window !== 'undefined') {
             localStorage.setItem('user', JSON.stringify(res.data));
           }
+          setSessionExpired(false);
         } else {
-          console.log("[AUTH] Utente non autenticato secondo il server");
           setUser(null);
-          
-          // Pulisci localStorage
           if (typeof window !== 'undefined') {
             localStorage.removeItem('user');
             localStorage.removeItem('token');
           }
+          setSessionExpired(true);
         }
       } catch (error) {
         console.error("[AUTH] Errore nella verifica dell'autenticazione:", error);
-        
-        // Se abbiamo un errore ma avevamo un utente in localStorage, manteniamo l'utente
-        // per evitare logout improvvisi in caso di problemi di rete temporanei
-        if (!userFromStorage) {
+        if (error.response && [401, 419].includes(error.response.status)) {
+          setSessionExpired(true);
           setUser(null);
-          
-          // Pulisci localStorage solo se non avevamo un utente
           if (typeof window !== 'undefined') {
             localStorage.removeItem('user');
-            localStorage.removeItem('token');
+          }
+          // NON slogga completamente, lascia eventuale token
+        } else {
+          // Se abbiamo un errore ma avevamo un utente in localStorage, manteniamo l'utente
+          if (!userFromStorage) {
+            setUser(null);
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('user');
+              localStorage.removeItem('token');
+            }
           }
         }
       }
@@ -95,59 +99,34 @@ export const AuthProvider = ({ children }) => {
     try {
       // Ottieni sempre il CSRF cookie prima del login
       await api.get("/sanctum/csrf-cookie", { withCredentials: true });
-      
-      // Prova prima il login con token
-      let res;
-      try {
-        console.log("[AUTH] Tentativo di login con token...");
-        res = await api.post("/token-login", { email, password }, { withCredentials: true });
-        console.log("[AUTH] Login con token riuscito");
-      } catch (tokenLoginError) {
-        console.log("[AUTH] Login con token fallito, provo con sessione...", tokenLoginError);
-        // Se fallisce, prova il login con sessione
-        res = await api.post("/login", { email, password }, { withCredentials: true });
-        console.log("[AUTH] Login con sessione riuscito");
-      }
-      
-      // Salva il token se presente nella risposta
-      if (res.data && res.data.token) {
-        localStorage.setItem('token', res.data.token);
-        console.log("[AUTH] Token salvato in localStorage");
-      }
-      
-      // Salva i dati utente se presenti nella risposta
+      // Login solo tramite sessione
+      const res = await api.post("/session-login-controller", { email, password }, { withCredentials: true });
       if (res.data && res.data.user) {
         localStorage.setItem('user', JSON.stringify(res.data.user));
         setUser(res.data.user);
+        setSessionExpired(false);
         setLoading(false);
         return res.data.user;
       }
-      
       // Se non abbiamo ricevuto l'utente nella risposta di login, proviamo a ottenerlo
-      const userRes = await api.get("/user", { 
-        withCredentials: true,
-        headers: {
-          ...(res.data?.token ? { 'Authorization': `Bearer ${res.data.token}` } : {})
-        }
-      });
-      
+      const userRes = await api.get("/user", { withCredentials: true });
       if (userRes.data) {
         localStorage.setItem('user', JSON.stringify(userRes.data));
         setUser(userRes.data);
+        setSessionExpired(false);
+        setLoading(false);
+        return userRes.data;
       } else {
-        localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
+        setSessionExpired(true);
         setLoading(false);
         throw new Error("Login fallito: impossibile ottenere i dati utente");
       }
-      
-      setLoading(false);
-      return userRes.data;
     } catch (err) {
-      localStorage.removeItem('token');
       localStorage.removeItem('user');
       setUser(null);
+      setSessionExpired(true);
       setLoading(false);
       throw err;
     }
@@ -155,33 +134,33 @@ export const AuthProvider = ({ children }) => {
 
 
   const logout = async () => {
+    setLoading(true);
     try {
-      // Ottieni il token da localStorage se disponibile
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      
-      // Esegui il logout
-      await api.post("/logout", {}, { 
-        withCredentials: true,
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
-      });
+      // Chiama il backend per invalidare la sessione
+      await api.post("/logout", {}, { withCredentials: true });
     } catch (error) {
-      console.error("[AUTH] Errore durante il logout:", error);
+      console.error("[AUTH] Errore durante la chiamata di logout al backend:", error);
+      // Non importa se fallisce, procediamo a pulire il frontend
     } finally {
-      // Pulisci localStorage e stato anche se la richiesta fallisce
+      // Pulisce lo stato locale in ogni caso
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('token'); // Rimuoviamo anche il token per sicurezza
       }
-      
       setUser(null);
+      setSessionExpired(false);
       setLoading(false);
+
+      // FORZA il reindirizzamento alla pagina di login.
+      // Questa è la parte fondamentale che mancava.
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, sessionExpired }}>
       {children}
     </AuthContext.Provider>
   );

@@ -55,7 +55,6 @@ export default function EntityForm({
 
 
   const handleSetIsEditing = (editingState) => {
-    console.log('handleSetIsEditing called with:', editingState);
     if (setIsEditing) {
       setIsEditing(editingState);
     }
@@ -123,7 +122,6 @@ export default function EntityForm({
     if (isSaving || isLoading) return;
 
     if (!validate()) {
-      console.log('Validazione fallita.');
       return;
     }
 
@@ -148,7 +146,6 @@ export default function EntityForm({
         }
       });
 
-      console.log('Dati inviati:', preparedData);
       onSave(preparedData);
     }
   };
@@ -263,13 +260,13 @@ export default function EntityForm({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e5ea' }}>
         {isEditing ? (
           <>
-            <button type="button" onClick={onCancel} disabled={isSaving} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e5e5ea', backgroundColor: '#fff', cursor: 'pointer' }}>Annulla</button>
-            <button type="submit" disabled={isSaving || isLoading} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#fff', cursor: 'pointer', opacity: (isSaving || isLoading) ? 0.7 : 1 }}>{isSaving ? 'Salvataggio...' : 'Salva'}</button>
+            {onSave && <button type="button" onClick={onCancel} disabled={isSaving} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e5e5ea', backgroundColor: '#fff', cursor: 'pointer' }}>Annulla</button>}
+            {onSave && <button type="submit" disabled={isSaving || isLoading} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#fff', cursor: 'pointer', opacity: (isSaving || isLoading) ? 0.7 : 1 }}>{isSaving ? 'Salvataggio...' : 'Salva'}</button>}
           </>
         ) : (
           <>
             {onDelete && <button type="button" onClick={handleDelete} disabled={isSaving || isLoading} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: deleteConfirm ? '#ff3b30' : '#f2f2f7', color: deleteConfirm ? '#fff' : '#333', cursor: 'pointer', transition: 'background-color 0.3s' }}>{deleteConfirm ? 'Conferma' : 'Elimina'}</button>}
-            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSetIsEditing(true); }} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#fff', cursor: 'pointer' }}>Modifica</button>
+            {onSave && <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSetIsEditing(true); }} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#fff', cursor: 'pointer' }}>Modifica</button>}
           </>
         )}
       </div>

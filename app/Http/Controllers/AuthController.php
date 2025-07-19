@@ -9,6 +9,7 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
+        \Log::info('MIDDLEWARE ATTIVI', app('router')->getCurrentRoute()->gatherMiddleware());
         // Non è più necessario disabilitare la protezione CSRF, poiché l'abbiamo rimossa dal middleware API
         
         \Log::info('Tentativo login', [
@@ -35,33 +36,68 @@ class AuthController extends Controller
                 'password' => 'required'
             ]);
             
-            if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
-                return response()->json(['error' => 'Credenziali non valide'], 401);
+            \Log::info('LOGIN: richiesta ricevuta', [
+                'email' => $request->input('email'),
+                'cookie' => $request->cookie(),
+                'session_id' => $request->hasSession() ? $request->session()->getId() : null
+            ]);
+
+            $attempt = Auth::attempt($request->only('email', 'password'), $request->boolean('remember'));
+            \Log::info('LOGIN: risultato Auth::attempt', ['result' => $attempt]);
+
+            if (!$attempt) {
+                $response = response()->json(['error' => 'Credenziali non valide'], 401);
+                \Log::info('HEADERS DI RISPOSTA LOGIN (401)', $response->headers->all());
+                return $response;
             }
+            // Forza il guard web per la sessione
+            Auth::shouldUse('web');
+            \Log::info('LOGIN: guard usato', ['guard' => Auth::getDefaultDriver()]);
 
             // Forza la rigenerazione della sessione dopo login
             if ($request->hasSession()) {
                 $request->session()->regenerate();
+                \Log::info('LOGIN: sessione rigenerata', [
+                    'session_id' => $request->session()->getId()
+                ]);
+            } else {
+                \Log::warning('LOGIN: sessione NON presente dopo login!');
             }
             
             $user = Auth::user();
-            
-            // Genera un token personale per l'utente
-            $token = $user->createToken('api-token')->plainTextToken;
-            
-            return response()->json([
+            \Log::info('LOGIN: utente autenticato', [
+                'id' => $user ? $user->id : null,
+                'email' => $user ? $user->email : null
+            ]);
+
+            // Salva user_id e email in sessione per debug
+            if ($request->hasSession()) {
+                $request->session()->put('user_id', $user->id);
+                $request->session()->put('user_email', $user->email);
+                \Log::info('LOGIN: dati scritti in sessione', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'session_all' => $request->session()->all()
+                ]);
+            }
+
+            $response = response()->json([
                 'user' => $user,
-                'token' => $token,
                 'message' => 'Login effettuato con successo'
             ]);
+
+            // Logga tutti gli header di risposta
+            \Log::info('HEADERS DI RISPOSTA LOGIN', $response->headers->all());
+            return $response;
         } catch (\Exception $e) {
             \Log::error('Errore login: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
-            
-            return response()->json([
+            $response = response()->json([
                 'error' => 'Errore durante il login: ' . $e->getMessage()
             ], 500);
+            \Log::info('HEADERS DI RISPOSTA LOGIN (500)', $response->headers->all());
+            return $response;
         }
     }
 

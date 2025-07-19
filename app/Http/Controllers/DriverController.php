@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Driver;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 
 class DriverController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Display a listing of the resource.
      */
@@ -96,6 +99,8 @@ class DriverController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('manage-anagrafiche');
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'surname' => 'sometimes|required|string|max:255',
@@ -206,6 +211,8 @@ class DriverController extends Controller
      */
     public function update(Request $request, Driver $driver)
     {
+        $this->authorize('manage-anagrafiche');
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'surname' => 'sometimes|required|string|max:255',
@@ -328,6 +335,8 @@ class DriverController extends Controller
      */
     public function destroy(Driver $driver)
     {
+        $this->authorize('manage-anagrafiche');
+
         $driver->delete();
         return response()->json(null, 204);
     }

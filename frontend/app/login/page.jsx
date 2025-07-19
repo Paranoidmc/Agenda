@@ -13,16 +13,13 @@ export default function LoginPage() {
     setError("");
     
     console.group("[LOGIN-PAGE] Processo di login");
-    console.log("[LOGIN-PAGE] Avvio processo di login");
     
     // Pulisci eventuali token residui e dati non validi
     if (typeof window !== 'undefined') {
-      console.log("[LOGIN-PAGE] Pulizia dati precedenti");
       try {
         // Salva temporaneamente i valori per il debug
         const oldToken = localStorage.getItem("token");
         const oldUser = localStorage.getItem("user");
-        console.log("[LOGIN-PAGE] Dati prima della pulizia:", { token: !!oldToken, user: !!oldUser });
         
         // Rimuovi i dati
         localStorage.removeItem("token");
@@ -42,23 +39,18 @@ export default function LoginPage() {
         // Verifica che i dati siano stati rimossi
         const tokenAfter = localStorage.getItem("token");
         const userAfter = localStorage.getItem("user");
-        console.log("[LOGIN-PAGE] Dati dopo la pulizia:", { token: !!tokenAfter, user: !!userAfter });
       } catch (storageError) {
         console.error("[LOGIN-PAGE] Errore nella pulizia dello storage:", storageError);
       }
     }
     
     try {
-      console.log("[LOGIN-PAGE] Tentativo di login con email:", email);
       
       // Chiamata alla funzione login del contesto di autenticazione
       const loginResult = await login(email, password);
-      console.log("[LOGIN-PAGE] Risultato login:", loginResult);
       
-      console.log("[LOGIN-PAGE] Login riuscito, preparazione reindirizzamento...");
       
       // Attendi un momento per assicurarsi che i dati siano salvati
-      console.log("[LOGIN-PAGE] Attesa per assicurarsi che i dati siano salvati...");
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Verifica che l'utente sia stato impostato correttamente
@@ -66,13 +58,9 @@ export default function LoginPage() {
         const token = localStorage.getItem("token");
         const userData = localStorage.getItem("user");
         
-        console.log("[LOGIN-PAGE] Verifica dati salvati:");
-        console.log("[LOGIN-PAGE] Token salvato:", !!token);
-        console.log("[LOGIN-PAGE] Dati utente salvati:", !!userData);
         
         if (token && userData) {
           // Reindirizza alla dashboard
-          console.log("[LOGIN-PAGE] Reindirizzamento alla dashboard...");
           
           // Aggiungi un parametro per evitare la cache
           window.location.href = '/dashboard?t=' + new Date().getTime();
@@ -82,7 +70,6 @@ export default function LoginPage() {
           setError("Errore durante il login: dati utente non salvati correttamente");
           
           // Pulisci i dati
-          console.log("[LOGIN-PAGE] Pulizia dati non validi");
           localStorage.removeItem("token");
           localStorage.removeItem("user");
         }
@@ -92,17 +79,13 @@ export default function LoginPage() {
       
       // Mostra un messaggio di errore più specifico se disponibile
       if (err.message) {
-        console.log("[LOGIN-PAGE] Messaggio di errore:", err.message);
         setError(err.message);
       } else if (err.response?.data?.message) {
-        console.log("[LOGIN-PAGE] Messaggio di errore dalla risposta:", err.response.data.message);
         setError(err.response.data.message);
       } else {
-        console.log("[LOGIN-PAGE] Messaggio di errore generico");
         setError("Credenziali non valide o errore di connessione");
       }
     } finally {
-      console.log("[LOGIN-PAGE] Processo di login completato");
       console.groupEnd();
     }
   };

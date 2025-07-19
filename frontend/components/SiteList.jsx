@@ -18,10 +18,8 @@ export default function SiteList({ clientId, onSiteClick }) {
       setLoading(true);
       setError(null);
       
-      console.log("SiteList - Caricamento sedi per cliente:", clientId);
       
       try {
-        console.log("SiteList - Iniziando chiamata API per il cliente:", clientId);
         
         // Aggiungiamo un parametro per evitare la cache
         const response = await api.get(`/clients/${clientId}/sites`, {
@@ -29,8 +27,6 @@ export default function SiteList({ clientId, onSiteClick }) {
           useCache: false
         });
         
-        console.log("SiteList - Risposta API completa:", response);
-        console.log("SiteList - Risposta API data:", response.data);
         
         if (Array.isArray(response.data)) {
           setSites(response.data);

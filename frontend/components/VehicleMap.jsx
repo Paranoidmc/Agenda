@@ -54,7 +54,6 @@ export default function VehicleMap({
           truckIcon
         });
         setIsLoaded(true);
-        console.log('VehicleMap: Leaflet caricato con successo');
       } catch (error) {
         console.error('Errore nel caricamento di Leaflet:', error);
       }

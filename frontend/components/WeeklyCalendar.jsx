@@ -20,7 +20,6 @@ export default function WeeklyCalendar({
   onNextWeek,
   viewMode = 'activity',
   onChangeViewMode,
-  getEventContent,
   rows,
   selectedDate
 }) {
@@ -30,7 +29,6 @@ export default function WeeklyCalendar({
   // Funzione per trovare attività per cella
   function getCellEvents(row, day) {
     const events = row.events.filter(event => sameDay(event.start, day));
-    console.log(`DIAGNOSTICA - Eventi per cella (${day.toISOString().split('T')[0]}):`, events.length);
     return events;
   }
   function sameDay(date1, date2) {
@@ -113,194 +111,37 @@ export default function WeeklyCalendar({
 
   // Determina se un evento deve essere visualizzato in un determinato giorno e ora
   const shouldShowEvent = (event, day, hour) => {
-    // Assicuriamoci che event.start e event.end siano oggetti Date validi
-    const eventDate = event.start instanceof Date ? event.start : new Date(event.start);
-    const eventEndDate = event.end instanceof Date ? event.end : new Date(event.end);
-    
-    // Debug
-    console.log(`Checking event: ${event.title}`, {
-      eventDate,
-      eventEndDate,
-      day,
-      hour,
-      eventType: event.type
-    });
-    
-    // Verifica se l'evento è nello stesso giorno
-    const isSameDay = 
-      eventDate.getDate() === day.getDate() && 
-      eventDate.getMonth() === day.getMonth() && 
-      eventDate.getFullYear() === day.getFullYear();
-    
+    const eventStart = new Date(event.start);
+    const eventEnd = new Date(event.end);
+
+    const isSameDay = eventStart.getFullYear() === day.getFullYear() &&
+                    eventStart.getMonth() === day.getMonth() &&
+                    eventStart.getDate() === day.getDate();
+
     if (!isSameDay) {
-      console.log(`Event ${event.title} is not on the same day`);
       return false;
     }
-    
-    // Per le scadenze, mostra sempre nella prima riga visibile
-    if (event.type === 'deadline') {
-      console.log(`Deadline ${event.title} shown at hour ${visibleHours.start}`);
-      return hour === visibleHours.start;
-    }
-    
-    // Per le attività, verifica se l'ora corrisponde
-    const eventHour = eventDate.getHours();
-    // IMPORTANTE: Per la vista settimanale, mostriamo sempre l'evento nella prima ora visibile
-    // Questo assicura che tutti gli eventi siano visibili
-    if (viewMode === 'activity' || viewMode === 'driver' || viewMode === 'vehicle') {
-      return hour === visibleHours.start;
-    }
-    
-    const eventEndHour = eventEndDate.getHours() || eventHour + 1; // Default 1 ora se non specificato
-    
-    const shouldShow = hour >= eventHour && hour < eventEndHour;
-    console.log(`Activity ${event.title} at hour ${hour}: ${shouldShow ? 'SHOWN' : 'HIDDEN'} (${eventHour}-${eventEndHour})`);
-    
-    return shouldShow;
-  };
 
-  // Calcola l'altezza dell'evento in base alla durata
-  const getEventHeight = (event) => {
-    if (event.type === 'deadline') return `${cellHeight}px`;
-    
-    // Assicuriamoci che event.start e event.end siano oggetti Date validi
-    const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
-    const eventEnd = event.end instanceof Date ? event.end : new Date(event.end);
-    
     const startHour = eventStart.getHours();
-    const endHour = eventEnd.getHours() || startHour + 1;
-    const durationHours = endHour - startHour;
+    const endHour = eventEnd.getHours();
     
-    // Assicuriamoci che l'altezza sia almeno di 60px (1 ora)
-    return `${Math.max(1, durationHours) * 60}px`; // 60px per ora
+    const effectiveEndHour = (endHour === 0 && eventEnd.getMinutes() === 0) ? 24 : endHour;
+
+    return hour >= startHour && hour < effectiveEndHour;
   };
 
-  // Raggruppa gli eventi per tipo di vista
-  const getEventsByView = () => {
-    switch (viewMode) {
-      case 'driver':
-        const driverMap = new Map();
-        events.forEach(event => {
-          if (event.driverId && event.driverName) {
-            if (!driverMap.has(event.driverId)) {
-              driverMap.set(event.driverId, {
-                id: event.driverId,
-                name: event.driverName,
-                events: []
-              });
-            }
-            driverMap.get(event.driverId).events.push(event);
-          }
-        });
-        return Array.from(driverMap.values());
-
-      case 'vehicle':
-        const vehicleMap = new Map();
-        events.forEach(event => {
-          if (event.vehicleId && event.vehicleName) {
-            if (!vehicleMap.has(event.vehicleId)) {
-              vehicleMap.set(event.vehicleId, {
-                id: event.vehicleId,
-                name: event.vehicleName,
-                events: []
-              });
-            }
-            vehicleMap.get(event.vehicleId).events.push(event);
-          }
-        });
-        return Array.from(vehicleMap.values());
-
-      case 'activity':
-      default:
-        return events.map(event => ({
-          id: event.id,
-          name: event.title,
-          events: [event]
-        }));
-    }
-  };
-
-  // Ottiene gli eventi per un determinato giorno
-  const getEventsForDay = (row, day) => {
-    const events = row.events.filter(event => sameDay(event.start, day));
-    console.log(`DIAGNOSTICA - getEventsForDay (${day.toISOString().split('T')[0]}, ${row.name}):`, events.length);
-    return events;
-  };
-
-  // Ottiene gli eventi per un determinato giorno e ora
   const getEventsForTimeSlot = (day, hour) => {
-    // Aggiungiamo un log per vedere quanti eventi ci sono in totale
-    if (hour === 8) {
-      console.log(`Totale eventi disponibili per ${day.toDateString()}: ${events.length}`);
-      
-      // Log degli eventi per questo giorno
-      const eventsForDay = events.filter(event => {
-        const eventDate = new Date(event.start);
-        return eventDate.getDate() === day.getDate() && 
-               eventDate.getMonth() === day.getMonth() && 
-               eventDate.getFullYear() === day.getFullYear();
-      });
-      
-      console.log(`Eventi per ${day.toDateString()}: ${eventsForDay.length}`, 
-        eventsForDay.map(e => ({
-          id: e.id,
-          title: e.title,
-          start: e.start instanceof Date ? e.start.toISOString() : e.start,
-          type: e.type
-        }))
-      );
+    if (!events) {
+      return [];
     }
-    
-      // IMPORTANTE: Per la vista settimanale, mostriamo sempre l'evento nella prima ora visibile
-      // Questo assicura che tutti gli eventi siano visibili
-      if (viewMode === 'activity' || viewMode === 'driver' || viewMode === 'vehicle') {
-        return hour === visibleHours.start;
-      }
-      
-    // Applica la vista selezionata
-    let filteredEvents = events;
-    if (viewMode === 'driver') {
-      filteredEvents = events.filter(event => event.driverId);
-    } else if (viewMode === 'vehicle') {
-      filteredEvents = events.filter(event => event.vehicleId);
-    } // Altrimenti mostra tutte le attività (activity)
-    return filteredEvents.filter(event => {
-      const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
-      const eventEnd = event.end instanceof Date ? event.end : new Date(event.end);
-      // Show event if it covers this hour (start <= hour < end)
-      const eventStartHour = eventStart.getHours();
-      const eventEndHour = eventEnd.getHours();
-      const isSameDay = eventStart.getFullYear() === day.getFullYear() && eventStart.getMonth() === day.getMonth() && eventStart.getDate() === day.getDate();
-      const coversHour = isSameDay && hour >= eventStartHour && hour < (eventEndHour === eventStartHour ? eventStartHour + 1 : eventEndHour);
-      if (coversHour) {
-        console.log(`[DEBUG] Event shown in cell`, {
-          eventId: event.id,
-          eventTitle: event.title,
-          eventStart: eventStart.toISOString(),
-          eventEnd: eventEnd.toISOString(),
-          cellDay: day.toISOString(),
-          cellHour: hour
-        });
-      }
-      return coversHour;
-    });
-    
-    console.log(`DIAGNOSTICA - getEventsForTimeSlot (${day.toISOString().split('T')[0]}, ora ${hour}): eventi filtrati = ${result.length}`);
-    return result;
+    return events.filter(event => shouldShowEvent(event, day, hour));
   };
 
 
 
   return (
     <div className="weekly-calendar">
-      <div className="calendar-header">
-        <button onClick={onPrevWeek}>
-          ← Settimana Precedente
-        </button>
-        <button onClick={onNextWeek}>
-          Settimana Successiva →
-        </button>
-      </div>
+
 
       <div className="calendar-grid">
         {/* Header delle colonne */}
@@ -344,41 +185,41 @@ export default function WeeklyCalendar({
                       style={{ display: 'flex', flexDirection: 'column', minHeight: 60 }}
                     >
                       {cellEvents.length === 0 ? (
-                        <span style={{ color: '#bbb', fontSize: '0.95em', padding: 8 }}>Nessuna attività</span>
+                        <span className="no-activity-text">Nessuna attività</span>
                       ) : (
                         cellEvents.map((event, eventIndex) => {
-                          let backgroundColor = '#007aff';
-                          if (event.type === 'activity') {
-                            if (event.color && event.color.startsWith('#')) backgroundColor = event.color;
-                            else if (event.backgroundColor && event.backgroundColor.startsWith('#')) backgroundColor = event.backgroundColor;
-                            else if (event.activityTypeColor && event.activityTypeColor.startsWith('#')) backgroundColor = event.activityTypeColor;
-                            else if (event.data && event.data.activityType && event.data.activityType.colore && event.data.activityType.colore.startsWith('#')) backgroundColor = event.data.activityType.colore;
-                          } else if (event.type === 'deadline') {
-                            backgroundColor = event.color || '#ff3b30';
-                          }
-                          if (!backgroundColor || !backgroundColor.startsWith('#')) backgroundColor = '#007aff';
+                          let statusKey = event.status || event.stato || event.data?.status || event.data?.stato;
+                          let backgroundColor = statusColorMap[statusKey] || '#6b7280'; // Grigio scuro fallback
                           const textColor = getContrastColor(backgroundColor);
                           return (
                             <div
                               key={`${event.id}-${eventIndex}`}
-                              className={`event`}
+                              className="event-card"
                               style={{
                                 backgroundColor: backgroundColor,
                                 color: textColor,
-                                borderLeft: `3px solid ${backgroundColor}`,
-                                borderColor: backgroundColor,
-                                borderWidth: '2px',
-                                borderStyle: 'solid',
-                                whiteSpace: 'pre-line',
-                                fontSize: '0.85rem',
-                                lineHeight: '1.2',
-                                overflow: 'hidden',
-                                marginBottom: 6
+                                borderLeft: `4px solid ${backgroundColor}`
                               }}
                               onClick={() => onEventClick?.(event)}
-                              title={getEventContent(event).replace('\n', ' - ')}
+                              title={event.data?.descrizione || event.data?.description || event.description || ''}
                             >
-                              {getEventContent(event)}
+                              <div className="event-header">
+                                {(() => {
+                                  const startDate = event.start instanceof Date ? event.start : new Date(event.start);
+                                  const endDate = event.end instanceof Date ? event.end : new Date(event.end);
+                                  const formatTime = d => d && !isNaN(d.getTime()) ? d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+                                  const activityType = event.data?.activityType?.nome || event.data?.activityType?.name || event.activityTypeName || '';
+                                  return `${formatTime(startDate)}${formatTime(endDate) ? ' - ' + formatTime(endDate) : ''} ${activityType ? '[' + activityType + ']' : ''}`;
+                                })()}
+                              </div>
+                              <div className="event-title">{event.data?.descrizione || event.data?.description || event.description || ''}</div>
+                              <div className="event-details">
+                                <span><b>Cliente:</b> {event.data?.client?.nome || event.data?.client?.name || event.clientName || 'N/D'}</span><br/>
+                                <span><b>Cantiere:</b> {event.data?.site?.nome || event.data?.site?.name || event.siteName || 'N/D'}</span><br/>
+                                <span><b>Autista:</b> {event.driverName || 'N/D'}</span><br/>
+                                <span><b>Veicolo:</b> {event.vehicleName || 'N/D'}</span><br/>
+                                <span><b>Stato:</b> {event.stato || event.data?.stato || event.data?.status || 'N/D'}</span>
+                              </div>
                             </div>
                           );
                         })
@@ -404,7 +245,6 @@ export default function WeeklyCalendar({
                            eventDate.getDate() === day.getDate();
                   });
                   
-                  console.log(`DIAGNOSTICA - Cella (${day.toISOString().split('T')[0]}, ${row.name}): ${cellEvents.length} eventi`);
                   
                   return (
                     <div
@@ -413,44 +253,26 @@ export default function WeeklyCalendar({
                       style={{ display: 'flex', flexDirection: 'column', minHeight: 60 }}
                     >
                       {cellEvents.length === 0 ? (
-                        <span style={{ color: '#bbb', fontSize: '0.95em', padding: 8 }}>Nessuna attività</span>
+                        <span className="no-activity-text">Nessuna attività</span>
                       ) : (
                         cellEvents.map((event, eventIndex) => {
-                          let backgroundColor = '#007aff';
-                          if (event.type === 'activity') {
-                            if (event.color && event.color.startsWith('#')) backgroundColor = event.color;
-                            else if (event.backgroundColor && event.backgroundColor.startsWith('#')) backgroundColor = event.backgroundColor;
-                            else if (event.activityTypeColor && event.activityTypeColor.startsWith('#')) backgroundColor = event.activityTypeColor;
-                            else if (event.data && event.data.activityType && event.data.activityType.colore && event.data.activityType.colore.startsWith('#')) backgroundColor = event.data.activityType.colore;
-                          } else if (event.type === 'deadline') {
-                            backgroundColor = event.color || '#ff3b30';
-                          }
-                          if (!backgroundColor || !backgroundColor.startsWith('#')) backgroundColor = '#007aff';
+                          let statusKey = event.status || event.stato || event.data?.status || event.data?.stato;
+                          let backgroundColor = statusColorMap[statusKey] || '#6b7280'; // Grigio scuro fallback
                           const textColor = getContrastColor(backgroundColor);
                           return (
                             <div
                               key={`${event.id}-${eventIndex}`}
-                              className="event minicard"
+                              className="event-card"
                               style={{
+                                backgroundColor: backgroundColor,
                                 backgroundColor: (event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor,
                                 color: textColor,
-                                borderLeft: `3px solid ${(event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor}`,
-                                borderColor: (event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor,
-                                borderWidth: '2px',
-                                borderStyle: 'solid',
-                                borderRadius: 8,
-                                whiteSpace: 'normal',
-                                fontSize: '0.92em',
-                                lineHeight: '1.3',
-                                overflow: 'hidden',
-                                marginBottom: 8,
-                                padding: '7px 10px',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+                                borderLeft: `4px solid ${(event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor}`
                               }}
                               onClick={() => onEventClick?.(event)}
                               title={event.data?.descrizione || event.data?.description || event.description || ''}
                             >
-                              <div style={{ fontWeight: 700, fontSize: '1em', marginBottom: 2 }}>
+                              <div className="event-header">
                                 {(() => {
                                   const startDate = event.start instanceof Date ? event.start : new Date(event.start);
                                   const endDate = event.end instanceof Date ? event.end : new Date(event.end);
@@ -459,13 +281,13 @@ export default function WeeklyCalendar({
                                   return `${formatTime(startDate)}${formatTime(endDate) ? ' - ' + formatTime(endDate) : ''} ${activityType ? '[' + activityType + ']' : ''}`;
                                 })()}
                               </div>
-                              <div style={{ fontWeight: 500, marginBottom: 1 }}>{event.data?.descrizione || event.data?.description || event.description || ''}</div>
-                              <div style={{ fontSize: '0.95em', color: textColor, opacity: 0.93 }}>
+                              <div className="event-title">{event.data?.descrizione || event.data?.description || event.description || ''}</div>
+                              <div className="event-details">
                                 <span><b>Cliente:</b> {event.data?.client?.nome || event.data?.client?.name || event.clientName || 'N/D'}</span><br/>
                                 <span><b>Cantiere:</b> {event.data?.site?.nome || event.data?.site?.name || event.siteName || 'N/D'}</span><br/>
-                                <span><b>Autista:</b> {event.data?.driver ? `${event.data.driver.nome || ''} ${event.data.driver.cognome || ''}`.trim() : event.driverName || 'N/D'}</span><br/>
-                                <span><b>Veicolo:</b> {event.data?.vehicle ? `${event.data.vehicle.targa || ''} ${event.data.vehicle.modello || ''}`.trim() : event.vehicleName || 'N/D'}</span><br/>
-                                <span><b>Stato:</b> {event.data?.status || event.data?.stato || event.stato || 'N/D'}</span>
+                                <span><b>Autista:</b> {event.driverName || 'N/D'}</span><br/>
+                                <span><b>Veicolo:</b> {event.vehicleName || 'N/D'}</span><br/>
+                                <span><b>Stato:</b> {event.stato || event.data?.stato || event.data?.status || 'N/D'}</span>
                               </div>
                             </div>
                           );

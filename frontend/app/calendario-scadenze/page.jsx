@@ -133,7 +133,6 @@ export default function CalendarioScadenzePage() {
   if (Array.isArray(veicoli)) {
     const debugNoleggi = veicoli.filter(v => v.contract_start_date && v.contract_end_date);
     if (debugNoleggi.length > 0) {
-      console.log('[DEBUG][CALENDAR] Veicoli con periodo noleggio:', debugNoleggi);
     }
   }
 

@@ -116,9 +116,13 @@ const [searchText, setSearchText] = useState("");
 
   const loadVeicoli = () => {
     api.get("/vehicles")
-      .then(res => setVeicoli(res.data))
+      .then(res => {
+        const arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        setVeicoli(arr);
+      })
       .catch(err => console.error("Errore nel caricamento dei veicoli:", err));
   };
+
 
   const handleViewDetails = (scadenza) => {
     setSelectedScadenza(scadenza);

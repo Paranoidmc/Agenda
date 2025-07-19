@@ -2,18 +2,16 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Route nominata 'login' anche per web (evita errori redirect)
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+})->name('login');
+
 use App\Http\Controllers\AuthController;
 
 Route::get('/', function () {
     return view('welcome');
 });
-
-Route::get('/login', function () {
-    return redirect('http://localhost:3000/login');
-})->name('login');
-
-// Login con sessione web
-Route::post('/login', [AuthController::class, 'login'])->middleware(['web']);
 
 // Login con token API
 Route::post('/token-login', [App\Http\Controllers\Api\AuthController::class, 'login']);
