@@ -22,6 +22,7 @@ const navItems = [
       { href: "/sedi", label: "Cantieri" },
       { href: "/veicoli", label: "Veicoli" },
       { href: "/autisti", label: "Autisti" },
+      { href: "/documenti", label: "Documenti" },
       { href: "/tipi-attivita", label: "Tipi Attività" },
     ]
   },
@@ -35,11 +36,14 @@ const protectedPaths = [
   "/scadenze",
   "/sedi",
   "/autisti",
+  "/documenti",
   "/tipi-attivita",
   "/pianificazione",
   "/agenda-giornaliera",
   "/calendario-scadenze",
-  "/utenti"
+  "/utenti",
+  "/impostazioni-arca",
+  "/impostazioni-momap"
 ];
 
 export default function Sidebar() {
@@ -143,20 +147,53 @@ export default function Sidebar() {
       })}
       {/* Voce menu Gestione Utenti solo per admin, in fondo */}
       {user?.role === 'admin' && (
-        <Link href="/utenti" style={{
+  <>
+    <Link href="/utenti" style={{
+      display: 'block',
+      padding: '0.7em 1.5em',
+      fontWeight: 600,
+      color: pathname === '/utenti' ? 'var(--primary)' : '#555',
+      fontSize: '1rem',
+      borderRadius: 6,
+      background: pathname === '/utenti' ? '#f0f0f0' : 'none',
+      marginTop: 36,
+      marginBottom: 10,
+      textDecoration: 'none',
+      letterSpacing: 0.5
+    }}>
+      Gestione Utenti
+    </Link>
+    <Link href="/impostazioni-arca" style={{
+      display: 'block',
+      padding: '0.7em 1.5em',
+      fontWeight: 600,
+      color: pathname === '/impostazioni-arca' ? 'var(--primary)' : '#555',
+      fontSize: '1rem',
+      borderRadius: 6,
+      background: pathname === '/impostazioni-arca' ? '#f0f0f0' : 'none',
+      marginBottom: 10,
+      textDecoration: 'none',
+      letterSpacing: 0.5
+    }}>
+      Impostazioni Arca
+    </Link>
+  </>
+)}
+      {/* Voce menu MOMAP solo admin */}
+      {user?.role === 'admin' && (
+        <Link href="/impostazioni-momap" style={{
           display: 'block',
-          padding: '0.7em 1.5em',
-          fontWeight: 600,
-          color: pathname === '/utenti' ? 'var(--primary)' : '#555',
-          fontSize: '1rem',
+          color: '#333',
+          padding: '12px 16px',
+          fontSize: 14,
+          fontWeight: 500,
           borderRadius: 6,
-          background: pathname === '/utenti' ? '#f0f0f0' : 'none',
-          marginTop: 36,
+          background: pathname === '/impostazioni-momap' ? '#f0f0f0' : 'none',
           marginBottom: 10,
           textDecoration: 'none',
           letterSpacing: 0.5
         }}>
-          Gestione Utenti
+          Integrazione MOMAP
         </Link>
       )}
     </aside>

@@ -13,6 +13,22 @@ import dynamic from 'next/dynamic';
 import { useVehicleTracking } from "../../hooks/useVehicleTracking";
 import "../../styles/map.css";
 
+// CSS per l'animazione del loading spinner
+const spinKeyframes = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
+// Aggiungi i keyframes al documento se non esistono già
+if (typeof document !== 'undefined' && !document.querySelector('#spin-keyframes-attivita')) {
+  const style = document.createElement('style');
+  style.id = 'spin-keyframes-attivita';
+  style.textContent = spinKeyframes;
+  document.head.appendChild(style);
+}
+
 // Importa VehicleMap solo lato client per evitare errori SSR
 const VehicleMap = dynamic(() => import("../../components/VehicleMap"), {
   ssr: false,
@@ -48,11 +64,180 @@ function AttivitaContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedAttivita, setSelectedAttivita] = useState(null);
-  const [isEditing, setIsEditingState] = useState(false);
   
-  const setIsEditing = (value) => {
-    setIsEditingState(value);
+  // Stato per documenti suggeriti
+  const [suggestedDocuments, setSuggestedDocuments] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  
+  // Stato per documenti allegati
+  const [attachedDocuments, setAttachedDocuments] = useState([]);
+  const [loadingAttached, setLoadingAttached] = useState(false);
+  
+  // Stato per documenti pre-selezionati (prima del salvataggio)
+  const [preSelectedDocuments, setPreSelectedDocuments] = useState([]);
+  
+  // Versione documenti per refresh automatico dopo sync
+  const [documentsVersion, setDocumentsVersion] = useState(0);
+
+  // Funzione per recuperare documenti allegati all'attività
+  const fetchAttachedDocuments = async (activityId) => {
+    if (!activityId) {
+      setAttachedDocuments([]);
+      return;
+    }
+
+    setLoadingAttached(true);
+    try {
+      console.log('🔍 Caricamento documenti allegati per attività:', activityId);
+      const response = await api.get(`/activities/${activityId}/documents`);
+      
+      if (response.data.success) {
+        const documents = response.data.data || [];
+        console.log(`✅ ${documents.length} documenti allegati caricati:`, documents);
+        setAttachedDocuments(documents);
+      } else {
+        console.warn('⚠️ Nessun documento allegato trovato:', response.data.message);
+        setAttachedDocuments([]);
+      }
+    } catch (error) {
+      console.error('❌ Errore nel caricamento documenti allegati:', error);
+      setAttachedDocuments([]);
+    } finally {
+      setLoadingAttached(false);
+    }
   };
+
+  // Funzione per pre-selezionare un documento (prima del salvataggio)
+  const preSelectDocument = (document) => {
+    setPreSelectedDocuments(prev => {
+      const isAlreadySelected = prev.some(doc => doc.id === document.id);
+      if (isAlreadySelected) {
+        // Rimuovi se già selezionato
+        return prev.filter(doc => doc.id !== document.id);
+      } else {
+        // Aggiungi se non selezionato
+        return [...prev, document];
+      }
+    });
+    
+    // Rimuovi dai suggerimenti quando viene pre-selezionato
+    setSuggestedDocuments(prev => prev.filter(doc => doc.id !== document.id));
+  };
+
+  // Funzione per allegare un documento a un'attività
+  const attachDocumentToActivity = async (documentId) => {
+    if (!selectedAttivita?.id) {
+      console.error('❌ Nessuna attività selezionata per allegare documento');
+      return;
+    }
+
+    try {
+      const response = await api.post('/activities/attach-document', {
+        activity_id: selectedAttivita.id,
+        document_id: documentId
+      });
+
+      if (response.data.success) {
+        console.log('✅ Documento allegato con successo');
+        // Rimuovi il documento dai suggerimenti
+        setSuggestedDocuments(prev => prev.filter(doc => doc.id !== documentId));
+        // Ricarica i documenti allegati
+        fetchAttachedDocuments(selectedAttivita.id);
+      }
+    } catch (error) {
+      console.error('❌ Errore nell\'allegare documento:', error);
+      alert('❌ Errore nell\'allegare il documento. Riprova.');
+    }
+  };
+
+  // Funzione per suggerire documenti allegabili (solo cliente e data)
+  const suggestDocuments = async (clientId, dataInizio) => {
+    console.log('🔍 suggestDocuments chiamata con:', { clientId, dataInizio });
+    
+    if (!clientId || !dataInizio) {
+      console.log('❌ Parametri mancanti (cliente o data), pulisco suggerimenti');
+      setSuggestedDocuments([]);
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    try {
+      console.log('📡 Chiamata API suggestForActivity...');
+      const response = await api.documenti.suggestForActivity({
+        client_id: clientId,
+        site_id: null, // Non più richiesto
+        data_inizio: dataInizio
+      });
+      
+      console.log('📨 Risposta API:', response.data);
+      
+      if (response.data.success) {
+        const documents = response.data.data || [];
+        console.log(`✅ ${documents.length} documenti suggeriti:`, documents);
+        setSuggestedDocuments(documents);
+      } else {
+        console.warn('⚠️ Nessun documento suggerito:', response.data.message);
+        setSuggestedDocuments([]);
+      }
+    } catch (error) {
+      console.error('❌ Errore nel suggerimento documenti:', error);
+      setSuggestedDocuments([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Funzione wrapper per suggerire documenti basata sull'attività selezionata
+  const fetchSuggestedDocuments = () => {
+    if (!selectedAttivita) {
+      console.log('⚠️ fetchSuggestedDocuments: Nessuna attività selezionata');
+      setSuggestedDocuments([]);
+      return;
+    }
+    
+    console.log('🔍 fetchSuggestedDocuments: Attività completa:', selectedAttivita);
+    
+    // Estrai client_id con diversi possibili formati
+    let clientId = selectedAttivita.client_id;
+    
+    // Se client_id non è presente, prova con altri campi
+    if (!clientId && selectedAttivita.cliente) {
+      clientId = selectedAttivita.cliente.id || selectedAttivita.cliente;
+    }
+    
+    // Se ancora non trovato, prova con il campo client
+    if (!clientId && selectedAttivita.client) {
+      clientId = selectedAttivita.client.id || selectedAttivita.client;
+    }
+    
+    const dataInizio = selectedAttivita.date || selectedAttivita.data_inizio || selectedAttivita.start_date;
+    
+    console.log('🔍 fetchSuggestedDocuments estratti:', { 
+      clientId, 
+      dataInizio,
+      campiDisponibili: Object.keys(selectedAttivita),
+      cliente_object: selectedAttivita.cliente,
+      client_object: selectedAttivita.client,
+      raw_client_id: selectedAttivita.client_id,
+      isEditing
+    });
+    
+    if (!clientId) {
+      console.warn('⚠️ fetchSuggestedDocuments: client_id mancante!');
+      setSuggestedDocuments([]);
+      return;
+    }
+    
+    if (!dataInizio) {
+      console.warn('⚠️ fetchSuggestedDocuments: data mancante!');
+      setSuggestedDocuments([]);
+      return;
+    }
+    
+    suggestDocuments(clientId, dataInizio);
+  };
+
+  const [isEditing, setIsEditing] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,14 +260,9 @@ function AttivitaContent() {
     // Usa le risorse originali per la mappa, non quelle trasformate per il form
     const resources = selectedAttivita?.originalResources || selectedAttivita?.resources;
     
-    if (!resources) {
+    if (!resources || !Array.isArray(resources)) {
       return [];
     }
-    
-    
-    // Debug dettagliato delle risorse
-    resources.forEach((resource, index) => {
-    });
     
     const vehicles = resources
       .map(resource => {
@@ -97,13 +277,17 @@ function AttivitaContent() {
     return vehicles;
   }, [selectedAttivita?.originalResources, selectedAttivita?.resources]);
 
-  // Hook per il tracking dei veicoli
+  // Hook per il tracking dei veicoli - riabilitato con valori sicuri
   const { 
     vehiclePositions, 
     isTracking, 
     lastUpdate, 
     refreshPositions 
-  } = useVehicleTracking(selectedAttivita?.id, activityVehicles);
+  } = useVehicleTracking(
+    selectedAttivita?.id || null, 
+    Array.isArray(activityVehicles) ? activityVehicles : [],
+    10000
+  );
 
   useEffect(() => {
     if (isNew) {
@@ -126,6 +310,8 @@ function AttivitaContent() {
     const clienteId = selectedAttivita?.client_id;
     if (!clienteId) return;
     
+    console.log('🏢 Aggiungendo nuova sede:', newSede);
+    
     // Aggiorna immediatamente la lista delle sedi con la nuova sede
     const newSedeFormatted = {
       id: newSede.id,
@@ -138,27 +324,48 @@ function AttivitaContent() {
       note: newSede.notes || newSede.note
     };
     
-    
+    // Prima aggiorna le sedi
     setSediPerCliente(prev => {
+      const currentSedi = prev[String(clienteId)] || [];
       const updated = {
         ...prev,
-        [String(clienteId)]: [...(prev[String(clienteId)] || []), newSedeFormatted]
+        [String(clienteId)]: [...currentSedi, newSedeFormatted]
       };
+      console.log('🔄 Sedi aggiornate:', updated[String(clienteId)]);
       return updated;
     });
     
-    // Seleziona automaticamente la nuova sede
-    setSelectedAttivita(prev => {
-      const updated = { ...prev, site_id: newSede.id };
-      return updated;
-    });
+    // Forza re-render immediato del form
+    setFormRenderKey(prev => prev + 1);
     
-    // Ricarica anche dal server per sicurezza
-    loadSediPerCliente(clienteId);
+    // Poi seleziona la nuova sede e forza re-render
+    setTimeout(() => {
+      setSelectedAttivita(prev => {
+        const updated = { ...prev, site_id: newSede.id };
+        console.log('✅ Sede selezionata:', updated.site_id);
+        return updated;
+      });
+      
+      // Forza un altro re-render del form
+      setFormRenderKey(prev => prev + 1);
+      
+      // Ricarica anche dal server per sicurezza
+      loadSediPerCliente(clienteId).then(() => {
+        console.log('🔄 Sedi ricaricate dal server');
+        // Forza un ultimo re-render dopo il caricamento
+        setFormRenderKey(prev => prev + 1);
+        
+        // Mostra feedback all'utente
+        alert(`✅ Sede "${newSede.name || newSede.nome}" aggiunta e selezionata con successo!`);
+      });
+    }, 100);
   };
 
   const handleFormChange = (updatedData) => {
     const oldClientId = selectedAttivita?.client_id;
+    const oldSiteId = selectedAttivita?.site_id;
+    const oldDataInizio = selectedAttivita?.data_inizio;
+    
     // Preserva l'ID originale quando aggiorniamo i dati del form
     const dataWithId = { ...updatedData };
     if (selectedAttivita?.id && !dataWithId.id) {
@@ -169,14 +376,79 @@ function AttivitaContent() {
     if (dataWithId.client_id !== oldClientId) {
       if (dataWithId.client_id) {
         loadSediPerCliente(dataWithId.client_id);
-        // Resetta la selezione della sede quando il cliente cambia
-        setSelectedAttivita(prev => ({ ...prev, site_id: '' }));
+        // Resetta la selezione della sede quando il cliente cambia SOLO se non è già impostata
+        if (oldSiteId && oldClientId !== dataWithId.client_id) {
+          setSelectedAttivita(prev => ({ ...prev, site_id: '' }));
+        }
       } else {
         // Pulisci le sedi se il cliente viene deselezionato
         setSediPerCliente(prev => ({ ...prev, [String(oldClientId)]: [] }));
+        setSelectedAttivita(prev => ({ ...prev, site_id: '' }));
       }
     }
+
+    // Suggerisci documenti quando cambiano cliente o data (non più destinazione)
+    const clientChanged = dataWithId.client_id !== oldClientId;
+    const dateChanged = dataWithId.data_inizio !== oldDataInizio;
+    
+    console.log('🔄 handleFormChange - Check suggerimenti:', {
+      clientChanged, dateChanged,
+      clientId: dataWithId.client_id,
+      dataInizio: dataWithId.data_inizio,
+      hasRequiredData: !!(dataWithId.client_id && dataWithId.data_inizio)
+    });
+    
+    if ((clientChanged || dateChanged) && dataWithId.client_id && dataWithId.data_inizio) {
+      // Estrai solo la data (YYYY-MM-DD) dal datetime
+      const dateOnly = dataWithId.data_inizio.split('T')[0];
+      console.log('✅ Trigger suggerimenti documenti con dateOnly:', dateOnly);
+      suggestDocuments(dataWithId.client_id, dateOnly);
+    } else if (!dataWithId.client_id || !dataWithId.data_inizio) {
+      // Pulisci i suggerimenti se mancano cliente o data
+      console.log('🧹 Pulisco suggerimenti - cliente o data mancanti');
+      setSuggestedDocuments([]);
+    }
   };
+
+  useEffect(() => {
+    // Suggerisci documenti sia in editing che in creazione (isNew)
+    if (selectedAttivita && (isEditing || isNew)) {
+      fetchSuggestedDocuments();
+    } else {
+      setSuggestedDocuments([]);
+    }
+  }, [selectedAttivita?.client_id, selectedAttivita?.date, isEditing, isNew, documentsVersion]);
+
+  // Listener per eventi di sincronizzazione documenti da altre pagine
+  useEffect(() => {
+    const handleDocumentsSync = (event) => {
+      console.log('🔄 Ricevuto evento sincronizzazione documenti:', event.detail);
+      setDocumentsVersion(v => v + 1);
+      
+      // Se c'è un'attività selezionata in modalità modifica, ricarica i suggerimenti
+      if (selectedAttivita && isEditing) {
+        console.log('🔄 Ricaricando suggerimenti dopo sync documenti...');
+        setTimeout(() => {
+          fetchSuggestedDocuments();
+        }, 1000); // Piccolo delay per assicurarsi che i dati siano pronti
+      }
+    };
+
+    // Ascolta eventi custom di sincronizzazione documenti
+    window.addEventListener('documentsSync', handleDocumentsSync);
+    
+    return () => {
+      window.removeEventListener('documentsSync', handleDocumentsSync);
+    };
+  }, [selectedAttivita, isEditing]);
+
+  useEffect(() => {
+    if (selectedAttivita?.id) {
+      fetchAttachedDocuments(selectedAttivita.id);
+    } else {
+      setAttachedDocuments([]);
+    }
+  }, [selectedAttivita?.id]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/D';
@@ -195,11 +467,28 @@ function AttivitaContent() {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  const getAttivitaFields = (currentFormData) => {
+  // Definisci extraBelowSite prima del useMemo
+  const extraBelowSite = (
+    <button type="button" onClick={() => setIsPopupOpen(true)} disabled={!selectedAttivita?.client_id} className="btn-add-facility" style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '12px' }}>
+      Aggiungi
+    </button>
+  );
+
+  // Stato per forzare re-render del form
+  const [formRenderKey, setFormRenderKey] = useState(0);
+  
+  // Funzione per ottenere i campi del form (sempre aggiornata)
+  const getAttivitaFields = () => {
     if (isInitialLoading) return [];
 
-    const selectedClientId = currentFormData?.client_id;
+    const selectedClientId = selectedAttivita?.client_id;
     const sediOptions = (sediPerCliente[String(selectedClientId)] || []).map(s => ({ value: s.id, label: s.nome || s.name || '' }));
+    
+    console.log('📋 Campi form aggiornati:', {
+      selectedClientId,
+      sediDisponibili: sediPerCliente[String(selectedClientId)]?.length || 0,
+      sediOptions: sediOptions.length
+    });
 
     return [
       { name: 'descrizione', label: 'Descrizione', type: 'textarea' },
@@ -207,18 +496,12 @@ function AttivitaContent() {
       { name: 'data_fine', label: 'Data/Ora Fine', type: 'datetime-local' },
       { name: 'client_id', label: 'Cliente', type: 'select', isNumeric: true, required: true, options: clienti.map(c => ({ value: c.id, label: c.nome || c.name || '' })), placeholder: 'Seleziona Cliente' },
       { name: 'site_id', label: <>Sede {extraBelowSite}</>, type: 'select', isNumeric: true, required: true, options: sediOptions, disabled: !selectedClientId, placeholder: selectedClientId ? 'Seleziona Sede' : 'Prima seleziona un cliente' },
-      { name: 'resources', label: 'Risorse abbinate', type: 'custom', render: (formData, handleChange) => <ResourcePairing value={formData.resources || []} onChange={(newValue) => handleChange({ target: { name: 'resources', value: newValue }})} drivers={autisti} vehicles={veicoli} />, required: true },
+      { name: 'resources', label: 'Risorse abbinate', type: 'custom', render: (formData, handleChange) => <ResourcePairing value={formData.resources || []} onChange={(newValue) => handleChange({ target: { name: 'resources', value: newValue }})} drivers={autisti} vehicles={veicoli} />, required: false },
       { name: 'activity_type_id', label: 'Tipo Attività', type: 'select', isNumeric: true, required: true, options: tipiAttivita.map(t => ({ value: t.id, label: t.nome || t.name || '' })), placeholder: 'Seleziona Tipo Attività' },
       { name: 'status', label: 'Stato', type: 'select', required: true, options: [{ value: 'non assegnato', label: 'Non assegnato' }, { value: 'assegnato', label: 'Assegnato' }, { value: 'doc emesso', label: 'Doc emesso' }, { value: 'programmato', label: 'Programmato' }, { value: 'in corso', label: 'In corso' }, { value: 'completato', label: 'Completato' }, { value: 'annullato', label: 'Annullato' }], placeholder: 'Seleziona Stato' },
       { name: 'note', label: 'Note', type: 'textarea' },
     ];
   };
-
-  const extraBelowSite = (
-    <button type="button" onClick={() => setIsPopupOpen(true)} disabled={!selectedAttivita?.client_id} className="btn-add-facility" style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '12px' }}>
-      Aggiungi
-    </button>
-  );
 
   // Effetto per caricare i dati della tabella (attività) che dipendono dalla paginazione e ricerca
   useEffect(() => {
@@ -333,9 +616,15 @@ function AttivitaContent() {
     }
     setSelectedAttivita(newItem);
     setIsPanelOpen(true);
-    setIsEditingState(false);
+    setIsEditing(false);
     setValidationErrors({});
     if (newItem.client_id) loadSediPerCliente(newItem.client_id);
+    
+    // Carica i documenti allegati per questa attività
+    if (newItem.id) {
+      fetchAttachedDocuments(newItem.id);
+    }
+    
     router.push(`/attivita?open=${item.id}`, { scroll: false });
   };
 
@@ -343,6 +632,9 @@ function AttivitaContent() {
     router.push('/attivita', { scroll: false });
     setIsPanelOpen(false);
     setSelectedAttivita(null);
+    // Pulisci i documenti pre-selezionati quando si chiude il panel
+    setPreSelectedDocuments([]);
+    setSuggestedDocuments([]);
   };
 
   const handleCreateNew = () => {
@@ -377,9 +669,43 @@ function AttivitaContent() {
 
     try {
       const response = isEditMode ? await api.put(`/activities/${selectedAttivita.id}`, dataToSave) : await api.post('/activities', dataToSave);
-      setDataVersion(v => v + 1); // Trigger re-fetch
-      handleClosePanel();
-      setIsEditing(false);
+      
+      if (isEditMode) {
+        // Per attività esistenti, chiudi il sidepanel come prima
+        setDataVersion(v => v + 1); // Trigger re-fetch
+        handleClosePanel();
+        setIsEditing(false);
+      } else {
+        // Per nuove attività, mantieni il sidepanel aperto in modalità modifica
+        const newActivity = response.data;
+        setSelectedAttivita(newActivity); // Aggiorna con i dati salvati (incluso ID)
+        setIsEditing(true); // Mantieni in modalità modifica
+        setDataVersion(v => v + 1); // Trigger re-fetch della lista
+        
+        // Allega automaticamente i documenti pre-selezionati
+        if (preSelectedDocuments.length > 0) {
+          console.log(`🔗 Allegando ${preSelectedDocuments.length} documenti pre-selezionati...`);
+          for (const doc of preSelectedDocuments) {
+            try {
+              await api.post('/activities/attach-document', {
+                activity_id: newActivity.id,
+                document_id: doc.id
+              });
+              console.log(`✅ Documento ${doc.numero_documento} allegato con successo`);
+            } catch (error) {
+              console.error(`❌ Errore nell'allegare documento ${doc.numero_documento}:`, error);
+            }
+          }
+          // Pulisci i documenti pre-selezionati
+          setPreSelectedDocuments([]);
+          // Ricarica i documenti allegati
+          fetchAttachedDocuments(newActivity.id);
+        }
+        
+        // Non chiamare handleClosePanel() per mantenere il sidepanel aperto
+        // Aggiorna URL per riflettere che ora è un'attività esistente
+        router.push(`/attivita?open=${newActivity.id}`, { scroll: false });
+      }
     } catch (err) {
       console.error('Errore nel salvataggio:', err);
       if (err.response && err.response.data && err.response.data.errors) {
@@ -490,7 +816,8 @@ function AttivitaContent() {
       {isPanelOpen && selectedAttivita && (
         <SidePanel isOpen={isPanelOpen} onClose={handleClosePanel} title={isNew ? 'Nuova Attività' : (isEditing ? 'Modifica Attività' : 'Dettagli Attività')}>
           <EntityForm
-            fields={getAttivitaFields(selectedAttivita)}
+            key={formRenderKey}
+            fields={getAttivitaFields()}
             data={selectedAttivita}
             onFormChange={handleFormChange}
             onSave={canEdit ? handleSaveAttivita : undefined}
@@ -502,6 +829,359 @@ function AttivitaContent() {
             isDeleting={isDeleting}
             validationErrors={validationErrors}
           />
+          
+          {/* Sezione Documenti Suggeriti */}
+          {(isNew || isEditing) && (suggestedDocuments.length > 0 || loadingSuggestions) && (
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e5ea' }}>
+              <h3 style={{ margin: 0, marginBottom: '16px', fontSize: '18px', fontWeight: '600', color: '#333' }}>
+                📄 Documenti Allegabili Suggeriti
+              </h3>
+              
+              {!selectedAttivita?.id && (
+                <div style={{ 
+                  backgroundColor: '#fff3cd', 
+                  border: '1px solid #ffeaa7', 
+                  borderRadius: '6px', 
+                  padding: '12px', 
+                  marginBottom: '16px',
+                  fontSize: '14px',
+                  color: '#856404'
+                }}>
+                  💾 <strong>Salva prima l'attività</strong> per poter allegare i documenti suggeriti.
+                </div>
+              )}
+              
+              {loadingSuggestions ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <div style={{ 
+                    display: 'inline-block', 
+                    width: '20px', 
+                    height: '20px', 
+                    border: '2px solid #f3f3f3', 
+                    borderTop: '2px solid #007bff', 
+                    borderRadius: '50%', 
+                    animation: 'spin 1s linear infinite' 
+                  }}></div>
+                  <p style={{ marginTop: '8px', color: '#666', fontSize: '14px' }}>Ricerca documenti in corso...</p>
+                </div>
+              ) : (
+                <div>
+                  {suggestedDocuments.length === 0 ? (
+                    <p style={{ color: '#666', fontStyle: 'italic', fontSize: '14px' }}>Nessun documento trovato per i criteri selezionati.</p>
+                  ) : (
+                    <div>
+                      <p style={{ marginBottom: '12px', color: '#495057', fontSize: '14px' }}>
+                        Trovati {suggestedDocuments.length} documenti che potrebbero essere collegati a questa attività:
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {suggestedDocuments.map((doc, index) => (
+                          <div key={doc.id} style={{ 
+                            padding: '12px', 
+                            backgroundColor: '#f8f9fa', 
+                            border: '1px solid #dee2e6', 
+                            borderRadius: '6px',
+                            fontSize: '14px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                              <div>
+                                <strong style={{ color: '#007bff' }}>
+                                  {doc.codice_doc} #{doc.numero_doc}
+                                </strong>
+                                <span style={{ marginLeft: '8px', fontSize: '13px', color: '#6c757d' }}>
+                                  {doc.data_doc}
+                                </span>
+                              </div>
+                              {doc.giorni_differenza === 0 && (
+                                <span style={{ 
+                                  fontSize: '11px', 
+                                  backgroundColor: '#28a745', 
+                                  color: 'white', 
+                                  padding: '2px 6px', 
+                                  borderRadius: '3px' 
+                                }}>
+                                  Stessa data
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div style={{ fontSize: '13px', color: '#495057', marginBottom: '4px' }}>
+                              <strong>Cliente:</strong> {doc.cliente?.name || 'N/A'}
+                            </div>
+                            
+                            <div style={{ fontSize: '13px', color: '#495057', marginBottom: '4px' }}>
+                              <strong>Destinazione:</strong> {doc.destinazione?.name || 'N/A'}
+                              {doc.destinazione?.city && (
+                                <span style={{ color: '#6c757d' }}> - {doc.destinazione.city}</span>
+                              )}
+                            </div>
+                            
+                            <div style={{ fontSize: '13px', color: '#495057', marginBottom: '8px' }}>
+                              <strong>Totale:</strong> €{doc.totale_doc || '0,00'}
+                            </div>
+                            
+                            {selectedAttivita?.id ? (
+                              // Attività salvata - allega direttamente
+                              <button
+                                onClick={() => attachDocumentToActivity(doc.id)}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  backgroundColor: '#007bff',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  fontWeight: '500'
+                                }}
+                              >
+                                📎 Allega Documento
+                              </button>
+                            ) : (
+                              // Attività non salvata - pre-seleziona
+                              <button
+                                onClick={() => preSelectDocument(doc)}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  backgroundColor: '#28a745',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  fontWeight: '500'
+                                }}
+                              >
+                                ✅ Seleziona per Allegare
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Documenti pre-selezionati (prima del salvataggio) */}
+          {!selectedAttivita?.id && preSelectedDocuments.length > 0 && (
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e5ea' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#333' }}>
+                  📋 Documenti Selezionati
+                </h3>
+                <span style={{ 
+                  fontSize: '12px', 
+                  backgroundColor: '#28a745', 
+                  color: 'white', 
+                  padding: '2px 8px', 
+                  borderRadius: '12px' 
+                }}>
+                  {preSelectedDocuments.length}
+                </span>
+              </div>
+              
+              <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '12px' }}>
+                💡 Questi documenti verranno allegati automaticamente dopo il salvataggio dell'attività
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {preSelectedDocuments.map(doc => (
+                  <div key={doc.id} style={{
+                    padding: '12px',
+                    backgroundColor: '#f8f9fa',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '6px',
+                    fontSize: '13px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <strong style={{ color: '#007bff' }}>
+                          {doc.codice_doc} #{doc.numero_doc}
+                        </strong>
+                        <div style={{ color: '#6c757d', marginTop: '4px' }}>
+                          {doc.cliente?.name} - €{doc.totale_doc || '0,00'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          // Rimuovi dalla pre-selezione e rimetti nei suggerimenti
+                          setPreSelectedDocuments(prev => prev.filter(d => d.id !== doc.id));
+                          setSuggestedDocuments(prev => [...prev, doc]);
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        ❌ Rimuovi
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Documenti allegati */}
+          {selectedAttivita?.id && (
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e5ea' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#333' }}>
+                  📄 Documenti Allegati
+                </h3>
+                <span style={{ 
+                  fontSize: '12px', 
+                  backgroundColor: attachedDocuments.length > 0 ? '#28a745' : '#6c757d', 
+                  color: 'white', 
+                  padding: '2px 8px', 
+                  borderRadius: '12px' 
+                }}>
+                  {attachedDocuments.length}
+                </span>
+              </div>
+              
+              {loadingAttached ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <div style={{ 
+                    display: 'inline-block', 
+                    width: '20px', 
+                    height: '20px', 
+                    border: '2px solid #f3f3f3', 
+                    borderTop: '2px solid #007bff', 
+                    borderRadius: '50%', 
+                    animation: 'spin 1s linear infinite' 
+                  }}></div>
+                  <p style={{ marginTop: '8px', color: '#666', fontSize: '14px' }}>Caricamento documenti allegati...</p>
+                </div>
+              ) : (
+                <div>
+                  {attachedDocuments.length === 0 ? (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '20px', 
+                      backgroundColor: '#f8f9fa', 
+                      border: '1px solid #dee2e6', 
+                      borderRadius: '6px',
+                      color: '#6c757d'
+                    }}>
+                      <div style={{ fontSize: '24px', marginBottom: '8px' }}>📎</div>
+                      <p style={{ margin: 0, fontSize: '14px' }}>Nessun documento allegato</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>I documenti allegati appariranno qui</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {attachedDocuments.map((doc, index) => (
+                        <div key={`attached-${doc.id}`} style={{ 
+                          padding: '12px', 
+                          backgroundColor: '#e8f5e8', 
+                          border: '1px solid #c3e6c3', 
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                            <div>
+                              <strong style={{ color: '#28a745' }}>
+                                {doc.codice_doc} #{doc.numero_doc}
+                              </strong>
+                              <span style={{ marginLeft: '8px', fontSize: '13px', color: '#6c757d' }}>
+                                {doc.data_doc}
+                              </span>
+                            </div>
+                            <span style={{ 
+                              fontSize: '11px', 
+                              backgroundColor: '#28a745', 
+                              color: 'white', 
+                              padding: '2px 6px', 
+                              borderRadius: '3px' 
+                            }}>
+                              Allegato
+                            </span>
+                          </div>
+                          
+                          <div style={{ fontSize: '13px', color: '#495057', marginBottom: '4px' }}>
+                            <strong>Cliente:</strong> {doc.cliente_name || 'N/A'}
+                          </div>
+                          
+                          <div style={{ fontSize: '13px', color: '#495057', marginBottom: '4px' }}>
+                            <strong>Destinazione:</strong> {doc.sede_name || 'N/A'}
+                            {doc.sede_city && (
+                              <span style={{ color: '#6c757d' }}> - {doc.sede_city}</span>
+                            )}
+                          </div>
+                          
+                          <div style={{ fontSize: '13px', color: '#495057', marginBottom: '8px' }}>
+                            <strong>Totale:</strong> €{doc.totale_doc || '0,00'}
+                          </div>
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                            <div>
+                              {doc.attached_at && (
+                                <div style={{ fontSize: '12px', color: '#6c757d', fontStyle: 'italic' }}>
+                                  Allegato il: {new Date(doc.attached_at).toLocaleString('it-IT')}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  // Usa l'endpoint corretto per generare e scaricare il PDF
+                                  const response = await fetch(`/api/documenti/${doc.id}/pdf`, {
+                                    method: 'GET',
+                                    credentials: 'include'
+                                  });
+                                  
+                                  if (!response.ok) {
+                                    throw new Error(`Errore HTTP: ${response.status}`);
+                                  }
+                                  
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${doc.codice_doc}_${doc.numero_doc}.pdf`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  window.URL.revokeObjectURL(url);
+                                } catch (error) {
+                                  console.error('Errore nel download PDF:', error);
+                                  alert('Errore nel download del PDF. Riprova.');
+                                }
+                              }}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              📥 Scarica PDF
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Mappa dei veicoli */}
           {(() => {

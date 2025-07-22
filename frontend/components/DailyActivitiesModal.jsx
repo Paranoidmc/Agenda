@@ -1,5 +1,22 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import api from '../lib/api';
+
+// CSS per l'animazione del loading spinner
+const spinKeyframes = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
+// Aggiungi i keyframes al documento se non esistono già
+if (typeof document !== 'undefined' && !document.querySelector('#spin-keyframes')) {
+  const style = document.createElement('style');
+  style.id = 'spin-keyframes';
+  style.textContent = spinKeyframes;
+  document.head.appendChild(style);
+}
 
 export default function DailyActivitiesModal({
   isOpen,
@@ -47,6 +64,40 @@ function mapRow(r) {
       : []
   );
 
+  // Stato per documenti suggeriti
+  const [suggestedDocuments, setSuggestedDocuments] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [selectedDocuments, setSelectedDocuments] = useState(new Map()); // Map<rowIndex, documentId>
+
+  // Funzione per suggerire documenti allegabili
+  const suggestDocuments = async (clientId, siteId, dataInizio) => {
+    if (!clientId || !siteId || !dataInizio) {
+      setSuggestedDocuments([]);
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    try {
+      const response = await api.documenti.suggestForActivity({
+        client_id: clientId,
+        site_id: siteId,
+        data_inizio: dataInizio
+      });
+      
+      if (response.data.success) {
+        setSuggestedDocuments(response.data.data || []);
+      } else {
+        console.warn('Nessun documento suggerito:', response.data.message);
+        setSuggestedDocuments([]);
+      }
+    } catch (error) {
+      console.error('Errore nel suggerimento documenti:', error);
+      setSuggestedDocuments([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
 
   // Sync rows con initialRows quando cambia la data o initialRows
   React.useEffect(() => {
@@ -56,6 +107,15 @@ function mapRow(r) {
         : []
     );
   }, [initialRows]);
+
+  // Suggerisci documenti quando cambia la data
+  useEffect(() => {
+    // Trova la prima riga con cliente e destinazione per suggerire documenti
+    const firstRowWithData = [...rows, ...emptyRows].find(row => row.client_id && row.site_id);
+    if (firstRowWithData && date) {
+      suggestDocuments(firstRowWithData.client_id, firstRowWithData.site_id, date);
+    }
+  }, [date]);
   // Stato delle righe vuote temporanee
   const [emptyRows, setEmptyRows] = useState([
     { titolo: "", descrizione: "", client_id: "", site_id: "", ora: "", data_fine: "", driver_id: "", vehicle_id: "", stato: "", activity_type_id: "", _isNew: true },
@@ -74,6 +134,12 @@ function mapRow(r) {
     }
     
     targetRows[idx][field] = value;
+    
+    // Se cambia cliente o destinazione, suggerisci documenti
+    if ((field === 'client_id' || field === 'site_id') && targetRows[idx].client_id && targetRows[idx].site_id) {
+      suggestDocuments(targetRows[idx].client_id, targetRows[idx].site_id, date);
+    }
+    
     if (isEmptyRow) {
       setEmptyRows(targetRows);
       // Se la riga vuota è stata compilata almeno in descrizione, salva subito
@@ -353,6 +419,107 @@ function mapRow(r) {
             </tbody>
           </table>
         </div>
+        
+        {/* Sezione Documenti Suggeriti */}
+        {(suggestedDocuments.length > 0 || loadingSuggestions) && (
+          <div style={{ marginTop: 24, padding: 16, backgroundColor: '#f8f9fa', borderRadius: 8, border: '1px solid #dee2e6' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 16, color: '#495057' }}>
+              📄 Documenti Allegabili Suggeriti
+            </h3>
+            
+            {loadingSuggestions ? (
+              <div style={{ textAlign: 'center', padding: 20 }}>
+                <div style={{ display: 'inline-block', width: 20, height: 20, border: '2px solid #f3f3f3', borderTop: '2px solid #007bff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                <p style={{ marginTop: 8, color: '#6c757d' }}>Ricerca documenti in corso...</p>
+              </div>
+            ) : (
+              <div>
+                {suggestedDocuments.length === 0 ? (
+                  <p style={{ color: '#6c757d', fontStyle: 'italic' }}>Nessun documento trovato per i criteri selezionati.</p>
+                ) : (
+                  <div>
+                    <p style={{ marginBottom: 12, color: '#495057' }}>
+                      Trovati {suggestedDocuments.length} documenti che potrebbero essere collegati a questa attività:
+                    </p>
+                    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+                      {suggestedDocuments.map((doc, index) => (
+                        <div key={doc.id} style={{ 
+                          padding: 12, 
+                          backgroundColor: 'white', 
+                          border: '1px solid #dee2e6', 
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          ':hover': { borderColor: '#007bff', boxShadow: '0 2px 4px rgba(0,123,255,0.1)' }
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                            <div>
+                              <strong style={{ color: '#007bff' }}>
+                                {doc.codice_doc} #{doc.numero_doc}
+                              </strong>
+                              <span style={{ marginLeft: 8, fontSize: '0.9em', color: '#6c757d' }}>
+                                {doc.data_doc}
+                              </span>
+                            </div>
+                            {doc.giorni_differenza === 0 && (
+                              <span style={{ 
+                                fontSize: '0.8em', 
+                                backgroundColor: '#28a745', 
+                                color: 'white', 
+                                padding: '2px 6px', 
+                                borderRadius: 3 
+                              }}>
+                                Stessa data
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div style={{ fontSize: '0.9em', color: '#495057', marginBottom: 4 }}>
+                            <strong>Cliente:</strong> {doc.cliente?.name || 'N/A'}
+                          </div>
+                          
+                          <div style={{ fontSize: '0.9em', color: '#495057', marginBottom: 4 }}>
+                            <strong>Destinazione:</strong> {doc.destinazione?.name || 'N/A'}
+                            {doc.destinazione?.city && (
+                              <span style={{ color: '#6c757d' }}> - {doc.destinazione.city}</span>
+                            )}
+                          </div>
+                          
+                          <div style={{ fontSize: '0.9em', color: '#495057', marginBottom: 8 }}>
+                            <strong>Totale:</strong> €{doc.totale_doc || '0,00'}
+                          </div>
+                          
+                          <button
+                            onClick={() => {
+                              // Qui implementeremo la logica per allegare il documento
+                              alert(`Documento ${doc.codice_doc} #${doc.numero_doc} allegato all'attività!`);
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '6px 12px',
+                              backgroundColor: '#007bff',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              fontSize: '0.9em',
+                              transition: 'background-color 0.2s ease'
+                            }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+                          >
+                            📎 Allega Documento
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
         <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between" }}>
           <button 
             onClick={handleAddEmptyRow}

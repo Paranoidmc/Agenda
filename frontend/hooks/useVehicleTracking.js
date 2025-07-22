@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../lib/api';
 
-export function useVehicleTracking(activityId, vehicles = [], refreshInterval = 30000) {
+export function useVehicleTracking(activityId, vehicles = [], refreshInterval = 10000) {
   const [vehiclePositions, setVehiclePositions] = useState([]);
   const [isTracking, setIsTracking] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -19,44 +19,97 @@ export function useVehicleTracking(activityId, vehicles = [], refreshInterval = 
       const vehicleIds = vehicles.map(v => v.id).filter(Boolean);
       if (vehicleIds.length === 0) return;
 
-      // Chiamata API per ottenere le posizioni multiple
-      try {
-        const response = await api.post('/vehicles/positions', {
-          vehicle_ids: vehicleIds
-        });
-        
-        // Mappa i dati dell'API al formato atteso dal componente mappa
-        const positions = response.data.map(position => ({
-          id: position.vehicle_id,
-          lat: position.latitude,
-          lng: position.longitude,
-          plate: position.vehicle?.plate,
-          model: position.vehicle?.model,
-          brand: position.vehicle?.brand,
-          driver: vehicles.find(v => v.id === position.vehicle_id)?.driver,
-          lastUpdate: position.last_update,
-          status: position.status,
-          speed: position.speed,
-          heading: position.heading,
+      // Se almeno un veicolo ha IMEI, fetch MOMAP in parallelo
+      const momapVehicles = vehicles.filter(v => v.imei && v.imei.length > 5);
+      const classicVehicles = vehicles.filter(v => !v.imei || v.imei.length <= 5);
+      let positions = [];
+      // Fetch MOMAP
+      if (momapVehicles.length > 0) {
+        const momapResults = await Promise.all(momapVehicles.map(async v => {
+          try {
+            const res = await api.get(`/momap/device-data/${v.imei}`);
+            if (res.data.success && res.data.data) {
+              const d = res.data.data;
+              return {
+                id: v.id,
+                lat: d.latitude || d.lat,
+                lng: d.longitude || d.lng,
+                plate: v.plate,
+                model: v.model,
+                brand: v.brand,
+                driver: v.driver,
+                lastUpdate: d.gpsDateTime || d.lastUpdate,
+                status: d.deviceStatus || d.status,
+                speed: d.speed,
+                heading: d.heading,
+                odometer: d.odometer,
+                engineHours: d.engineHours,
+                sensors: d.sensors,
+                momap: true
+              };
+            }
+          } catch (err) {
+            console.error('Errore MOMAP:', err);
+          }
+          return null;
         }));
-        
+        positions.push(...momapResults.filter(Boolean));
+      }
+      // Fetch classici
+      if (classicVehicles.length > 0) {
+        try {
+          const response = await api.post('/vehicles/positions', {
+            vehicle_ids: classicVehicles.map(v => v.id)
+          });
+          positions.push(...response.data.map(position => ({
+            id: position.vehicle_id,
+            lat: position.latitude,
+            lng: position.longitude,
+            plate: position.vehicle?.plate,
+            model: position.vehicle?.model,
+            brand: position.vehicle?.brand,
+            driver: vehicles.find(v => v.id === position.vehicle_id)?.driver,
+            lastUpdate: position.last_update,
+            status: position.status,
+            speed: position.speed,
+            heading: position.heading,
+            momap: false
+          })));
+        } catch (error) {
+          console.error('Errore nel recupero posizioni veicoli:', error);
+        }
+      }
+      console.log('🚛 MOMAP Positions found:', positions.length, 'at', new Date().toLocaleTimeString());
+      positions.forEach((pos, idx) => {
+        console.log(`🚛 Vehicle ${idx + 1} (${pos.plate}):`, {
+          id: pos.id,
+          lat: pos.lat,
+          lng: pos.lng,
+          speed: pos.speed,
+          heading: pos.heading,
+          lastUpdate: pos.lastUpdate,
+          momap: pos.momap,
+          hasValidCoords: !!(pos.lat && pos.lng && !isNaN(pos.lat) && !isNaN(pos.lng))
+        });
+      });
+      
+      if (positions.length > 0) {
         setVehiclePositions(positions);
         setLastUpdate(new Date());
-      } catch (error) {
-        console.error('Errore nel recupero posizioni veicoli:', error);
-        
-        // Fallback alla simulazione se l'API non è disponibile
-        const positions = await Promise.all(
-          vehicleIds.map(async (vehicleId) => {
-            const vehicle = vehicles.find(v => v.id === vehicleId);
-            return simulateVehiclePosition(vehicle, vehicleId);
-          })
-        );
-        
-        const validPositions = positions.filter(Boolean);
-        setVehiclePositions(validPositions);
-        setLastUpdate(new Date());
+        console.log('🗺️ VehiclePositions updated with', positions.length, 'vehicles');
+        return;
       }
+      // Fallback simulazione se nessuna posizione trovata
+      console.error('Errore nel recupero posizioni veicoli:', error);
+      // Fallback alla simulazione se l'API non è disponibile
+      const simPositions = await Promise.all(
+        vehicleIds.map(async (vehicleId) => {
+          const vehicle = vehicles.find(v => v.id === vehicleId);
+          return simulateVehiclePosition(vehicle, vehicleId);
+        })
+      );
+      setVehiclePositions(simPositions.filter(Boolean));
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Errore nel recupero posizioni veicoli:', error);
     }

@@ -11,6 +11,7 @@ class Driver extends Model
     use HasFactory;
 
     protected $fillable = [
+        'codice_arca',
         'name',
         'surname',
         'birth_date',

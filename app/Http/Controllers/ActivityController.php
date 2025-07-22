@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ActivityController extends Controller
@@ -493,5 +494,147 @@ class ActivityController extends Controller
         });
         
         return response()->json($activities);
+    }
+
+    /**
+     * Allega un documento a un'attività
+     */
+    public function attachDocument(Request $request)
+    {
+        try {
+            $request->validate([
+                'activity_id' => 'required|integer|exists:activities,id',
+                'document_id' => 'required|integer|exists:documenti,id'
+            ]);
+
+            $activityId = $request->input('activity_id');
+            $documentId = $request->input('document_id');
+
+            Log::info('Allegando documento all\'attività', [
+                'activity_id' => $activityId,
+                'document_id' => $documentId
+            ]);
+
+            // Verifica che l'attività esista
+            $activity = Activity::find($activityId);
+            if (!$activity) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Attività non trovata'
+                ], 404);
+            }
+
+            // Verifica che il documento esista
+            $document = \App\Models\Documento::find($documentId);
+            if (!$document) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Documento non trovato'
+                ], 404);
+            }
+
+            // Verifica se il documento è già allegato a questa attività
+            $existingAttachment = DB::table('activity_documents')
+                ->where('activity_id', $activityId)
+                ->where('document_id', $documentId)
+                ->first();
+
+            if ($existingAttachment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Documento già allegato a questa attività'
+                ], 409);
+            }
+
+            // Allega il documento all'attività
+            DB::table('activity_documents')->insert([
+                'activity_id' => $activityId,
+                'document_id' => $documentId,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Documento allegato con successo', [
+                'activity_id' => $activityId,
+                'document_id' => $documentId
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Documento allegato con successo all\'attività',
+                'data' => [
+                    'activity_id' => $activityId,
+                    'document_id' => $documentId
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dati non validi',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Errore nell\'allegare documento all\'attività', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore interno del server'
+            ], 500);
+        }
+    }
+
+    /**
+     * Recupera i documenti allegati a un'attività
+     */
+    public function getAttachedDocuments($activityId)
+    {
+        try {
+            // Verifica che l'attività esista
+            $activity = Activity::find($activityId);
+            if (!$activity) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Attività non trovata'
+                ], 404);
+            }
+
+            // Recupera i documenti allegati con le relazioni
+            $documents = DB::table('activity_documents')
+                ->join('documenti', 'activity_documents.document_id', '=', 'documenti.id')
+                ->leftJoin('clients', 'documenti.client_id', '=', 'clients.id')
+                ->leftJoin('sites', 'documenti.site_id', '=', 'sites.id')
+                ->where('activity_documents.activity_id', $activityId)
+                ->select(
+                    'documenti.*',
+                    'clients.name as cliente_name',
+                    'sites.name as sede_name',
+                    'sites.city as sede_city',
+                    'activity_documents.created_at as attached_at'
+                )
+                ->orderBy('activity_documents.created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $documents,
+                'count' => $documents->count()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Errore nel recupero documenti allegati', [
+                'activity_id' => $activityId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore interno del server'
+            ], 500);
+        }
     }
 }

@@ -239,6 +239,94 @@ const apiUtils = {
   }
 };
 
+// API Documenti
+api.documenti = {
+  /**
+   * Ottiene la lista dei documenti
+   * @param {Object} params - Parametri di filtro
+   * @returns {Promise} Lista documenti
+   */
+  async getAll(params = {}) {
+    const response = await api.get('/documenti', { params });
+    return response.data;
+  },
+
+  /**
+   * Ottiene un documento specifico
+   * @param {number} id - ID del documento
+   * @returns {Promise} Dettagli documento
+   */
+  async getById(id) {
+    const response = await api.get(`/documenti/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Genera PDF per un documento
+   * @param {number} id - ID del documento
+   * @returns {Promise} Blob PDF
+   */
+  async generatePdf(id) {
+    const response = await api.get(`/documenti/${id}/pdf`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  /**
+   * Sincronizza documenti manualmente
+   * @param {Object} options - Opzioni sincronizzazione
+   * @param {number} options.giorni - Giorni da sincronizzare (default: 7)
+   * @returns {Promise} Risultato sincronizzazione
+   */
+  async sync(options = {}) {
+    const response = await api.post('/documenti/sync', {
+      giorni: options.giorni || 7
+    });
+    return response.data;
+  },
+
+  /**
+   * Sincronizza documenti di oggi
+   * @returns {Promise} Risultato sincronizzazione
+   */
+  syncToday() {
+    return api.post('/documenti/sincronizza-oggi');
+  },
+
+  /**
+   * Allega un documento a un'attività
+   * @param {Object} params - Parametri allegamento
+   * @param {number} params.activity_id - ID dell'attività
+   * @param {number} params.document_id - ID del documento
+   * @returns {Promise} Risultato allegamento
+   */
+  attachToActivity(params) {
+    return api.post('/activities/attach-document', params);
+  },
+
+  /**
+   * Recupera documenti allegati a un'attività
+   * @param {number} activityId - ID dell'attività
+   * @returns {Promise} Lista documenti allegati
+   */
+  getAttachedToActivity(activityId) {
+    return api.get(`/activities/${activityId}/documents`);
+  },
+
+  /**
+   * Suggerisce documenti allegabili per un'attività
+   * @param {Object} params - Parametri attività
+   * @param {number} params.client_id - ID del cliente
+   * @param {number} params.site_id - ID della destinazione/sede
+   * @param {string} params.data_inizio - Data inizio attività (YYYY-MM-DD)
+   * @returns {Promise} Lista documenti suggeriti
+   */
+  suggestForActivity(params) {
+    return api.post('/documenti/suggest-for-activity', params);
+  }
+};
+
 // Aggiungi i metodi di utilità all'oggetto API
 Object.assign(api, apiUtils);
 

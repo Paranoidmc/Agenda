@@ -35,6 +35,7 @@ export default function VeicoliPage() {
   // Campi del form veicolo - allineati alla migration e al model
   const veicoloFields = [
     { name: 'plate', label: 'Targa', required: true },
+    { name: 'imei', label: 'IMEI dispositivo MOMAP', placeholder: 'Inserisci IMEI (opzionale)' },
     { name: 'nome', label: 'Nome veicolo' }, // Modificato da 'name' a 'nome'
     { name: 'brand', label: 'Marca', required: true },
     { name: 'model', label: 'Modello', required: true },
@@ -111,7 +112,7 @@ export default function VeicoliPage() {
     {
       label: 'Generale',
       fields: veicoloFields.filter(f => [
-        'plate','name','brand','model','year','type','fuel_type','status','color','groups','assigned_driver','notes'
+        'plate','imei','nome','brand','model','year','type','fuel_type','status','color','gruppi','autista_assegnato','notes'
       ].includes(f.name))
     },
     {
@@ -277,22 +278,13 @@ export default function VeicoliPage() {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       
       let response;
-      // DEBUG: Logga il payload inviato
-      if (process.env.NODE_ENV === 'development') {
-      }
       if (formData.id) {
         response = await api.put(`/vehicles/${formData.id}`, formData, {
-          withCredentials: true,
-          headers: {
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          }
+          withCredentials: true
         });
       } else {
         response = await api.post('/vehicles', formData, {
-          withCredentials: true,
-          headers: {
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          }
+          withCredentials: true
         });
       }
       
@@ -333,14 +325,8 @@ export default function VeicoliPage() {
     
     setIsDeleting(true);
     try {
-      // Ottieni il token da localStorage se disponibile
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      
       await api.delete(`/vehicles/${id}`, {
-        withCredentials: true,
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        withCredentials: true
       });
       
       setDataVersion(v => v + 1);
@@ -394,6 +380,11 @@ export default function VeicoliPage() {
             { 
               key: 'year', 
               label: 'Anno'
+            },
+            {
+              key: 'imei',
+              label: 'IMEI MOMAP',
+              render: (item) => item.imei || <span style={{color:'#bbb'}}>—</span>
             },
             { 
               key: 'type', 
@@ -472,7 +463,7 @@ export default function VeicoliPage() {
           selectedRow={selectedVeicolo}
           searchPlaceholder="Cerca veicoli..."
           emptyMessage="Nessun veicolo trovato"
-          defaultVisibleColumns={['plate', 'brand', 'model', 'year', 'fuel_type', 'actions']}
+          defaultVisibleColumns={['plate', 'brand', 'model', 'year', 'imei', 'fuel_type', 'actions']}
         />
       </div>
 

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Documento {{codice_doc}}/{{numero_doc}}</title>
+    <style>
+        @page {
+            margin: 1.5cm;
+            size: A4;
+        }
+        body { 
+            font-family: "Arial", sans-serif; 
+            font-size: 10px;
+            line-height: 1.3;
+            margin: 0;
+            padding: 0;
+            color: #000;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border: 2px solid #000;
+            padding: 10px;
+            background-color: #f5f5f5;
+        }
+        .header h1 {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
+        }
+        .header .doc-number {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .header .doc-date {
+            font-size: 12px;
+            margin: 5px 0;
+        }
+        
+        .company-info {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 8px;
+            border: 1px solid #000;
+            background-color: #f9f9f9;
+        }
+        .company-info h2 {
+            font-size: 12px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .parties {
+            display: table;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .party {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+            padding: 8px;
+            border: 1px solid #000;
+        }
+        .party h3 {
+            font-size: 11px;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+            text-decoration: underline;
+        }
+        .party p {
+            margin: 2px 0;
+            font-size: 9px;
+        }
+        
+        .transport-info {
+            margin-bottom: 15px;
+            padding: 8px;
+            border: 1px solid #000;
+        }
+        .transport-info h3 {
+            font-size: 11px;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+            text-decoration: underline;
+        }
+        .transport-info p {
+            margin: 2px 0;
+            font-size: 9px;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 9px;
+        }
+        .items-table th {
+            background-color: #e0e0e0;
+            padding: 5px 3px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #000;
+            font-size: 8px;
+        }
+        .items-table td {
+            padding: 4px 3px;
+            border: 1px solid #000;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .items-table td.desc {
+            text-align: left;
+        }
+        .items-table td.amount {
+            text-align: right;
+        }
+        
+        .totals {
+            text-align: right;
+            margin: 15px 0;
+        }
+        .total-box {
+            display: inline-block;
+            border: 2px solid #000;
+            padding: 8px 15px;
+            background-color: #f5f5f5;
+        }
+        .total-box .label {
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .total-box .amount {
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 3px;
+        }
+        
+        .signatures {
+            margin-top: 30px;
+            display: table;
+            width: 100%;
+        }
+        .signature {
+            display: table-cell;
+            width: 50%;
+            text-align: center;
+            padding: 15px 5px;
+            border: 1px solid #000;
+        }
+        .signature .label {
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .signature .line {
+            border-top: 1px solid #000;
+            margin-top: 20px;
+            padding-top: 3px;
+            font-size: 8px;
+        }
+        
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 8px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="company-info">
+        <h2>DOCUMENTO DI TRASPORTO</h2>
+    </div>
+    
+    <div class="header">
+        <h1>DDT N. {{numero_doc}}</h1>
+        <div class="doc-number">Codice: {{codice_doc}}</div>
+        <div class="doc-date">Data: {{data_doc}}</div>
+    </div>
+
+    <div class="parties">
+        <div class="party">
+            <h3>MITTENTE</h3>
+            <p><strong>{{cliente_nome}}</strong></p>
+            <p>{{cliente_indirizzo}}</p>
+            <p>{{cliente_cap}} {{cliente_citta}} ({{cliente_provincia}})</p>
+            <p>Tel: {{cliente_telefono}}</p>
+            <p>Email: {{cliente_email}}</p>
+            <p>P.IVA: {{cliente_piva}}</p>
+            <p>C.F: {{cliente_cf}}</p>
+        </div>
+        
+        <div class="party">
+            <h3>DESTINATARIO</h3>
+            <p><strong>{{sede_nome}}</strong></p>
+            <p>{{sede_indirizzo}}</p>
+            <p>{{sede_cap}} {{sede_citta}} ({{sede_provincia}})</p>
+        </div>
+    </div>
+    
+    <div class="transport-info">
+        <h3>INFORMAZIONI TRASPORTO</h3>
+        <p><strong>Autista:</strong> {{autista_nome}} {{autista_cognome}}</p>
+        <p><strong>Email Autista:</strong> {{autista_email}}</p>
+        <p><strong>Data Trasporto:</strong> {{data_doc}}</p>
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 15%">CODICE</th>
+                <th style="width: 40%">DESCRIZIONE</th>
+                <th style="width: 10%">QTÀ</th>
+                <th style="width: 12%">PREZZO UNIT.</th>
+                <th style="width: 8%">SCONTO</th>
+                <th style="width: 15%">TOTALE</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{righe}}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div class="total-box">
+            <div class="label">IMPONIBILE</div>
+            <div class="amount">€ {{totale_imponibile_doc}}</div>
+        </div>
+        <div class="total-box" style="margin-left: 10px;">
+            <div class="label">IMPOSTA</div>
+            <div class="amount">€ {{totale_imposta_doc}}</div>
+        </div>
+        <div class="total-box" style="margin-left: 10px;">
+            <div class="label">SCONTO</div>
+            <div class="amount">€ {{totale_sconto_doc}}</div>
+        </div>
+        <div class="total-box" style="margin-left: 15px; border: 3px solid #000;">
+            <div class="label">TOTALE DOCUMENTO</div>
+            <div class="amount">€ {{totale_doc}}</div>
+        </div>
+    </div>
+    <div class="signature-box">
+            <div>Firma Destinatario</div>
+        </div>
+    
+    <div class="footer">
+        <p>Documento generato automaticamente dal sistema di gestione - {{data_generazione}}</p>
+    </div>
+</body>
+</html>

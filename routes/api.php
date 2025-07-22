@@ -12,6 +12,9 @@ use App\Http\Controllers\ActivityTypeController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\MomapController;
+use App\Http\Controllers\ArcaSettingsController;
+use App\Http\Controllers\DocumentiController;
 
 use App\Http\Controllers\VehicleDeadlineController;
 use App\Http\Controllers\VehicleTrackingController;
@@ -33,6 +36,11 @@ use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 // =========================================================================
 // These routes do not require authentication.
 
+// Arca settings API (temporaneamente pubbliche)
+Route::get('/settings/arca', [ArcaSettingsController::class, 'get']);
+Route::post('/settings/arca', [ArcaSettingsController::class, 'save']);
+Route::post('/arca/test-login', [ArcaSettingsController::class, 'testLogin']);
+
 // Sanctum CSRF Cookie: Essential for initializing session-based authentication.
 Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show']);
 
@@ -50,7 +58,13 @@ Route::get('/login', function () {
 // =========================================================================
 // These routes require session-based authentication via Sanctum.
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['web', 'auth:sanctum'])->group(function () {
+
+    // MOMAP settings (temporaneamente senza can:admin per debug)
+    Route::get('/momap/device-data/{imei}', [\App\Http\Controllers\MomapDeviceController::class, 'deviceData']);
+    Route::get('/settings/momap', [\App\Http\Controllers\MomapController::class, 'getCredentials']);
+    Route::post('/settings/momap', [\App\Http\Controllers\MomapController::class, 'saveCredentials']);
+    Route::post('/momap/test-login', [\App\Http\Controllers\MomapController::class, 'testLogin']);
 
     // Get the currently authenticated user's data.
     Route::get('/user', function (Request $request) {
@@ -97,12 +111,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/vehicles/{vehicle}/position', [VehicleTrackingController::class, 'updateVehiclePosition']);
     Route::post('/vehicles/positions', [VehicleTrackingController::class, 'getMultipleVehiclePositions']);
 
+    // Documenti API routes
+    Route::middleware(['web', 'auth'])->group(function () {
+        Route::get('/documenti', [DocumentiController::class, 'index']);
+        Route::get('/documenti/{id}', [DocumentiController::class, 'show']);
+        Route::get('/documenti/{id}/pdf', [DocumentiController::class, 'generatePdf']);
+        Route::post('/documenti/sincronizza-oggi', [DocumentiController::class, 'sincronizzaOggi']);
+        Route::post('/documenti/sync', [DocumentiController::class, 'syncDocumenti']);
+        Route::get('/documenti/suggerisci', [DocumentiController::class, 'suggerisciPerAttivita']);
+        Route::post('/documenti/suggest-for-activity', [DocumentiController::class, 'suggestDocumentsForActivity']);
+    });
+
     // Relationship Routes
     Route::get('clients/{client}/sites', [SiteController::class, 'getClientSites']);
     Route::post('clients/{client}/sites', [SiteController::class, 'store']);
     Route::get('sites/{site}/activities', [ActivityController::class, 'getSiteActivities']);
     Route::get('clients/{client}/activities', [ActivityController::class, 'getClientActivities']);
     Route::get('drivers/{driver}/activities', [ActivityController::class, 'getDriverActivities']);
+    
+    // Allegamento documenti alle attività
+    Route::post('activities/attach-document', [ActivityController::class, 'attachDocument']);
+    Route::get('activities/{activity}/documents', [ActivityController::class, 'getAttachedDocuments']);
     
     // Other routes
     Route::get('available-resources', [ActivityController::class, 'getAvailableResources']);

@@ -16,9 +16,9 @@ export default function TabPanel({ tabs, defaultTab }) {
         scrollbarWidth: 'none', // Firefox
         msOverflowStyle: 'none', // IE/Edge
       }}>
-        {tabs.map(tab => (
+        {tabs.map((tab, idx) => (
           <div 
-            key={tab.id}
+            key={tab.id + '-' + idx}
             onClick={() => setActiveTab(tab.id)}
             style={{ 
               padding: '10px 20px', 

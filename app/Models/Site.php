@@ -12,6 +12,7 @@ class Site extends Model
     use HasFactory;
 
     protected $fillable = [
+        'codice_arca',
         'name',
         'address',
         'city',
