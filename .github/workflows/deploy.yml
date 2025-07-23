@@ -20,6 +20,13 @@ jobs:
             export LC_ALL=C
             cd /var/www/html/edilcipriano
 
+            echo "✅ Marking repo as safe"
+            git config --global --add safe.directory /var/www/html/edilcipriano
+
+            echo "💣 Cleaning any local changes"
+            git reset --hard
+            git clean -fd
+
             echo "🔄 Pulling latest code"
             git pull origin main
           
@@ -46,6 +53,14 @@ jobs:
             echo "🧹 Clearing caches"
             php artisan optimize:clear
             php artisan cache:clear
+
+            echo "📦 Installing frontend dependencies"
+            cd ../frontend
+            npm ci
+            npm run build
+
+            echo "✅ Restarting PM2"
+            pm2 restart edilcipriano
           
             echo "📦 Restarting nginx"
             sudo nginx -t && sudo systemctl reload nginx
