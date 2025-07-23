@@ -24,7 +24,8 @@ jobs:
             git config --global --add safe.directory /var/www/html/edilcipriano
 
             echo "💣 Cleaning any local changes"
-            git reset --hard
+            git fetch origin main
+            git reset --hard origin/main
             git clean -fd
 
             echo "🔄 Pulling latest code"
@@ -55,12 +56,12 @@ jobs:
             php artisan cache:clear
 
             echo "📦 Installing frontend dependencies"
-            cd ../frontend
-            npm ci
+            cd /frontend
+        
             npm run build
 
             echo "✅ Restarting PM2"
-            pm2 restart edilcipriano
+            pm2 restart agenda-app
           
             echo "📦 Restarting nginx"
             sudo nginx -t && sudo systemctl reload nginx
