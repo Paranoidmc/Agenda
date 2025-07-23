@@ -1,0 +1,43 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "🔄 Pulling latest code"
+            git pull origin main
+
+            echo "📦 Installing backend dependencies"
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+
+            echo "📦 Installing front-end dependencies"
+            npm install
+
+            echo "🛠 Building assets"
+            npm run build
+
+            echo "🗄 Running migrations"
+            php artisan migrate --force
+
+            echo "🧹 Clearing caches"
+            php artisan optimize:clear
+
+            echo "🧷 Setting permissions"
+            chown -R www-data:www-data storage bootstrap/cache
+
+            echo "✅ Deployment finished"
