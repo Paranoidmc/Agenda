@@ -17,6 +17,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.AGENDA_DEPLOY }}
           script: |
+            export LC_ALL=C
             cd /var/www/html/edilcipriano
 
             echo "🔄 Pulling latest code"
