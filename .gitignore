@@ -29,7 +29,7 @@ yarn-error.log
 /frontend/build/
 
 # Laravel environment files
-#.env
+.env
 .env.*
 .env
 # Laravel cache, logs, sessions, compiled, vendor
