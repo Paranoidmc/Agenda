@@ -31,7 +31,7 @@ yarn-error.log
 # Laravel environment files
 #.env
 .env.*
-
+.env
 # Laravel cache, logs, sessions, compiled, vendor
 /storage/app/public
 /storage/framework/cache

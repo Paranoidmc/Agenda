@@ -282,6 +282,8 @@ api.documenti = {
   async sync(options = {}) {
     const response = await api.post('/documenti/sync', {
       giorni: options.giorni || 7
+    }, {
+      timeout: 300000 // ✅ FIX: 5 minuti per sincronizzazioni
     });
     return response.data;
   },
@@ -291,7 +293,9 @@ api.documenti = {
    * @returns {Promise} Risultato sincronizzazione
    */
   syncToday() {
-    return api.post('/documenti/sincronizza-oggi');
+    return api.post('/documenti/sincronizza-oggi', {}, {
+      timeout: 300000 // ✅ FIX: 5 minuti per sincronizzazioni
+    });
   },
 
   /**

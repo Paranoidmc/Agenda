@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 
 export default function Header() {
-  const { logout } = useAuth();
+  const { logout, user, loading, sessionExpired } = useAuth();
+
+  // ✅ FIX: Mostra logout solo se utente autenticato e sessione valida
+  const showLogout = user && !loading && !sessionExpired;
 
   return (
     <header style={{
@@ -22,22 +25,24 @@ export default function Header() {
         Agenda
       </Link>
       <div>
-        <button 
-          onClick={logout}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#f44336', 
-            color: 'white', 
-            borderRadius: '4px', 
-            textDecoration: 'none',
-            fontSize: '14px',
-            fontWeight: 500,
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          Logout
-        </button>
+        {showLogout && (
+          <button 
+            onClick={logout}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#f44336', 
+              color: 'white', 
+              borderRadius: '4px', 
+              textDecoration: 'none',
+              fontSize: '14px',
+              fontWeight: 500,
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Logout
+          </button>
+        )}
       </div>
     </header>
   );

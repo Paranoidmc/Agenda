@@ -1,4 +1,4 @@
 *
 !.gitignore
-laravel.log
 *.log
+laravel.log

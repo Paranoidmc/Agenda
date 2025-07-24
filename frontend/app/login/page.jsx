@@ -1,12 +1,22 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login, loading, user } = useAuth();
+  const { login, loading, user, sessionExpired } = useAuth();
+  const router = useRouter();
+
+  // ✅ FIX: Redirect automatico se utente già autenticato
+  useEffect(() => {
+    if (user && !loading && !sessionExpired) {
+      console.log("[LOGIN-PAGE] Utente già autenticato, redirect a dashboard");
+      router.push("/dashboard");
+    }
+  }, [user, loading, sessionExpired, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

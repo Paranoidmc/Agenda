@@ -39,9 +39,9 @@ class ArcaSyncDocumenti extends Command
         // 2. Login
         $client = new Client([
             'base_uri' => 'http://ws.grsis.it:8082/api-arca/cgf/',
-            'timeout' => 60, // Timeout più conservativo
-            'connect_timeout' => 15,
-            'read_timeout' => 60
+            'timeout' => 300, // ✅ FIX: 5 minuti per produzione
+            'connect_timeout' => 60, // ✅ FIX: 1 minuto per connessione
+            'read_timeout' => 300 // ✅ FIX: 5 minuti per lettura
         ]);
         
         try {
@@ -134,7 +134,7 @@ class ArcaSyncDocumenti extends Command
                         'dataInizio' => date('Ymd', strtotime($dataInizio)), // Formato YYYYMMDD
                         'dataFine' => date('Ymd', strtotime($dataFine))       // Formato YYYYMMDD
                     ],
-                    'timeout' => 60 // Timeout ridotto per range piccoli
+                    'timeout' => 300 // ✅ FIX: 5 minuti per chiamate singole in produzione
                 ]);
                 
                 $endTime = microtime(true);

@@ -25,8 +25,6 @@ export const AuthProvider = ({ children }) => {
           }
           
           tokenFromStorage = localStorage.getItem('token');
-          if (tokenFromStorage) {
-          }
         } catch (error) {
           console.error("[AUTH] Errore nel parsing dei dati utente da localStorage:", error);
           localStorage.removeItem('user');
@@ -34,17 +32,16 @@ export const AuthProvider = ({ children }) => {
         }
       }
       
-      // Se abbiamo un utente in localStorage, lo usiamo temporaneamente
-      // Se non c'è un utente in localStorage, non c'è bisogno di verificare con il server.
-      // Interrompiamo il processo e consideriamo l'utente come non loggato.
+      // ✅ FIX: NON impostare l'utente finché non è verificato dal server
+      // Se non c'è un utente in localStorage, considera non autenticato
       if (!userFromStorage) {
+        setUser(null);
+        setSessionExpired(false);
         setLoading(false);
         return;
       }
 
-      // Se c'è un utente, lo impostiamo temporaneamente e VERIFICHIAMO con il server.
-      setUser(userFromStorage);
-      
+      // ✅ FIX: Verifica PRIMA di impostare l'utente
       try {
         const res = await api.get("/user", { 
           withCredentials: true,
@@ -54,37 +51,39 @@ export const AuthProvider = ({ children }) => {
         });
         
         if (res.data) {
+          // ✅ Solo ora imposta l'utente come loggato
           setUser(res.data);
           if (typeof window !== 'undefined') {
             localStorage.setItem('user', JSON.stringify(res.data));
           }
           setSessionExpired(false);
         } else {
+          // Sessione non valida
           setUser(null);
+          setSessionExpired(true);
           if (typeof window !== 'undefined') {
             localStorage.removeItem('user');
             localStorage.removeItem('token');
           }
-          setSessionExpired(true);
         }
       } catch (error) {
         console.error("[AUTH] Errore nella verifica dell'autenticazione:", error);
+        
+        // ✅ FIX: Gestione errori più chiara
         if (error.response && [401, 419].includes(error.response.status)) {
-          setSessionExpired(true);
+          // Sessione scaduta o non autorizzato
           setUser(null);
+          setSessionExpired(true);
           if (typeof window !== 'undefined') {
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
           }
-          // NON slogga completamente, lascia eventuale token
         } else {
-          // Se abbiamo un errore ma avevamo un utente in localStorage, manteniamo l'utente
-          if (!userFromStorage) {
-            setUser(null);
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('user');
-              localStorage.removeItem('token');
-            }
-          }
+          // Altri errori (rete, server down, etc.)
+          // In caso di errore di rete, mantieni l'utente ma segnala il problema
+          console.warn("[AUTH] Errore di rete, mantengo utente locale ma potrebbe essere necessario ri-autenticarsi");
+          setUser(userFromStorage);
+          setSessionExpired(false);
         }
       }
       
