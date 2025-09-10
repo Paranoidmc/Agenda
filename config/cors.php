@@ -13,7 +13,7 @@ return [
         'vehicle-deadlines*'
     ],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['http://localhost:3000', 'http://localhost:3001', 'https://edilcipriano.peels.it'],
+    'allowed_origins' => ['http://localhost:3000', 'http://localhost:3001', 'https://edilcipriano.peels.it', 'https://attivita.edilcipriano.peels.it'],
     'allowed_origins_patterns' => [],
     'allowed_headers' => [
         'Content-Type',
