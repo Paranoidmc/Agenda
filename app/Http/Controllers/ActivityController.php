@@ -22,7 +22,7 @@ class ActivityController extends Controller
             'user' => $request->user() ? $request->user()->id : 'non autenticato',
         ]);
 
-                $query = Activity::with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType']);
+                $query = Activity::with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType', 'resources']);
         
         // Filtraggio per intervallo date (inclusione se l'attività tocca anche solo parzialmente il range)
         if ($request->has('start_date') && $request->has('end_date')) {
@@ -152,6 +152,31 @@ class ActivityController extends Controller
             // Trasformazione dati tipo attività
             if ($activity->activityType) {
                 $activity->activityType->nome = $activity->activityType->name;
+            }
+
+            // Aggiungiamo i campi autista e veicolo per la colonna Risorse
+            $activity->autista = 'N/D';
+            $activity->veicolo = 'N/D';
+            
+            if ($activity->resources && $activity->resources->isNotEmpty()) {
+                $firstResource = $activity->resources->first();
+                
+                if ($firstResource->driver) {
+                    $driver = $firstResource->driver;
+                    $activity->autista = $driver->name . ' ' . $driver->surname;
+                }
+                
+                if ($firstResource->vehicle) {
+                    $vehicle = $firstResource->vehicle;
+                    $vehicleName = $vehicle->name ?? $vehicle->model ?? $vehicle->brand ?? 'Veicolo';
+                    $vehiclePlate = $vehicle->license_plate ?? $vehicle->targa ?? $vehicle->plate ?? '';
+                    
+                    if ($vehiclePlate) {
+                        $activity->veicolo = $vehicleName . ' (' . $vehiclePlate . ')';
+                    } else {
+                        $activity->veicolo = $vehicleName;
+                    }
+                }
             }
 
             // Mappa 'notes' a 'note' per il frontend
@@ -445,32 +470,50 @@ class ActivityController extends Controller
                 }
             }
             
-            // Aggiungiamo i campi in italiano per l'autista
-            if ($activity->driver) {
-                $activity->driver->nome = $activity->driver->name;
-                $activity->driver->cognome = $activity->driver->surname;
-                $activity->driver->telefono = $activity->driver->phone;
-                $activity->driver->indirizzo = $activity->driver->address;
-                $activity->driver->citta = $activity->driver->city;
-                $activity->driver->cap = $activity->driver->postal_code;
-                $activity->driver->provincia = $activity->driver->province;
-                $activity->driver->codice_fiscale = $activity->driver->fiscal_code;
-                $activity->driver->patente = $activity->driver->license_number;
-                $activity->driver->scadenza_patente = $activity->driver->license_expiry;
-                $activity->driver->note = $activity->driver->notes;
-            }
+            // Aggiungiamo i campi in italiano per autista e veicolo dalle risorse
+            $activity->autista = 'N/D';
+            $activity->veicolo = 'N/D';
             
-            // Aggiungiamo i campi in italiano per il veicolo
-            if ($activity->vehicle) {
-                $activity->vehicle->targa = $activity->vehicle->plate;
-                $activity->vehicle->modello = $activity->vehicle->model;
-                $activity->vehicle->marca = $activity->vehicle->brand;
-                $activity->vehicle->colore = $activity->vehicle->color;
-                $activity->vehicle->anno = $activity->vehicle->year;
-                $activity->vehicle->tipo = $activity->vehicle->type;
-                $activity->vehicle->carburante = $activity->vehicle->fuel_type;
-                $activity->vehicle->km = $activity->vehicle->odometer;
-                $activity->vehicle->note = $activity->vehicle->notes;
+            if ($activity->resources && $activity->resources->isNotEmpty()) {
+                $firstResource = $activity->resources->first();
+                
+                if ($firstResource->driver) {
+                    $driver = $firstResource->driver;
+                    $activity->autista = $driver->name . ' ' . $driver->surname;
+                    
+                    // Aggiungiamo i campi in italiano per l'autista
+                    $activity->driver_data = [
+                        'nome' => $driver->name,
+                        'cognome' => $driver->surname,
+                        'telefono' => $driver->phone,
+                        'indirizzo' => $driver->address,
+                        'citta' => $driver->city,
+                        'cap' => $driver->postal_code,
+                        'provincia' => $driver->province,
+                        'codice_fiscale' => $driver->fiscal_code,
+                        'patente' => $driver->license_number,
+                        'scadenza_patente' => $driver->license_expiry,
+                        'note' => $driver->notes,
+                    ];
+                }
+                
+                if ($firstResource->vehicle) {
+                    $vehicle = $firstResource->vehicle;
+                    $activity->veicolo = $vehicle->name . ' (' . $vehicle->license_plate . ')';
+                    
+                    // Aggiungiamo i campi in italiano per il veicolo
+                    $activity->vehicle_data = [
+                        'targa' => $vehicle->license_plate,
+                        'modello' => $vehicle->name,
+                        'marca' => $vehicle->brand,
+                        'colore' => $vehicle->color,
+                        'anno' => $vehicle->year,
+                        'tipo' => $vehicle->type,
+                        'carburante' => $vehicle->fuel_type,
+                        'km' => $vehicle->odometer,
+                        'note' => $vehicle->notes,
+                    ];
+                }
             }
             
             // Aggiungiamo i campi in italiano per la sede

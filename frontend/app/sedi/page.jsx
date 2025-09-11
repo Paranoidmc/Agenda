@@ -51,8 +51,14 @@ export default function SediPage() {
     } else if (!loading && !user) {
       setFetching(false);
     }
-    // eslint-disable-next-line
-  }, [user, loading, currentPage, perPage, searchTerm, dataVersion]);
+  }, [user, loading, dataVersion]);
+  
+  // Effetto per ricaricare i dati quando cambiano pagina o elementi per pagina
+  useEffect(() => {
+    if (!loading && user) {
+      fetchSediWithSearch(searchTerm);
+    }
+  }, [currentPage, perPage]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -67,29 +73,74 @@ export default function SediPage() {
     }
   }, [isPanelOpen]);
 
-  const fetchSedi = () => {
+  const fetchSedi = async () => {
+    await fetchSediWithSearch(searchTerm);
+  };
+  
+  const fetchSediWithSearch = async (searchTermParam = '', resetPage = false) => {
     setFetching(true);
-    api.get(`/sites`, {
-      params: {
-        page: 1, // carica tutto in una pagina
-        perPage: 20000,
-        search: searchTerm,
-        _: new Date().getTime() // Cache-busting
+    setError("");
+    
+    // Se è una nuova ricerca, reset alla pagina 1
+    const pageToUse = resetPage ? 1 : currentPage;
+    if (resetPage && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    
+    try {
+      const params = new URLSearchParams({
+        page: pageToUse.toString(),
+        perPage: perPage.toString()
+      });
+      
+      if (searchTermParam && searchTermParam.trim()) {
+        params.append('search', searchTermParam.trim());
       }
-    })
-      .then(res => {
-        setSedi(res.data.data || []);
-        setTotal(res.data.total || 0);
-      })
-      .catch((err) => {
-        console.error("Errore nel caricamento delle sedi:", err);
-        if (err.response && err.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento delle sedi");
-        }
-      })
-      .finally(() => setFetching(false));
+      
+      console.log('🔍 Caricamento sedi:', {
+        page: pageToUse,
+        perPage,
+        search: searchTermParam,
+        resetPage,
+        url: `/sites?${params.toString()}`
+      });
+      
+      const response = await api.get(`/sites?${params.toString()}`);
+      
+      console.log('📄 Risposta API sedi:', response.data);
+      
+      if (response.data && response.data.data) {
+        setSedi(response.data.data);
+        setTotal(response.data.total || 0);
+      } else {
+        console.warn('⚠️ Struttura risposta inaspettata:', response.data);
+        setSedi([]);
+        setTotal(0);
+      }
+    } catch (err) {
+      console.error("❌ Errore nel caricamento delle sedi:", err);
+      if (err.response && err.response.status === 401) {
+        setError("Sessione scaduta. Effettua nuovamente il login.");
+      } else {
+        setError("Errore nel caricamento delle sedi.");
+      }
+      setSedi([]);
+      setTotal(0);
+    } finally {
+      setFetching(false);
+    }
+  };
+  
+  // Funzione per gestire la ricerca con debounce (chiamata dal DataTable)
+  const handleSearchChange = (newTerm) => {
+    // NON aggiornare searchTerm o currentPage qui per evitare re-render
+    // setSearchTerm(newTerm);
+    // setCurrentPage(1);
+    
+    // Chiama fetchSedi direttamente con il nuovo termine e reset pagina
+    if (!loading && user) {
+      fetchSediWithSearch(newTerm, true); // true = reset pagina
+    }
   };
 
   const loadClienti = () => {
@@ -332,36 +383,22 @@ export default function SediPage() {
               )
             }
           ]}
-          filterableColumns={[
-            { 
-              key: 'nome', 
-              label: 'Nome',
-              filterType: 'text'
-            },
-            { 
-              key: 'citta', 
-              label: 'Città',
-              filterType: 'text'
-            },
-            { 
-              key: 'client.nome', 
-              label: 'Cliente',
-              filterType: 'text'
-            }
-          ]}
+          // Server-side search e paginazione
+          serverSide={true}
+          currentPage={currentPage}
+          totalItems={total}
+          itemsPerPage={perPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setPerPage}
+          onSearchTermChange={handleSearchChange}
+          loading={fetching}
+          // Props per filtri client-side (disabilitati per server-side)
+          filterableColumns={[]}
           onRowClick={handleViewDetails}
           selectedRow={selectedSede}
           searchPlaceholder="Cerca sedi..."
           emptyMessage={fetching ? "Caricamento..." : "Nessuna sede trovata"}
           defaultVisibleColumns={['nome', 'indirizzo', 'citta', 'provincia', 'client.nome', 'actions']}
-          totalItems={total}
-          itemsPerPage={perPage}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-          onItemsPerPageChange={setPerPage}
-          searchTerm={searchTerm}
-          onSearchTermChange={setSearchTerm}
-          isLoading={fetching}
         />
       </div>
 

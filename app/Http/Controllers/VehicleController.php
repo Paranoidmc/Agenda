@@ -13,114 +13,42 @@ class VehicleController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $vehicles = Vehicle::with(['activities', 'deadlines'])->get();
+            // Se richiesto 'all', restituisce tutti i veicoli (per dropdown/planning)
+            if ($request->has('all')) {
+                $vehicles = Vehicle::with(['activities', 'deadlines'])->get();
+            } else {
+                // Paginazione e ricerca server-side
+                $perPage = $request->input('perPage', 25);
+                $search = $request->input('search');
+                $query = Vehicle::with(['activities', 'deadlines']);
+
+                // Ricerca per targa, nome, marca, modello, tipo, stato, note, colore, ecc.
+                if ($search) {
+                    $query->where(function ($q) use ($search) {
+                        $q->where('plate', 'like', "%$search%")
+                          ->orWhere('brand', 'like', "%$search%")
+                          ->orWhere('model', 'like', "%$search%")
+                          ->orWhere('type', 'like', "%$search%")
+                          ->orWhere('fuel_type', 'like', "%$search%");
+                    });
+                }
+
+                $vehicles = $query->paginate($perPage);
+                
+                // Per paginazione, mappa i campi italiani nella collection
+                $vehicles->getCollection()->transform(function ($vehicle) {
+                    return $this->mapItalianFields($vehicle);
+                });
+                
+                return response()->json($vehicles);
+            }
             
-            // Aggiungiamo i campi in italiano per ogni veicolo
+            // Per 'all', mappa tutti i veicoli
             $vehicles = $vehicles->map(function ($vehicle) {
-                // Gestiamo i campi decimali
-                $vehicle->max_load = is_null($vehicle->max_load) ? null : $vehicle->max_load;
-                $vehicle->purchase_price = is_null($vehicle->purchase_price) ? null : $vehicle->purchase_price;
-                $vehicle->advance_paid = is_null($vehicle->advance_paid) ? null : $vehicle->advance_paid;
-                $vehicle->final_installment = is_null($vehicle->final_installment) ? null : $vehicle->final_installment;
-                $vehicle->monthly_fee = is_null($vehicle->monthly_fee) ? null : $vehicle->monthly_fee;
-                $vehicle->invoice_amount_excl_vat = is_null($vehicle->invoice_amount_excl_vat) ? null : $vehicle->invoice_amount_excl_vat;
-                $vehicle->invoice_amount_incl_vat = is_null($vehicle->invoice_amount_incl_vat) ? null : $vehicle->invoice_amount_incl_vat;
-                $vehicle->power_kw = is_null($vehicle->power_kw) ? null : $vehicle->power_kw;
-                $vehicle->engine_hours = is_null($vehicle->engine_hours) ? null : $vehicle->engine_hours;
-                $vehicle->fuel_type = is_null($vehicle->fuel_type) ? null : $vehicle->fuel_type;
-                
-                // Aggiungiamo i campi in italiano
-                $vehicle->targa = $vehicle->plate;
-                $vehicle->nome = $vehicle->name;
-                $vehicle->marca = $vehicle->brand;
-                $vehicle->modello = $vehicle->model;
-                $vehicle->anno = $vehicle->year;
-                $vehicle->tipo = $vehicle->type;
-                $vehicle->stato = $vehicle->status;
-                $vehicle->note = $vehicle->notes;
-                $vehicle->colore = $vehicle->color;
-                $vehicle->chilometraggio = $vehicle->odometer;
-                $vehicle->ore_motore = $vehicle->engine_hours;
-                $vehicle->portata_max = $vehicle->max_load;
-                $vehicle->numero_telaio = $vehicle->chassis_number;
-                $vehicle->data_acquisto = $vehicle->purchase_date;
-                $vehicle->prezzo_acquisto = $vehicle->purchase_price;
-                $vehicle->misura_gomme_anteriori = $vehicle->front_tire_size;
-                $vehicle->misura_gomme_posteriori = $vehicle->rear_tire_size;
-                $vehicle->vin = $vehicle->vin_code;
-                $vehicle->cilindrata = $vehicle->engine_capacity;
-                $vehicle->codice_motore = $vehicle->engine_code;
-                $vehicle->matricola_motore = $vehicle->engine_serial_number;
-                $vehicle->cavalli_fiscali = $vehicle->fiscal_horsepower;
-                $vehicle->potenza_kw = $vehicle->power_kw;
-                $vehicle->numero_immatricolazione = $vehicle->registration_number;
-                $vehicle->classe_euro = $vehicle->euro_classification;
-                $vehicle->gruppi = $vehicle->groups;
-                $vehicle->autista_assegnato = $vehicle->assigned_driver;
-                $vehicle->data_prima_immatricolazione = $vehicle->first_registration_date;
-                $vehicle->proprieta = $vehicle->ownership;
-                $vehicle->carburante = $vehicle->fuel_type;
-                $vehicle->km = $vehicle->odometer;
-                $vehicle->contratto_titolare = $vehicle->contract_holder;
-                $vehicle->tipo_proprieta = $vehicle->ownership_type;
-                $vehicle->tipo_noleggio = $vehicle->rental_type;
-                $vehicle->acconto_pagato = $vehicle->advance_paid;
-                $vehicle->rata_finale = $vehicle->final_installment;
-                $vehicle->canone_mensile = $vehicle->monthly_fee;
-                $vehicle->data_inizio_contratto = $vehicle->contract_start_date;
-                $vehicle->data_fine_contratto = $vehicle->contract_end_date;
-                $vehicle->allarme_mensile = $vehicle->monthly_alert;
-                $vehicle->allarme_fine = $vehicle->end_alert;
-                $vehicle->giorno_pagamento_rata = $vehicle->installment_payment_day;
-                $vehicle->fornitore = $vehicle->supplier;
-                $vehicle->data_riconsegna = $vehicle->collection_date;
-                $vehicle->durata_contratto_mesi = $vehicle->contract_duration_months;
-                $vehicle->chilometraggio_contratto = $vehicle->contract_kilometers;
-                $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
-                $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
-                $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
-                $vehicle->pneumatici = $vehicle->tires;
-                $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
-                $vehicle->link_esterno = $vehicle->external_link;
-                
-                // Aggiungiamo anche i campi mancanti
-                $vehicle->name = $vehicle->name ?? '';
-                $vehicle->chassis_number = $vehicle->chassis_number ?? '';
-                $vehicle->vin_code = $vehicle->vin_code ?? '';
-                $vehicle->engine_capacity = $vehicle->engine_capacity ?? '';
-                $vehicle->engine_code = $vehicle->engine_code ?? '';
-                $vehicle->engine_serial_number = $vehicle->engine_serial_number ?? '';
-                $vehicle->fiscal_horsepower = $vehicle->fiscal_horsepower ?? '';
-                $vehicle->registration_number = $vehicle->registration_number ?? '';
-                $vehicle->euro_classification = $vehicle->euro_classification ?? '';
-                $vehicle->groups = $vehicle->groups ?? '';
-                $vehicle->assigned_driver = $vehicle->assigned_driver ?? '';
-                $vehicle->first_registration_date = $vehicle->first_registration_date ?? null;
-                $vehicle->ownership = $vehicle->ownership ?? '';
-                $vehicle->current_profitability = $vehicle->current_profitability ?? '';
-                $vehicle->contract_holder = $vehicle->contract_holder ?? '';
-                $vehicle->ownership_type = $vehicle->ownership_type ?? '';
-                $vehicle->rental_type = $vehicle->rental_type ?? '';
-                $vehicle->monthly_alert = $vehicle->monthly_alert ?? '';
-                $vehicle->end_alert = $vehicle->end_alert ?? '';
-                $vehicle->installment_payment_day = $vehicle->installment_payment_day ?? '';
-                $vehicle->supplier = $vehicle->supplier ?? '';
-                $vehicle->collection_date = $vehicle->collection_date ?? null;
-                $vehicle->contract_duration_months = $vehicle->contract_duration_months ?? null;
-                $vehicle->contract_kilometers = $vehicle->contract_kilometers ?? null;
-                $vehicle->contract_equipment = $vehicle->contract_equipment ?? '';
-                $vehicle->tomtom = $vehicle->tomtom ?? '';
-                $vehicle->tires = $vehicle->tires ?? '';
-                $vehicle->returned_or_redeemed = $vehicle->returned_or_redeemed ?? '';
-                $vehicle->link = $vehicle->link ?? '';
-                $vehicle->status = $vehicle->status ?? 'operational';
-                $vehicle->front_tire_size = $vehicle->front_tire_size ?? '';
-                $vehicle->rear_tire_size = $vehicle->rear_tire_size ?? '';
-                
-                return $vehicle;
+                return $this->mapItalianFields($vehicle);
             });
             
             return response()->json([
@@ -128,13 +56,80 @@ class VehicleController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Si è verificato un errore durante il caricamento dei veicoli.',
-                'exception' => get_class($e),
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'error' => 'Errore nel caricamento dei veicoli: ' . $e->getMessage()
             ], 500);
         }
+    }
+    
+    private function mapItalianFields($vehicle)
+    {
+        // Gestiamo i campi decimali
+        $vehicle->max_load = is_null($vehicle->max_load) ? null : $vehicle->max_load;
+        $vehicle->purchase_price = is_null($vehicle->purchase_price) ? null : $vehicle->purchase_price;
+        $vehicle->advance_paid = is_null($vehicle->advance_paid) ? null : $vehicle->advance_paid;
+        $vehicle->final_installment = is_null($vehicle->final_installment) ? null : $vehicle->final_installment;
+        $vehicle->monthly_fee = is_null($vehicle->monthly_fee) ? null : $vehicle->monthly_fee;
+        $vehicle->invoice_amount_excl_vat = is_null($vehicle->invoice_amount_excl_vat) ? null : $vehicle->invoice_amount_excl_vat;
+        $vehicle->invoice_amount_incl_vat = is_null($vehicle->invoice_amount_incl_vat) ? null : $vehicle->invoice_amount_incl_vat;
+        $vehicle->power_kw = is_null($vehicle->power_kw) ? null : $vehicle->power_kw;
+        $vehicle->engine_hours = is_null($vehicle->engine_hours) ? null : $vehicle->engine_hours;
+        $vehicle->fuel_type = is_null($vehicle->fuel_type) ? null : $vehicle->fuel_type;
+        
+        // Aggiungiamo i campi in italiano
+        $vehicle->targa = $vehicle->plate;
+        $vehicle->nome = $vehicle->name;
+        $vehicle->marca = $vehicle->brand;
+        $vehicle->modello = $vehicle->model;
+        $vehicle->anno = $vehicle->year;
+        $vehicle->tipo = $vehicle->type;
+        $vehicle->stato = $vehicle->status;
+        $vehicle->note = $vehicle->notes;
+        $vehicle->colore = $vehicle->color;
+        $vehicle->chilometraggio = $vehicle->odometer;
+        $vehicle->ore_motore = $vehicle->engine_hours;
+        $vehicle->portata_max = $vehicle->max_load;
+        $vehicle->numero_telaio = $vehicle->chassis_number;
+        $vehicle->data_acquisto = $vehicle->purchase_date;
+        $vehicle->prezzo_acquisto = $vehicle->purchase_price;
+        $vehicle->misura_gomme_anteriori = $vehicle->front_tire_size;
+        $vehicle->misura_gomme_posteriori = $vehicle->rear_tire_size;
+        $vehicle->vin = $vehicle->vin_code;
+        $vehicle->cilindrata = $vehicle->engine_capacity;
+        $vehicle->codice_motore = $vehicle->engine_code;
+        $vehicle->matricola_motore = $vehicle->engine_serial_number;
+        $vehicle->cavalli_fiscali = $vehicle->fiscal_horsepower;
+        $vehicle->potenza_kw = $vehicle->power_kw;
+        $vehicle->numero_immatricolazione = $vehicle->registration_number;
+        $vehicle->classe_euro = $vehicle->euro_classification;
+        $vehicle->gruppi = $vehicle->groups;
+        $vehicle->autista_assegnato = $vehicle->assigned_driver;
+        $vehicle->data_prima_immatricolazione = $vehicle->first_registration_date;
+        $vehicle->proprieta = $vehicle->ownership;
+        $vehicle->carburante = $vehicle->fuel_type;
+        $vehicle->km = $vehicle->odometer;
+        $vehicle->contratto_titolare = $vehicle->contract_holder;
+        $vehicle->tipo_proprieta = $vehicle->ownership_type;
+        $vehicle->tipo_noleggio = $vehicle->rental_type;
+        $vehicle->acconto_pagato = $vehicle->advance_paid;
+        $vehicle->rata_finale = $vehicle->final_installment;
+        $vehicle->canone_mensile = $vehicle->monthly_fee;
+        $vehicle->data_inizio_contratto = $vehicle->contract_start_date;
+        $vehicle->data_fine_contratto = $vehicle->contract_end_date;
+        $vehicle->allarme_mensile = $vehicle->monthly_alert;
+        $vehicle->allarme_fine = $vehicle->end_alert;
+        $vehicle->giorno_pagamento_rata = $vehicle->installment_payment_day;
+        $vehicle->fornitore = $vehicle->supplier;
+        $vehicle->data_riconsegna = $vehicle->collection_date;
+        $vehicle->durata_contratto_mesi = $vehicle->contract_duration_months;
+        $vehicle->chilometraggio_contratto = $vehicle->contract_kilometers;
+        $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
+        $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
+        $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
+        $vehicle->pneumatici = $vehicle->tires;
+        $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
+        $vehicle->link_esterno = $vehicle->external_link;
+        
+        return $vehicle;
     }
 
     /**

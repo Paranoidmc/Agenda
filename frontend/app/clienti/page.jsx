@@ -56,8 +56,14 @@ export default function ClientiPage() {
     } else if (!loading && !user) {
       setFetching(false);
     }
-    // eslint-disable-next-line
-  }, [user, loading, currentPage, perPage, searchTerm, dataVersion]);
+  }, [user, loading, dataVersion]);
+  
+  // Effetto per ricaricare i dati quando cambiano pagina o elementi per pagina
+  useEffect(() => {
+    if (!loading && user) {
+      fetchClientiWithSearch(searchTerm);
+    }
+  }, [currentPage, perPage]);
 
   useEffect(() => {
     if (isPanelOpen) {
@@ -69,37 +75,77 @@ export default function ClientiPage() {
     }
   }, [isPanelOpen]);
 
-  const fetchClienti = () => {
+  const fetchClienti = async () => {
+    await fetchClientiWithSearch(searchTerm);
+  };
+  
+  const fetchClientiWithSearch = async (searchTermParam = '', resetPage = false) => {
     setFetching(true);
-    api.get(`/clients`, {
-      params: {
-        page: 1, // carica tutto in una pagina
-        perPage: 20000,
-        search: searchTerm,
-        _: new Date().getTime() // Cache-busting
+    setError("");
+    
+    // Se è una nuova ricerca, reset alla pagina 1
+    const pageToUse = resetPage ? 1 : currentPage;
+    if (resetPage && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    
+    try {
+      const params = new URLSearchParams({
+        page: pageToUse.toString(),
+        perPage: perPage.toString()
+      });
+      
+      if (searchTermParam && searchTermParam.trim()) {
+        params.append('search', searchTermParam.trim());
       }
-    })
-      .then(res => {
-        if (Array.isArray(res.data)) {
-          setClienti(res.data);
-          setTotal(res.data.length);
-        } else if (res.data && Array.isArray(res.data.data)) {
-          setClienti(res.data.data);
-          setTotal(res.data.total || res.data.data.length);
-        } else {
-          setClienti([]);
-          setTotal(0);
-        }
-      })
-      .catch((err) => {
-        console.error("Errore nel caricamento dei clienti:", err);
-        if (err.response && err.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento dei clienti");
-        }
-      })
-      .finally(() => setFetching(false));
+      
+      console.log('🔍 Caricamento clienti:', {
+        page: pageToUse,
+        perPage,
+        search: searchTermParam,
+        resetPage,
+        url: `/clients?${params.toString()}`
+      });
+      
+      const response = await api.get(`/clients?${params.toString()}`);
+      
+      console.log('📄 Risposta API clienti:', response.data);
+      
+      if (Array.isArray(response.data)) {
+        setClienti(response.data);
+        setTotal(response.data.length);
+      } else if (response.data && Array.isArray(response.data.data)) {
+        setClienti(response.data.data);
+        setTotal(response.data.total || response.data.data.length);
+      } else {
+        console.warn('⚠️ Struttura risposta inaspettata:', response.data);
+        setClienti([]);
+        setTotal(0);
+      }
+    } catch (err) {
+      console.error("❌ Errore nel caricamento dei clienti:", err);
+      if (err.response && err.response.status === 401) {
+        setError("Sessione scaduta. Effettua nuovamente il login.");
+      } else {
+        setError("Errore nel caricamento dei clienti.");
+      }
+      setClienti([]);
+      setTotal(0);
+    } finally {
+      setFetching(false);
+    }
+  };
+  
+  // Funzione per gestire la ricerca con debounce (chiamata dal DataTable)
+  const handleSearchChange = (newTerm) => {
+    // NON aggiornare searchTerm o currentPage qui per evitare re-render
+    // setSearchTerm(newTerm);
+    // setCurrentPage(1);
+    
+    // Chiama fetchClienti direttamente con il nuovo termine e reset pagina
+    if (!loading && user) {
+      fetchClientiWithSearch(newTerm, true); // true = reset pagina
+    }
   };
 
   const handleViewDetails = (cliente) => {
@@ -289,28 +335,17 @@ export default function ClientiPage() {
               )
             }
           ]}
-          filterableColumns={[
-            { 
-              key: 'nome', 
-              label: 'Nome',
-              filterType: 'text'
-            },
-            { 
-              key: 'citta', 
-              label: 'Città',
-              filterType: 'text'
-            },
-            { 
-              key: 'partita_iva', 
-              label: 'Partita IVA',
-              filterType: 'text'
-            },
-            { 
-              key: 'codice_fiscale', 
-              label: 'Codice Fiscale',
-              filterType: 'text'
-            }
-          ]}
+          // Server-side search e paginazione
+          serverSide={true}
+          currentPage={currentPage}
+          totalItems={total}
+          itemsPerPage={perPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setPerPage}
+          onSearchTermChange={handleSearchChange}
+          loading={fetching}
+          // Props per filtri client-side (disabilitati per server-side)
+          filterableColumns={[]}
           onRowClick={handleViewDetails}
           selectedRow={selectedCliente}
           searchPlaceholder="Cerca clienti..."
@@ -318,14 +353,6 @@ export default function ClientiPage() {
           defaultVisibleColumns={['nome', 'citta', 'telefono', 'partita_iva', 'actions']}
           defaultSortKey="nome"
           defaultSortDirection="asc"
-          totalItems={total}
-          itemsPerPage={perPage}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-          onItemsPerPageChange={setPerPage}
-          searchTerm={searchTerm}
-          onSearchTermChange={setSearchTerm}
-          isLoading={fetching}
         />
       </div>
 

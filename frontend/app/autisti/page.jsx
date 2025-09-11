@@ -15,8 +15,11 @@ export default function AutistiPage() {
   const { user, loading } = useAuth();
   // Stato principale (PRIMA di ogni useEffect!)
   const [autisti, setAutisti] = useState([]);
-  const [searchText, setSearchText] = useState("");
   const [fetching, setFetching] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedAutista, setSelectedAutista] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -193,6 +196,7 @@ export default function AutistiPage() {
     { name: 'note_patente', label: 'Note Patente', type: 'textarea' }
   ];
 
+  // Caricamento iniziale
   useEffect(() => {
     if (!loading && user) {
       loadAutisti();
@@ -201,6 +205,25 @@ export default function AutistiPage() {
       setFetching(false);
     }
   }, [user, loading, dataVersion]);
+
+  // Ricarica quando cambiano i parametri di paginazione (non searchTerm!)
+  useEffect(() => {
+    if (!loading && user) {
+      loadAutisti();
+    }
+  }, [currentPage, perPage]);
+  
+  // Funzione per gestire la ricerca con debounce (chiamata dal DataTable)
+  const handleSearchChange = (newTerm) => {
+    // NON aggiornare searchTerm o currentPage qui per evitare re-render
+    // setSearchTerm(newTerm);
+    // setCurrentPage(1);
+    
+    // Chiama loadAutisti direttamente con il nuovo termine e reset pagina
+    if (!loading && user) {
+      loadAutistiWithSearch(newTerm, true); // true = reset pagina
+    }
+  };
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -215,30 +238,62 @@ export default function AutistiPage() {
     }
   }, [isPanelOpen]);
 
-  const loadAutisti = () => {
+  const loadAutisti = async () => {
+    await loadAutistiWithSearch(searchTerm);
+  };
+  
+  const loadAutistiWithSearch = async (searchTermParam = '', resetPage = false) => {
     setFetching(true);
-    api.get("/drivers?all=1&_=" + new Date().getTime()) // Cache-busting
-      .then(res => {
-        // Gestione robusta della risposta: ordina solo se array
-        let autistiArr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-        if (Array.isArray(autistiArr)) {
-          autistiArr = [...autistiArr].sort((a, b) => {
-            const nomeA = (a.cognome || '') + (a.nome || '');
-            const nomeB = (b.cognome || '') + (b.nome || '');
-            return nomeA.localeCompare(nomeB);
-          });
-        }
-        setAutisti(autistiArr);
-      })
-      .catch((err) => {
-        console.error("Errore nel caricamento degli autisti:", err);
-        if (err.response && err.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento degli autisti");
-        }
-      })
-      .finally(() => setFetching(false));
+    setError("");
+    
+    // Se è una nuova ricerca, reset alla pagina 1
+    const pageToUse = resetPage ? 1 : currentPage;
+    if (resetPage && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    
+    try {
+      const params = new URLSearchParams({
+        page: pageToUse.toString(),
+        perPage: perPage.toString()
+      });
+      
+      if (searchTermParam && searchTermParam.trim()) {
+        params.append('search', searchTermParam.trim());
+      }
+      
+      console.log('🔍 Caricamento autisti:', {
+        page: pageToUse,
+        perPage,
+        search: searchTermParam,
+        resetPage,
+        url: `/drivers?${params.toString()}`
+      });
+      
+      const response = await api.get(`/drivers?${params.toString()}`);
+      
+      console.log('📄 Risposta API autisti:', response.data);
+      
+      if (response.data && response.data.data) {
+        setAutisti(response.data.data);
+        setTotal(response.data.total || 0);
+      } else {
+        console.warn('⚠️ Struttura risposta inaspettata:', response.data);
+        setAutisti([]);
+        setTotal(0);
+      }
+    } catch (err) {
+      console.error("❌ Errore nel caricamento degli autisti:", err);
+      if (err.response && err.response.status === 401) {
+        setError("Sessione scaduta. Effettua nuovamente il login.");
+      } else {
+        setError("Errore nel caricamento degli autisti.");
+      }
+      setAutisti([]);
+      setTotal(0);
+    } finally {
+      setFetching(false);
+    }
   };
 
   const handleViewDetails = (autista) => {
@@ -372,15 +427,9 @@ return (
         buttonLabel={canEdit ? "Nuovo Autista" : ""}
         onAddClick={canEdit ? handleCreateNew : null} 
       />
-      <div style={{margin: '18px 0 12px 0'}}>
-        <input
-          type="text"
-          placeholder="Cerca per nome o cognome..."
-          value={searchText}
-          onChange={e => setSearchText(e.target.value)}
-          style={{padding: 8, borderRadius: 6, border: '1px solid #ccc', width: 240}}
-        />
-      </div>
+      
+
+
       <div 
         style={{ 
           transition: 'width 0.3s ease-in-out',
@@ -389,10 +438,7 @@ return (
         }}
       >
           <DataTable 
-            data={autisti.filter(a => {
-              const testo = (a.nome || "") + " " + (a.cognome || "");
-              return testo.toLowerCase().includes(searchText.toLowerCase());
-            })}
+            data={autisti}
             columns={[
               { key: 'nome', label: 'Nome' },
               { key: 'cognome', label: 'Cognome' },
@@ -441,38 +487,22 @@ return (
                 )
               }
             ]}
-            filterableColumns={[
-              { key: 'nome', label: 'Nome', filterType: 'text' },
-              { key: 'cognome', label: 'Cognome', filterType: 'text' },
-              {
-                key: 'patente',
-                label: 'Patente',
-                filterType: 'select',
-                filterOptions: [
-                  { value: 'B', label: 'B' },
-                  { value: 'C', label: 'C' },
-                  { value: 'D', label: 'D' },
-                  { value: 'CE', label: 'CE' },
-                  { value: 'DE', label: 'DE' },
-                ]
-              },
-              {
-                key: 'tipo_contratto',
-                label: 'Tipo Contratto',
-                filterType: 'select',
-                filterOptions: [
-                  { value: 'indeterminato', label: 'Tempo Indeterminato' },
-                  { value: 'determinato', label: 'Tempo Determinato' },
-                  { value: 'partita_iva', label: 'Partita IVA' },
-                  { value: 'occasionale', label: 'Occasionale' },
-                ]
-              }
-            ]}
             onRowClick={handleViewDetails}
             selectedRow={selectedAutista}
-            searchPlaceholder="Cerca autisti..."
-            emptyMessage="Nessun autista trovato"
+            emptyMessage={fetching ? "Caricamento..." : "Nessun autista trovato"}
             defaultVisibleColumns={['nome', 'cognome', 'telefono', 'patente', 'scadenza_patente', 'actions']}
+            // Props per paginazione server-side
+            totalItems={total}
+            itemsPerPage={perPage}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(newPerPage) => {
+              setPerPage(newPerPage);
+              setCurrentPage(1);
+            }}
+            searchPlaceholder="Cerca per nome, cognome, telefono, città..."
+            // Ricerca server-side con debounce interno
+            onSearchTermChange={handleSearchChange}
           />
       </div>
 

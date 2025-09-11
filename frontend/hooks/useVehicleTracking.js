@@ -23,8 +23,10 @@ export function useVehicleTracking(activityId, vehicles = [], refreshInterval = 
       const momapVehicles = vehicles.filter(v => v.imei && v.imei.length > 5);
       const classicVehicles = vehicles.filter(v => !v.imei || v.imei.length <= 5);
       let positions = [];
-      // Fetch MOMAP
-      if (momapVehicles.length > 0) {
+      // Fetch MOMAP - TEMPORANEAMENTE DISABILITATO per evitare errori 500
+      // TODO: Riabilitare quando credenziali MOMAP saranno configurate correttamente
+      if (false && momapVehicles.length > 0) {
+        console.info('🗺️ MOMAP geolocalizzazione temporaneamente disabilitata. Configurare credenziali MOMAP per riabilitare.');
         const momapResults = await Promise.all(momapVehicles.map(async v => {
           try {
             const res = await api.get(`/momap/device-data/${v.imei}`);
@@ -32,24 +34,28 @@ export function useVehicleTracking(activityId, vehicles = [], refreshInterval = 
               const d = res.data.data;
               return {
                 id: v.id,
-                lat: d.latitude || d.lat,
-                lng: d.longitude || d.lng,
+                lat: parseFloat(d.latitude),
+                lng: parseFloat(d.longitude),
                 plate: v.plate,
                 model: v.model,
                 brand: v.brand,
                 driver: v.driver,
-                lastUpdate: d.gpsDateTime || d.lastUpdate,
+                lastUpdate: d.timestamp ? new Date(d.timestamp) : new Date(),
                 status: d.deviceStatus || d.status,
-                speed: d.speed,
-                heading: d.heading,
-                odometer: d.odometer,
-                engineHours: d.engineHours,
-                sensors: d.sensors,
+                speed: parseFloat(d.speed || 0),
+                heading: parseFloat(d.direction || 0),
                 momap: true
               };
             }
-          } catch (err) {
-            console.error('Errore MOMAP:', err);
+          } catch (error) {
+            // Gestione silenziosa degli errori MOMAP per evitare spam nella console
+            if (error.response?.status === 500) {
+              console.warn(`⚠️ API MOMAP non disponibile per veicolo ${v.id} (IMEI: ${v.imei}). Possibili cause: credenziali scadute, IMEI non valido, servizio temporaneamente non disponibile.`);
+            } else if (error.response?.status === 401) {
+              console.warn(`🔐 Token MOMAP scaduto per veicolo ${v.id}. Verifica configurazione credenziali MOMAP.`);
+            } else {
+              console.warn(`🗺️ Errore geolocalizzazione MOMAP per veicolo ${v.id}:`, error.message);
+            }
           }
           return null;
         }));
@@ -100,7 +106,7 @@ export function useVehicleTracking(activityId, vehicles = [], refreshInterval = 
         return;
       }
       // Fallback simulazione se nessuna posizione trovata
-      console.error('Errore nel recupero posizioni veicoli:', error);
+      console.warn('Nessuna posizione valida trovata, uso simulazione');
       // Fallback alla simulazione se l'API non è disponibile
       const simPositions = await Promise.all(
         vehicleIds.map(async (vehicleId) => {

@@ -262,7 +262,19 @@ class DocumentiController extends Controller
             
             $output = Artisan::output();
             
-            // Conta i documenti e righe dopo la sync
+            // Estrai i numeri effettivi dall'output del comando
+            $documentiSincronizzati = 0;
+            $righeSincronizzate = 0;
+            
+            if (preg_match('/📄 Documenti sincronizzati: (\d+)/', $output, $matches)) {
+                $documentiSincronizzati = (int) $matches[1];
+            }
+            
+            if (preg_match('/📋 Righe documento sincronizzate: (\d+)/', $output, $matches)) {
+                $righeSincronizzate = (int) $matches[1];
+            }
+            
+            // Conta anche i totali nel database per informazione
             $totaleDocs = Documento::count();
             $totaleRighe = DB::table('righe_documento')->count();
             
@@ -270,8 +282,10 @@ class DocumentiController extends Controller
                 'success' => true,
                 'message' => 'Sincronizzazione documenti di oggi completata con successo',
                 'data' => [
-                    'documenti' => $totaleDocs,
-                    'righe' => $totaleRighe,
+                    'documenti' => $documentiSincronizzati, // Documenti sincronizzati oggi
+                    'righe' => $righeSincronizzate, // Righe sincronizzate oggi
+                    'totale_documenti' => $totaleDocs, // Totale documenti nel DB
+                    'totale_righe' => $totaleRighe, // Totale righe nel DB
                     'output' => $output
                 ]
             ]);
@@ -581,7 +595,19 @@ class DocumentiController extends Controller
             
             $output = \Artisan::output();
             
-            // Conta i documenti e righe dopo la sync
+            // Estrai i numeri effettivi dall'output del comando
+            $documentiSincronizzati = 0;
+            $righeSincronizzate = 0;
+            
+            if (preg_match('/📄 Documenti sincronizzati: (\d+)/', $output, $matches)) {
+                $documentiSincronizzati = (int) $matches[1];
+            }
+            
+            if (preg_match('/📋 Righe documento sincronizzate: (\d+)/', $output, $matches)) {
+                $righeSincronizzate = (int) $matches[1];
+            }
+            
+            // Conta anche i totali nel database per informazione
             $totaleDocs = \App\Models\Documento::count();
             $totaleRighe = DB::table('righe_documento')->count();
             
@@ -589,8 +615,10 @@ class DocumentiController extends Controller
                 'success' => true,
                 'message' => 'Sincronizzazione completata con successo',
                 'data' => [
-                    'documenti' => $totaleDocs,
-                    'righe' => $totaleRighe,
+                    'documenti' => $documentiSincronizzati, // Documenti sincronizzati
+                    'righe' => $righeSincronizzate, // Righe sincronizzate
+                    'totale_documenti' => $totaleDocs, // Totale documenti nel DB
+                    'totale_righe' => $totaleRighe, // Totale righe nel DB
                     'output' => $output
                 ]
             ]);

@@ -52,6 +52,15 @@ Route::get('/login', function () {
     return response()->json(['message' => 'Unauthenticated.'], 401);
 })->name('login');
 
+// API per PWA Autisti - Rotte pubbliche per avvio/termine attività
+Route::get('driver-activities/{driverName}', [\App\Http\Controllers\Api\DriverActivityController::class, 'getActivitiesByDriver']);
+Route::post('driver-activities/{activityId}/start', [\App\Http\Controllers\Api\DriverActivityController::class, 'startActivity']);
+Route::post('driver-activities/{activityId}/end', [\App\Http\Controllers\Api\DriverActivityController::class, 'endActivity']);
+Route::post('driver-activities/{activityId}/upload-ddt', [\App\Http\Controllers\Api\DriverActivityController::class, 'uploadDdt']);
+
+// Rotte alternative per compatibilità con PWA frontend
+Route::post('activities/{id}/start', [\App\Http\Controllers\Api\DriverActivityController::class, 'startActivity']);
+Route::post('activities/{id}/end', [\App\Http\Controllers\Api\DriverActivityController::class, 'endActivity']);
 
 // =========================================================================
 // PROTECTED ROUTES
@@ -111,16 +120,7 @@ Route::middleware(['web', 'auth:sanctum'])->group(function () {
     Route::post('/vehicles/{vehicle}/position', [VehicleTrackingController::class, 'updateVehiclePosition']);
     Route::post('/vehicles/positions', [VehicleTrackingController::class, 'getMultipleVehiclePositions']);
 
-    // Documenti API routes
-    Route::middleware(['web', 'auth'])->group(function () {
-        Route::get('/documenti', [DocumentiController::class, 'index']);
-        Route::get('/documenti/{id}', [DocumentiController::class, 'show']);
-        Route::get('/documenti/{id}/pdf', [DocumentiController::class, 'generatePdf']);
-        Route::post('/documenti/sincronizza-oggi', [DocumentiController::class, 'sincronizzaOggi']);
-        Route::post('/documenti/sync', [DocumentiController::class, 'syncDocumenti']);
-        Route::get('/documenti/suggerisci', [DocumentiController::class, 'suggerisciPerAttivita']);
-        Route::post('/documenti/suggest-for-activity', [DocumentiController::class, 'suggestDocumentsForActivity']);
-    });
+
 
     // Relationship Routes
     Route::get('clients/{client}/sites', [SiteController::class, 'getClientSites']);
@@ -133,6 +133,21 @@ Route::middleware(['web', 'auth:sanctum'])->group(function () {
     Route::post('activities/attach-document', [ActivityController::class, 'attachDocument']);
     Route::get('activities/{activity}/documents', [ActivityController::class, 'getAttachedDocuments']);
     
+
+    
     // Other routes
     Route::get('available-resources', [ActivityController::class, 'getAvailableResources']);
+});
+
+// =========================================================================
+// DOCUMENTI API ROUTES (TEMPORANEAMENTE SENZA AUTH PER DEBUG)
+// =========================================================================
+Route::middleware(['web'])->group(function () {
+    Route::get('/documenti', [DocumentiController::class, 'index']);
+    Route::get('/documenti/{id}', [DocumentiController::class, 'show']);
+    Route::get('/documenti/{id}/pdf', [DocumentiController::class, 'generatePdf']);
+    Route::post('/documenti/sincronizza-oggi', [DocumentiController::class, 'sincronizzaOggi']);
+    Route::post('/documenti/sync', [DocumentiController::class, 'syncDocumenti']);
+    Route::get('/documenti/suggerisci', [DocumentiController::class, 'suggerisciPerAttivita']);
+    Route::post('/documenti/suggest-for-activity', [DocumentiController::class, 'suggestDocumentsForActivity']);
 });

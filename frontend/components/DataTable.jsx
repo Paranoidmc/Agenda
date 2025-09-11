@@ -12,18 +12,35 @@ export default function DataTable({
   defaultVisibleColumns = null,
   filterableColumns = [],
   className = "",
-  emptyMessage = "Nessun dato disponibile"
+  emptyMessage = "Nessun dato disponibile",
+  // Props per paginazione server-side
+  totalItems = null,
+  itemsPerPage = null,
+  currentPage = null,
+  onPageChange = null,
+  onItemsPerPageChange = null,
+  searchTerm = null,
+  onSearchTermChange = null,
+  isLoading = false,
+  hideSearch = false
 }) {
-  // Stato per la ricerca
-  const [searchTerm, setSearchTerm] = useState('');
+  // Stato per la ricerca (usa props esterni se disponibili)
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const actualSearchTerm = searchTerm !== null ? searchTerm : internalSearchTerm;
+  const displaySearchTerm = internalSearchTerm;
   
   // Stato per i filtri
   const [filters, setFilters] = useState({});
   const [activeFilter, setActiveFilter] = useState(null);
   
-  // Stato per la paginazione
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage);
+  // Stato per la paginazione (usa props esterni se disponibili)
+  const [internalCurrentPage, setInternalCurrentPage] = useState(1);
+  const [internalItemsPerPage, setInternalItemsPerPage] = useState(defaultItemsPerPage);
+  
+  // Usa props esterni per paginazione server-side se disponibili
+  const isServerSide = totalItems !== null && currentPage !== null && itemsPerPage !== null;
+  const actualCurrentPage = isServerSide ? currentPage : internalCurrentPage;
+  const actualItemsPerPage = isServerSide ? itemsPerPage : internalItemsPerPage;
   
   // Stato per le colonne visibili
   const [visibleColumns, setVisibleColumns] = useState(
@@ -34,14 +51,33 @@ export default function DataTable({
   // Stato per l'ordinamento
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   
-  // Reset della pagina quando cambiano i dati o i filtri
+  // Reset della pagina quando cambiano i dati o i filtri (solo per client-side)
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filters, itemsPerPage]);
+    if (!isServerSide) {
+      setInternalCurrentPage(1);
+    }
+  }, [actualSearchTerm, filters, actualItemsPerPage, isServerSide]);
+  
+  // Debounce per la ricerca server-side
+  useEffect(() => {
+    if (onSearchTermChange) {
+      const timer = setTimeout(() => {
+        onSearchTermChange(internalSearchTerm);
+      }, 500); // Aspetta 500ms dopo che l'utente smette di digitare
+      
+      return () => clearTimeout(timer);
+    }
+  }, [internalSearchTerm, onSearchTermChange]);
   
   // Funzione per gestire la ricerca
   const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
+    const newSearchTerm = e.target.value;
+    if (onSearchTermChange) {
+      // Per server-side, aggiorna solo lo stato locale (il debounce gestirà la chiamata)
+      setInternalSearchTerm(newSearchTerm);
+    } else {
+      setInternalSearchTerm(newSearchTerm);
+    }
   };
   
   // Funzione per gestire i filtri
@@ -140,16 +176,24 @@ export default function DataTable({
     }
     
     return result;
-  }, [data, searchTerm, filters, sortConfig]);
+  }, [data, actualSearchTerm, filters, sortConfig]);
   
-  // Paginazione dei dati
+  // Paginazione dei dati (solo per client-side)
   const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredAndSortedData.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAndSortedData, currentPage, itemsPerPage]);
+    if (isServerSide) {
+      // Per server-side, usa direttamente i dati ricevuti
+      return data;
+    } else {
+      // Per client-side, applica paginazione locale
+      const startIndex = (actualCurrentPage - 1) * actualItemsPerPage;
+      return filteredAndSortedData.slice(startIndex, startIndex + actualItemsPerPage);
+    }
+  }, [filteredAndSortedData, actualCurrentPage, actualItemsPerPage, isServerSide, data]);
   
   // Calcolo del numero totale di pagine
-  const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage);
+  const totalPages = isServerSide 
+    ? Math.ceil(totalItems / actualItemsPerPage)
+    : Math.ceil(filteredAndSortedData.length / actualItemsPerPage);
   
   // Funzione per generare i numeri di pagina da visualizzare
   const getPageNumbers = () => {
@@ -572,16 +616,18 @@ export default function DataTable({
     <div style={styles.tableContainer} className={className}>
       {/* Header con ricerca, filtri e selettore colonne */}
       <div style={styles.header}>
-        <div style={styles.searchContainer}>
-          <SearchIcon />
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={searchTerm}
-            onChange={handleSearch}
-            style={styles.searchInput}
-          />
-        </div>
+        {!hideSearch && (
+          <div style={styles.searchContainer}>
+            <SearchIcon />
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={displaySearchTerm}
+              onChange={handleSearch}
+              style={styles.searchInput}
+            />
+          </div>
+        )}
         <div style={styles.actionsContainer}>
           {filterableColumns.length > 0 && (
             <div style={{ position: 'relative' }}>
@@ -689,21 +735,34 @@ export default function DataTable({
       {/* Footer con paginazione */}
       <div style={styles.footer}>
         <div style={styles.rowCount}>
-          Mostrando {paginatedData.length} di {filteredAndSortedData.length} risultati
+          Mostrando {paginatedData.length} di {isServerSide ? totalItems : filteredAndSortedData.length} risultati
         </div>
         <div style={styles.pagination}>
           <button
             style={styles.pageButton}
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
+            onClick={() => {
+              if (onPageChange) {
+                onPageChange(1);
+              } else {
+                setInternalCurrentPage(1);
+              }
+            }}
+            disabled={actualCurrentPage === 1}
           >
             <ChevronLeftIcon />
             <ChevronLeftIcon />
           </button>
           <button
             style={styles.pageButton}
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
+            onClick={() => {
+              const newPage = Math.max(1, actualCurrentPage - 1);
+              if (onPageChange) {
+                onPageChange(newPage);
+              } else {
+                setInternalCurrentPage(newPage);
+              }
+            }}
+            disabled={actualCurrentPage === 1}
           >
             <ChevronLeftIcon />
           </button>
@@ -713,9 +772,17 @@ export default function DataTable({
               key={index}
               style={{
                 ...styles.pageButton,
-                ...(page === currentPage ? styles.activePageButton : {})
+                ...(page === actualCurrentPage ? styles.activePageButton : {})
               }}
-              onClick={() => typeof page === 'number' && setCurrentPage(page)}
+              onClick={() => {
+                if (typeof page === 'number') {
+                  if (onPageChange) {
+                    onPageChange(page);
+                  } else {
+                    setInternalCurrentPage(page);
+                  }
+                }
+              }}
               disabled={typeof page !== 'number'}
             >
               {page}
@@ -724,15 +791,28 @@ export default function DataTable({
           
           <button
             style={styles.pageButton}
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages || totalPages === 0}
+            onClick={() => {
+              const newPage = Math.min(totalPages, actualCurrentPage + 1);
+              if (onPageChange) {
+                onPageChange(newPage);
+              } else {
+                setInternalCurrentPage(newPage);
+              }
+            }}
+            disabled={actualCurrentPage === totalPages || totalPages === 0}
           >
             <ChevronRightIcon />
           </button>
           <button
             style={styles.pageButton}
-            onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages || totalPages === 0}
+            onClick={() => {
+              if (onPageChange) {
+                onPageChange(totalPages);
+              } else {
+                setInternalCurrentPage(totalPages);
+              }
+            }}
+            disabled={actualCurrentPage === totalPages || totalPages === 0}
           >
             <ChevronRightIcon />
             <ChevronRightIcon />
@@ -742,8 +822,15 @@ export default function DataTable({
           <span>Righe per pagina:</span>
           <select
             style={styles.select}
-            value={itemsPerPage}
-            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+            value={actualItemsPerPage}
+            onChange={(e) => {
+              const newItemsPerPage = Number(e.target.value);
+              if (onItemsPerPageChange) {
+                onItemsPerPageChange(newItemsPerPage);
+              } else {
+                setInternalItemsPerPage(newItemsPerPage);
+              }
+            }}
           >
             {itemsPerPageOptions.map(option => (
               <option key={option} value={option}>{option}</option>

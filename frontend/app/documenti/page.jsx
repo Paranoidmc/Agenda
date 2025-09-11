@@ -46,8 +46,19 @@ export default function DocumentiPage() {
       });
       
       const response = await api.get(`/documenti?${params.toString()}`);
+      console.log('🔍 DEBUG PAGINAZIONE:');
+      console.log('📄 Documenti ricevuti:', response.data.data?.length || 0);
+      console.log('📊 Total dall\'API:', response.data.total);
+      console.log('📄 Current page:', response.data.current_page);
+      console.log('📄 Last page:', response.data.last_page);
+      console.log('📄 Per page:', response.data.per_page);
+      console.log('🔍 Response completa:', response.data);
+      
       setDocumenti(response.data.data || []);
       setTotal(response.data.total || 0);
+      
+      console.log('📊 State dopo setTotal:', response.data.total);
+      console.log('📄 State documenti length:', response.data.data?.length);
     } catch (err) {
       console.error("Errore nel caricamento documenti:", err);
       setError("Errore nel caricamento dei documenti");
@@ -86,16 +97,16 @@ export default function DocumentiPage() {
       
       const response = await api.documenti.syncToday();
       
-      if (response.success) {
-        setSyncMessage(`✅ Sincronizzazione completata! ${response.data?.documenti || 0} documenti, ${response.data?.righe || 0} righe`);
+      if (response.data.success) {
+        setSyncMessage(`✅ Sincronizzazione completata! ${response.data.data?.documenti || 0} documenti, ${response.data.data?.righe || 0} righe`);
         setDataVersion(v => v + 1); // Ricarica i dati
         
         // Emetti evento per notificare altre pagine della sincronizzazione
         const syncEvent = new CustomEvent('documentsSync', {
           detail: {
             type: 'daily',
-            documenti: response.data?.documenti || 0,
-            righe: response.data?.righe || 0
+            documenti: response.data.data?.documenti || 0,
+            righe: response.data.data?.righe || 0
           }
         });
         window.dispatchEvent(syncEvent);
@@ -408,6 +419,11 @@ export default function DocumentiPage() {
 
         {/* Tabella documenti */}
         <div style={{ marginTop: '20px' }}>
+          {console.log('📋 DEBUG DATATABLE PROPS:')}
+          {console.log('📄 documenti.length:', documenti.length)}
+          {console.log('📊 total:', total)}
+          {console.log('📄 currentPage:', currentPage)}
+          {console.log('📄 perPage:', perPage)}
           <DataTable
             data={documenti}
             columns={columns}

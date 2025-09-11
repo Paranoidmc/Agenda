@@ -90,17 +90,24 @@ class ArcaSyncDocumenti extends Command
                 $righeTotali += $risultato['righe'];
             }
         } else {
-            // Per più di 3 giorni: sincronizza per settimane
-            $settimane = ceil($giorni / 7);
-            for ($settimana = 0; $settimana < $settimane; $settimana++) {
-                $dataFine = date('Y-m-d', strtotime("-{$settimana} weeks"));
-                $dataInizio = date('Y-m-d', strtotime("-" . ($settimana + 1) . " weeks"));
+            // Per più di 3 giorni: sincronizza per settimane o range più ampi
+            $giorniRimanenti = $giorni;
+            $offsetGiorni = 0;
+            
+            while ($giorniRimanenti > 0) {
+                $giorniRange = min(7, $giorniRimanenti); // Max 7 giorni per volta
                 
-                $this->info("📅 Sincronizzazione settimana: {$dataInizio} - {$dataFine}");
+                $dataFine = date('Y-m-d', strtotime("-{$offsetGiorni} days"));
+                $dataInizio = date('Y-m-d', strtotime("-" . ($offsetGiorni + $giorniRange - 1) . " days"));
+                
+                $this->info("📅 Sincronizzazione range: {$dataInizio} - {$dataFine}");
                 
                 $risultato = $this->tentaSincronizzazioneRange($client, $headers, $dataInizio, $dataFine, $maxRetry);
                 $documentiTotali += $risultato['documenti'];
                 $righeTotali += $risultato['righe'];
+                
+                $offsetGiorni += $giorniRange;
+                $giorniRimanenti -= $giorniRange;
             }
         }
         

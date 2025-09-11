@@ -280,22 +280,51 @@ api.documenti = {
    * @returns {Promise} Risultato sincronizzazione
    */
   async sync(options = {}) {
-    const response = await api.post('/documenti/sync', {
-      giorni: options.giorni || 7
-    }, {
-      timeout: 300000 // ✅ FIX: 5 minuti per sincronizzazioni
-    });
-    return response.data;
+    console.log('🔄 DEBUG: Chiamando sync settimanale...');
+    console.log('🔄 DEBUG: Opzioni:', options);
+    console.log('🔄 DEBUG: Giorni:', options.giorni || 7);
+    
+    try {
+      const response = await api.post('/documenti/sync', {
+        giorni: options.giorni || 7
+      }, {
+        timeout: 300000 // ✅ FIX: 5 minuti per sincronizzazioni
+      });
+      
+      console.log('✅ DEBUG: Risposta sync settimanale:', response);
+      console.log('✅ DEBUG: Dati risposta settimanale:', response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ DEBUG: Errore in sync settimanale:', error);
+      console.error('❌ DEBUG: Dettagli errore settimanale:', error.response?.data);
+      throw error;
+    }
   },
 
   /**
    * Sincronizza documenti di oggi
    * @returns {Promise} Risultato sincronizzazione
    */
-  syncToday() {
-    return api.post('/documenti/sincronizza-oggi', {}, {
-      timeout: 300000 // ✅ FIX: 5 minuti per sincronizzazioni
-    });
+  async syncToday() {
+    console.log('🔄 DEBUG: Chiamando syncToday...');
+    console.log('🔄 DEBUG: URL base:', process.env.NEXT_PUBLIC_API_URL);
+    console.log('🔄 DEBUG: Endpoint completo:', process.env.NEXT_PUBLIC_API_URL + '/documenti/sincronizza-oggi');
+    
+    try {
+      const response = await api.post('/documenti/sincronizza-oggi', {}, {
+        timeout: 300000 // ✅ FIX: 5 minuti per sincronizzazioni
+      });
+      
+      console.log('✅ DEBUG: Risposta ricevuta:', response);
+      console.log('✅ DEBUG: Dati risposta:', response.data);
+      
+      return response;
+    } catch (error) {
+      console.error('❌ DEBUG: Errore in syncToday:', error);
+      console.error('❌ DEBUG: Dettagli errore:', error.response?.data);
+      throw error;
+    }
   },
 
   /**

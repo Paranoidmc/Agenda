@@ -17,6 +17,10 @@ export default function VeicoliPage() {
   const { user, loading } = useAuth();
   const [veicoli, setVeicoli] = useState([]);
   const [fetching, setFetching] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedVeicolo, setSelectedVeicolo] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -143,6 +147,13 @@ export default function VeicoliPage() {
       setFetching(false);
     }
   }, [user, loading, dataVersion]);
+  
+  // Effetto per ricaricare i dati quando cambiano pagina o elementi per pagina
+  useEffect(() => {
+    if (!loading && user) {
+      loadVeicoliWithSearch(searchTerm);
+    }
+  }, [currentPage, perPage]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -157,38 +168,74 @@ export default function VeicoliPage() {
     }
   }, [isPanelOpen]);
 
-  const loadVeicoli = () => {
+  const loadVeicoli = async () => {
+    await loadVeicoliWithSearch(searchTerm);
+  };
+  
+  const loadVeicoliWithSearch = async (searchTermParam = '', resetPage = false) => {
     setFetching(true);
+    setError("");
     
-    // Ottieni il token da localStorage se disponibile
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    // Se è una nuova ricerca, reset alla pagina 1
+    const pageToUse = resetPage ? 1 : currentPage;
+    if (resetPage && currentPage !== 1) {
+      setCurrentPage(1);
+    }
     
-    // Usa la rotta standard
-    api.get("/vehicles", {
-      params: { _: new Date().getTime() }, // Cache-busting
-      withCredentials: true,
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
-    })
-      .then(res => {
-        // Gestione robusta della risposta: ordina solo se array
-        let veicoliArr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-        if (Array.isArray(veicoliArr)) {
-          veicoliArr = [...veicoliArr].sort((a, b) => (a.targa || '').localeCompare(b.targa || ''));
-        }
-        setVeicoli(veicoliArr);
-        setFetching(false);
-      })
-      .catch((err) => {
-        console.error("Errore nel caricamento dei veicoli:", err);
-        if (err.response && err.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento dei veicoli");
-        }
-        setFetching(false);
+    try {
+      const params = new URLSearchParams({
+        page: pageToUse.toString(),
+        perPage: perPage.toString()
       });
+      
+      if (searchTermParam && searchTermParam.trim()) {
+        params.append('search', searchTermParam.trim());
+      }
+      
+      console.log('🔍 Caricamento veicoli:', {
+        page: pageToUse,
+        perPage,
+        search: searchTermParam,
+        resetPage,
+        url: `/vehicles?${params.toString()}`
+      });
+      
+      const response = await api.get(`/vehicles?${params.toString()}`);
+      
+      console.log('📄 Risposta API veicoli:', response.data);
+      
+      if (response.data && response.data.data) {
+        setVeicoli(response.data.data);
+        setTotal(response.data.total || 0);
+      } else {
+        console.warn('⚠️ Struttura risposta inaspettata:', response.data);
+        setVeicoli([]);
+        setTotal(0);
+      }
+    } catch (err) {
+      console.error("❌ Errore nel caricamento dei veicoli:", err);
+      if (err.response && err.response.status === 401) {
+        setError("Sessione scaduta. Effettua nuovamente il login.");
+      } else {
+        setError("Errore nel caricamento dei veicoli.");
+      }
+      setVeicoli([]);
+      setTotal(0);
+    } finally {
+      setFetching(false);
+    }
+  };
+  
+  // Funzione per gestire la ricerca con debounce (chiamata dal DataTable)
+  const handleSearchChange = (newTerm) => {
+    // NON aggiornare searchTerm o currentPage qui per evitare re-render
+    // setSearchTerm(newTerm);
+    // setCurrentPage(1);
+    
+    // Chiama loadVeicoli direttamente con il nuovo termine e reset pagina
+    if (!loading && user) {
+      loadVeicoliWithSearch(newTerm, true); // true = reset pagina
+    }
   };
 
   const handleViewDetails = (veicolo) => {
@@ -422,43 +469,17 @@ export default function VeicoliPage() {
               )
             }
           ]}
-          filterableColumns={[
-            { 
-              key: 'plate', 
-              label: 'Targa',
-              filterType: 'text'
-            },
-            { 
-              key: 'brand', 
-              label: 'Marca',
-              filterType: 'text'
-            },
-            { 
-              key: 'fuel_type', 
-              label: 'Carburante',
-              filterType: 'select',
-              filterOptions: [
-                { value: 'Benzina', label: 'Benzina' },
-                { value: 'Diesel', label: 'Diesel' },
-                { value: 'GPL', label: 'GPL' },
-                { value: 'Metano', label: 'Metano' },
-                { value: 'Elettrico', label: 'Elettrico' },
-                { value: 'Ibrido', label: 'Ibrido' }
-              ]
-            },
-            { 
-              key: 'type', 
-              label: 'Tipo',
-              filterType: 'select',
-              filterOptions: [
-                { value: 'Auto', label: 'Auto' },
-                { value: 'Furgone', label: 'Furgone' },
-                { value: 'Camion', label: 'Camion' },
-                { value: 'Moto', label: 'Moto' },
-                { value: 'Altro', label: 'Altro' }
-              ]
-            }
-          ]}
+          // Server-side search e paginazione
+          serverSide={true}
+          currentPage={currentPage}
+          totalItems={total}
+          itemsPerPage={perPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setPerPage}
+          onSearchTermChange={handleSearchChange}
+          loading={fetching}
+          // Props per filtri client-side (disabilitati per server-side)
+          filterableColumns={[]}
           onRowClick={handleViewDetails}
           selectedRow={selectedVeicolo}
           searchPlaceholder="Cerca veicoli..."

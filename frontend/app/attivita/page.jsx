@@ -742,28 +742,23 @@ function AttivitaContent() {
     { key: 'site.nome', label: 'Sede', render: (item) => item.site?.nome || 'N/D' },
     { key: 'orario', label: 'Orario', render: (item) => <span>{formatDate(item.data_inizio)}{item.data_fine && item.data_fine !== item.data_inizio ? ' → ' + formatDate(item.data_fine) : ''}</span> },
     { key: 'resources', label: 'Risorse', render: (item) => {
-        if (!item.resources || item.resources.length === 0) return 'N/D';
+        // Usa i nuovi campi autista e veicolo dal controller corretto
+        const autista = item.autista || 'N/D';
+        const veicolo = item.veicolo || 'N/D';
         
-        const resourcesByVehicle = item.resources.reduce((acc, resource) => {
-          if (!resource.vehicle) return acc;
-          const vehicleKey = `${resource.vehicle.targa || resource.vehicle.modello || resource.vehicle.marca || 'Veicolo'}`;
-          if (!acc[vehicleKey]) {
-            acc[vehicleKey] = [];
-          }
-          if (resource.driver) {
-            acc[vehicleKey].push(`${resource.driver.nome} ${resource.driver.cognome}`);
-          }
-          return acc;
-        }, {});
-
+        if (autista === 'N/D' && veicolo === 'N/D') {
+          return 'N/D';
+        }
+        
         return (
-          <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
-            {Object.entries(resourcesByVehicle).map(([vehicle, drivers], index) => (
-              <li key={index}>
-                <strong>{vehicle}:</strong> {drivers.join(', ') || 'Nessun autista'}
-              </li>
-            ))}
-          </ul>
+          <div style={{ fontSize: '0.875rem' }}>
+            {autista !== 'N/D' && (
+              <div><strong>Autista:</strong> {autista}</div>
+            )}
+            {veicolo !== 'N/D' && (
+              <div><strong>Veicolo:</strong> {veicolo}</div>
+            )}
+          </div>
         );
       }
     },
