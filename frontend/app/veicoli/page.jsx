@@ -3,14 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
-import SidePanel from "../../components/SidePanel";
-import EntityForm from "../../components/EntityForm";
 import PageHeader from "../../components/PageHeader";
-import TabPanel from "../../components/TabPanel";
-import ActivityList from "../../components/ActivityList";
-import DeadlineList from "../../components/DeadlineList";
 import DataTable from "../../components/DataTable";
-import VehicleDocumentSection from "../../components/VehicleDocumentSection";
 
 export default function VeicoliPage() {
   const router = useRouter();
@@ -23,15 +17,6 @@ export default function VeicoliPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [selectedVeicolo, setSelectedVeicolo] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [tableWidth, setTableWidth] = useState('100%');
-  const [activities, setActivities] = useState([]);
-  const [deadlines, setDeadlines] = useState([]);
-  const [loadingActivities, setLoadingActivities] = useState(false);
-  const [loadingDeadlines, setLoadingDeadlines] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
 
   const canEdit = user?.role === 'admin';
@@ -155,18 +140,7 @@ export default function VeicoliPage() {
     }
   }, [currentPage, perPage]);
 
-  // Effetto per animare la tabella quando il pannello si apre/chiude
-  useEffect(() => {
-    if (isPanelOpen) {
-      // Riduci la larghezza della tabella con un ritardo per l'animazione
-      setTimeout(() => {
-        setTableWidth('60%');
-      }, 50);
-    } else {
-      // Ripristina la larghezza della tabella
-      setTableWidth('100%');
-    }
-  }, [isPanelOpen]);
+  // Sidepanel rimosso: tabella sempre full width
 
   const loadVeicoli = async () => {
     await loadVeicoliWithSearch(searchTerm);
@@ -239,157 +213,11 @@ export default function VeicoliPage() {
   };
 
   const handleViewDetails = (veicolo) => {
-    setSelectedVeicolo(veicolo);
-    setIsEditing(false);
-    setIsPanelOpen(true);
-    
-    // Carica le attività e le scadenze per questo veicolo
-    loadActivities(veicolo.id);
-    loadDeadlines(veicolo.id);
+    if (veicolo?.id) router.push(`/veicoli/${veicolo.id}`);
   };
   
-  const loadActivities = async (vehicleId) => {
-    if (!vehicleId) return;
-    
-    setLoadingActivities(true);
-    try {
-      // Ottieni il token da localStorage se disponibile
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      
-      // Usa la rotta standard
-      const response = await api.get(`/vehicles/${vehicleId}/activities`, {
-        withCredentials: true,
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
-      });
-      // Gestione robusta della risposta: ordina solo se array
-      let activitiesArr = Array.isArray(response.data) ? response.data : (Array.isArray(response.data.data) ? response.data.data : []);
-      if (Array.isArray(activitiesArr)) {
-        activitiesArr = [...activitiesArr].sort((a, b) => (a.data_inizio && b.data_inizio ? new Date(b.data_inizio) - new Date(a.data_inizio) : 0));
-      }
-      setActivities(activitiesArr);
-    } catch (err) {
-      console.error("Errore nel caricamento delle attività:", err);
-    } finally {
-      setLoadingActivities(false);
-    }
-  };
-  
-  const loadDeadlines = async (vehicleId) => {
-    if (!vehicleId) return;
-    
-    setLoadingDeadlines(true);
-    try {
-      // Ottieni il token da localStorage se disponibile
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      
-      // Usa la rotta standard
-      const response = await api.get(`/vehicles/${vehicleId}/deadlines`, {
-        withCredentials: true,
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
-      });
-      // Gestione robusta della risposta: ordina solo se array
-      let deadlinesArr = Array.isArray(response.data) ? response.data : (Array.isArray(response.data.data) ? response.data.data : []);
-      if (Array.isArray(deadlinesArr)) {
-        deadlinesArr = [...deadlinesArr].sort((a, b) => {
-          if (a.scadenza && b.scadenza) {
-            return new Date(a.scadenza) - new Date(b.scadenza);
-          }
-          return 0;
-        });
-      }
-      setDeadlines(deadlinesArr);
-    } catch (err) {
-      console.error("Errore nel caricamento delle scadenze:", err);
-    } finally {
-      setLoadingDeadlines(false);
-    }
-  };
-
-  const handleClosePanel = () => {
-    setIsPanelOpen(false);
-    // Reset dello stato dopo che l'animazione di chiusura è completata
-    setTimeout(() => {
-      setSelectedVeicolo(null);
-      setIsEditing(false);
-    }, 300);
-  };
-
-  const handleSaveVeicolo = async (formData) => {
-    setIsSaving(true);
-    try {
-      // Ottieni il token da localStorage se disponibile
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      
-      let response;
-      if (formData.id) {
-        response = await api.put(`/vehicles/${formData.id}`, formData, {
-          withCredentials: true
-        });
-      } else {
-        response = await api.post('/vehicles', formData, {
-          withCredentials: true
-        });
-      }
-      
-      setDataVersion(v => v + 1);
-      setIsEditing(false);
-      handleClosePanel();
-      
-      const message = formData.id ? 'Veicolo aggiornato con successo!' : 'Veicolo creato con successo!';
-      if (typeof showToast === 'function') {
-        showToast(message, 'success');
-      } else {
-        alert(message);
-      }
-
-    } catch (err) {
-      console.error("Errore durante il salvataggio del veicolo:", err);
-      setIsEditing(true); // Mantiene il form aperto per correzioni
-      let errorMessage = "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
-      if (err.response && err.response.data && err.response.data.errors) {
-          const validationErrors = Object.values(err.response.data.errors).flat().join('\n');
-          errorMessage = `Errori di validazione:\n${validationErrors}`;
-      } else if (err.response && err.response.data && err.response.data.message) {
-          errorMessage = err.response.data.message;
-      }
-      
-      if (typeof showToast === 'function') {
-        showToast(errorMessage, 'error');
-      } else {
-        alert(errorMessage);
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDeleteVeicolo = async (id) => {
-    if (!id) return;
-    
-    setIsDeleting(true);
-    try {
-      await api.delete(`/vehicles/${id}`, {
-        withCredentials: true
-      });
-      
-      setDataVersion(v => v + 1);
-      handleClosePanel();
-    } catch (err) {
-      console.error("Errore durante l'eliminazione:", err);
-      alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleCreateNew = () => {
-    setSelectedVeicolo({});
-    setIsEditing(true);
-    setIsPanelOpen(true);
+    router.push('/veicoli/new');
   };
 
   if (loading || fetching) return <div className="centered">Caricamento...</div>;
@@ -397,218 +225,79 @@ export default function VeicoliPage() {
 
   return (
     <div style={{ padding: 32 }}>
-      <PageHeader 
-        title="Veicoli" 
-        buttonLabel={canEdit ? "Nuovo Veicolo" : ""}
-        onAddClick={canEdit ? handleCreateNew : null} 
+    <PageHeader 
+      title="Veicoli" 
+      buttonLabel={canEdit ? "Nuovo Veicolo" : ""} 
+      onAddClick={canEdit ? handleCreateNew : null} 
+    />
+    <div>
+      <DataTable 
+        data={veicoli}
+        columns={[
+          { 
+            key: 'plate', 
+            label: 'Targa'
+          },
+          { 
+            key: 'brand', 
+            label: 'Marca'
+          },
+          { 
+            key: 'model', 
+            label: 'Modello'
+          },
+          { 
+            key: 'year', 
+            label: 'Anno'
+          },
+          {
+            key: 'imei',
+            label: 'IMEI MOMAP',
+            render: (item) => item.imei || <span style={{color:'#bbb'}}>—</span>
+          },
+          { 
+            key: 'type', 
+            label: 'Tipo'
+          },
+          { 
+            key: 'fuel_type', 
+            label: 'Carburante'
+          },
+          { 
+            key: 'odometer', 
+            label: 'KM'
+          },
+          {
+            key: 'actions', 
+            label: 'Azioni',
+            render: (item) => (
+              <button 
+                onClick={(e) => { e.stopPropagation(); router.push(`/veicoli/${item.id}`); }}
+                style={{ background: 'var(--primary)', color: '#fff', borderRadius: 6, padding: '0.4em 1em', fontSize: 14, border: 'none', cursor: 'pointer' }}
+              >
+                Dettagli
+              </button>
+            )
+          }
+        ]}
+        // Server-side search e paginazione
+        serverSide={true}
+        currentPage={currentPage}
+        totalItems={total}
+        itemsPerPage={perPage}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setPerPage}
+        onSearchTermChange={handleSearchChange}
+        loading={fetching}
+        // Props per filtri client-side (disabilitati per server-side)
+        filterableColumns={[]}
+        onRowClick={handleViewDetails}
+        selectedRow={null}
+        searchPlaceholder="Cerca veicoli..."
+        emptyMessage={fetching ? "Caricamento..." : "Nessun veicolo trovato"}
+        defaultVisibleColumns={['plate','brand','model','year','status','actions']}
       />
-      <div 
-        style={{ 
-          transition: 'width 0.3s ease-in-out',
-          width: tableWidth,
-          overflow: 'hidden'
-        }}
-      >
-        <DataTable 
-          data={veicoli}
-          columns={[
-            { 
-              key: 'plate', 
-              label: 'Targa'
-            },
-            { 
-              key: 'brand', 
-              label: 'Marca'
-            },
-            { 
-              key: 'model', 
-              label: 'Modello'
-            },
-            { 
-              key: 'year', 
-              label: 'Anno'
-            },
-            {
-              key: 'imei',
-              label: 'IMEI MOMAP',
-              render: (item) => item.imei || <span style={{color:'#bbb'}}>—</span>
-            },
-            { 
-              key: 'type', 
-              label: 'Tipo'
-            },
-            { 
-              key: 'fuel_type', 
-              label: 'Carburante'
-            },
-            { 
-              key: 'odometer', 
-              label: 'KM'
-            },
-            {
-              key: 'actions', 
-              label: 'Azioni',
-              render: (item) => (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleViewDetails(item);
-                  }}
-                  style={{ 
-                    background: 'var(--primary)', 
-                    color: '#fff', 
-                    borderRadius: 6, 
-                    padding: '0.4em 1em', 
-                    fontSize: 14,
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Dettagli
-                </button>
-              )
-            }
-          ]}
-          // Server-side search e paginazione
-          serverSide={true}
-          currentPage={currentPage}
-          totalItems={total}
-          itemsPerPage={perPage}
-          onPageChange={setCurrentPage}
-          onItemsPerPageChange={setPerPage}
-          onSearchTermChange={handleSearchChange}
-          loading={fetching}
-          // Props per filtri client-side (disabilitati per server-side)
-          filterableColumns={[]}
-          onRowClick={handleViewDetails}
-          selectedRow={selectedVeicolo}
-          searchPlaceholder="Cerca veicoli..."
-          emptyMessage="Nessun veicolo trovato"
-          defaultVisibleColumns={['plate', 'brand', 'model', 'year', 'imei', 'fuel_type', 'actions']}
-        />
-      </div>
-
-      {/* Pannello laterale per i dettagli */}
-      <SidePanel 
-        isOpen={isPanelOpen} 
-        onClose={handleClosePanel} 
-        title={isEditing ? "Modifica Veicolo" : "Dettagli Veicolo"}
-      >
-        {selectedVeicolo && (
-          <TabPanel 
-            tabs={[
-              ...tabGroups.map((tab, idx) => ({
-                id: `tab-${idx}`,
-                label: tab.label,
-                content: (
-                  <EntityForm
-                    data={selectedVeicolo}
-                    fields={tab.fields}
-                    onSave={canEdit ? handleSaveVeicolo : null}
-                    onDelete={idx === 0 && canEdit ? handleDeleteVeicolo : undefined}
-                    isEditing={isEditing}
-                    setIsEditing={canEdit ? setIsEditing : () => {}}
-                    isLoading={isSaving || isDeleting}
-                  />
-                )
-              })),
-              {
-                id: 'activities',
-                label: 'Attività',
-                content: <ActivityList activities={activities} isLoading={loadingActivities} />
-              },
-              {
-                id: 'deadlines',
-                label: 'Scadenze',
-                content: <DeadlineList deadlines={deadlines} isLoading={loadingDeadlines} />
-              },
-              {
-                id: 'documents',
-                label: 'Documenti',
-                content: (
-                  <div>
-                    <VehicleDocumentSection veicoloId={selectedVeicolo.id} categoria="bollo" />
-                    <VehicleDocumentSection veicoloId={selectedVeicolo.id} categoria="assicurazione" />
-                    <VehicleDocumentSection veicoloId={selectedVeicolo.id} categoria="manutenzione" />
-                  </div>
-                )
-
-              },
-              {
-                id: 'deadlines',
-                label: 'Scadenze',
-                count: deadlines.length,
-                content: (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                      <h3 style={{ margin: 0 }}>Scadenze del veicolo</h3>
-                      <button
-                        onClick={() => router.push(`/scadenze/new?vehicle_id=${selectedVeicolo.id}`)}
-                        style={{ 
-                          background: 'var(--primary)', 
-                          color: '#fff', 
-                          borderRadius: 6, 
-                          padding: '0.4em 1em', 
-                          fontSize: 14,
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Nuova Scadenza
-                      </button>
-                    </div>
-                    
-                    {loadingDeadlines ? (
-                      <div>Caricamento scadenze...</div>
-                    ) : (
-                      <DeadlineList 
-                        deadlines={deadlines} 
-                        onDeadlineClick={(deadline) => router.push(`/scadenze/${deadline.id}`)}
-                      />
-                    )}
-                  </div>
-                )
-              },
-              {
-                id: 'activities',
-                label: 'Attività',
-                count: activities.length,
-                content: (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                      <h3 style={{ margin: 0 }}>Attività del veicolo</h3>
-                      <button
-                        onClick={() => router.push(`/attivita/new?vehicle_id=${selectedVeicolo.id}`)}
-                        style={{ 
-                          background: 'var(--primary)', 
-                          color: '#fff', 
-                          borderRadius: 6, 
-                          padding: '0.4em 1em', 
-                          fontSize: 14,
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Nuova Attività
-                      </button>
-                    </div>
-                    
-                    {loadingActivities ? (
-                      <div>Caricamento attività...</div>
-                    ) : (
-                      <ActivityList 
-                        vehicleId={selectedVeicolo.id} 
-                        onActivityClick={(activity) => router.push(`/attivita?open=${activity.id}`)}
-                      />
-                    )}
-                  </div>
-                )
-              }
-            ]}
-            defaultTab="tab-0"
-          />
-        )}
-      </SidePanel>
+    </div>
     </div>
   );
 }

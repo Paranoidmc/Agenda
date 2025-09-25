@@ -4,10 +4,7 @@ import { useRouter } from "next/navigation";
 import { FiFileText } from "react-icons/fi";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
-import SidePanel from "../../components/SidePanel";
-import EntityForm from "../../components/EntityForm";
 import PageHeader from "../../components/PageHeader";
-import TabPanel from "../../components/TabPanel";
 import DataTable from "../../components/DataTable";
 
 export default function DocumentiPage() {
@@ -20,11 +17,7 @@ export default function DocumentiPage() {
   const [perPage, setPerPage] = useState(25);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
-  const [selectedDocumento, setSelectedDocumento] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
   const [dataVersion, setDataVersion] = useState(0);
@@ -76,17 +69,7 @@ export default function DocumentiPage() {
 
   // Gestione visualizzazione dettagli
   const handleViewDetails = (documento) => {
-    setSelectedDocumento(documento);
-    setIsEditing(false);
-    setIsPanelOpen(true);
-  };
-
-  const handleClosePanel = () => {
-    setIsPanelOpen(false);
-    setTimeout(() => {
-      setSelectedDocumento(null);
-      setIsEditing(false);
-    }, 300);
+    router.push(`/documenti/${documento.id}`);
   };
 
   // Sincronizzazione documenti oggi
@@ -157,39 +140,7 @@ export default function DocumentiPage() {
     }
   };
 
-  // Generazione Documento (PDF)
-  const generaPDF = async (documento) => {
-    try {
-      console.log('🚀 Tentativo generazione PDF per documento:', documento.id);
-      
-      const response = await api.get(`/documenti/${documento.id}/pdf`, {
-        responseType: 'blob'
-      });
 
-      console.log('✅ PDF generato con successo');
-      
-      // Scarica il file PDF
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `documento_${documento.numero_doc?.trim() || documento.id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      // toast.success('Documento PDF generato con successo!');
-    } catch (error) {
-      console.error('Errore generazione PDF:', error);
-      alert(error.message || 'Errore nella generazione del PDF');
-    }
-  };
-
-  // Collegamento attività
-  const collegaAttivita = (documentoId) => {
-    // TODO: Implementare collegamento con attività
-    alert(`Collegamento documento ${documentoId} con attività - Da implementare`);
-  };
 
   // Formattazione data
   const formatData = (dataString) => {
@@ -428,7 +379,7 @@ export default function DocumentiPage() {
             data={documenti}
             columns={columns}
             onRowClick={handleViewDetails}
-            selectedRow={selectedDocumento}
+            selectedRow={null}
             searchPlaceholder="Cerca documenti..."
             emptyMessage={fetching ? "Caricamento..." : "Nessun documento trovato"}
             defaultVisibleColumns={['codiceDoc', 'numeroDoc', 'dataDoc', 'nomeCliente', 'nomeSede', 'totaleDoc', 'actions']}
@@ -447,169 +398,7 @@ export default function DocumentiPage() {
         </div>
       </div>
 
-      {/* Pannello laterale per i dettagli */}
-      <SidePanel 
-        isOpen={isPanelOpen} 
-        onClose={handleClosePanel} 
-        title={isEditing ? "Modifica Documento" : "Dettagli Documento"}
-      >
-        {selectedDocumento && (
-          <TabPanel 
-            tabs={[
-              {
-                id: 'details',
-                label: 'Dettagli',
-                content: (
-                  <div>
-                    <EntityForm
-                      data={selectedDocumento}
-                      fields={documentoFields}
-                      onSave={null} // Solo visualizzazione per ora
-                      onDelete={null}
-                      isEditing={false}
-                      setIsEditing={() => {}}
-                      isLoading={false}
-                    />
-                    
-                    {/* Sezione Righe Documento */}
-                    {selectedDocumento.righe && selectedDocumento.righe.length > 0 ? (
-                      <div style={{ marginTop: '2rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.375rem' }}>
-                        <h4 style={{ marginBottom: '1rem', fontWeight: 'bold' }}>Righe Documento ({selectedDocumento.righe.length} articoli)</h4>
-                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                          {selectedDocumento.righe.map((riga, index) => (
-                            <div key={index} style={{ 
-                              padding: '0.75rem', 
-                              marginBottom: '0.5rem', 
-                              backgroundColor: '#f9fafb', 
-                              border: '1px solid #f3f4f6', 
-                              borderRadius: '0.25rem' 
-                            }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
-                                <div><strong>Riga #{riga.riga}:</strong> {riga.descrizione || riga.articolo || 'N/A'}</div>
-                                <div><strong>Quantità:</strong> {riga.quantita} {riga.unita || ''}</div>
-                                <div><strong>Prezzo Unit.:</strong> {formatImporto(riga.prezzo || riga.prezzoScontato)}</div>
-                                <div><strong>Totale Riga:</strong> {formatImporto(riga.totaleRiga)}</div>
-                                {riga.sconto && <div><strong>Sconto:</strong> {riga.sconto}%</div>}
-                                {riga.codiceIva && <div><strong>Codice IVA:</strong> {riga.codiceIva}</div>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ marginTop: '2rem', padding: '1rem', border: '1px solid #fbbf24', borderRadius: '0.375rem', backgroundColor: '#fef3c7' }}>
-                        <p><strong>Nessuna riga documento trovata</strong></p>
-                        <p style={{ fontSize: '0.875rem', color: '#92400e' }}>Questo documento non contiene righe dettaglio.</p>
-                      </div>
-                    )}
-                  </div>
-                )
-              },
-              {
-                id: 'info',
-                label: 'Informazioni',
-                content: (
-                  <div style={{ padding: '1rem' }}>
-                    <h3>Informazioni Documento</h3>
-                    <div style={{ marginTop: '1rem' }}>
-                      <p><strong>Codice:</strong> {selectedDocumento.codiceDoc || selectedDocumento.codice_doc || 'N/A'}</p>
-                      <p><strong>Numero:</strong> {selectedDocumento.numeroDoc || selectedDocumento.numero_doc || 'N/A'}</p>
-                      <p><strong>Cliente:</strong> {selectedDocumento.nomeCliente || selectedDocumento.codiceCliente || selectedDocumento.cliente?.name || 'N/A'}</p>
-                      <p><strong>Destinazione:</strong> {(() => {
-                        // Costruisci indirizzo completo della destinazione/cantiere per il side panel
-                        const sede = selectedDocumento?.sede || {};
-                        const nomeSede = sede?.name || selectedDocumento?.nomeSede || selectedDocumento?.codiceDestinazione || '';
-                        const indirizzo = sede?.address || '';
-                        const citta = sede?.city || '';
-                        const provincia = sede?.province || '';
-                        const cap = sede?.postal_code || '';
-                        
-                        if (!nomeSede && !indirizzo) return 'N/A';
-                        
-                        // Costruisci l'indirizzo formattato
-                        let indirizzoCompleto = nomeSede;
-                        if (indirizzo) {
-                          indirizzoCompleto += `\n${indirizzo}`;
-                        }
-                        if (citta || provincia) {
-                          const cittaProvincia = citta + (provincia ? ` (${provincia})` : '');
-                          if (cittaProvincia) {
-                            indirizzoCompleto += `\n${cittaProvincia}`;
-                          }
-                        }
-                        if (cap) {
-                          indirizzoCompleto += ` - ${cap}`;
-                        }
-                        
-                        return indirizzoCompleto.split('\n').map((line, index) => (
-                          <span key={index}>
-                            {line}
-                            {index < indirizzoCompleto.split('\n').length - 1 && <br />}
-                          </span>
-                        ));
-                      })()}</p>
-                      <p><strong>Agente 1:</strong> {selectedDocumento.agente1 || 'N/A'}</p>
-                      <p><strong>Agente 2:</strong> {selectedDocumento.agente2 || 'N/A'}</p>
-                      <p><strong>Data:</strong> {formatData(selectedDocumento.dataDoc || selectedDocumento.data_doc)}</p>
-                      <p><strong>Data Consegna:</strong> {formatData(selectedDocumento.dataConsegna)}</p>
-                      <p><strong>Totale Imponibile:</strong> {formatImporto(selectedDocumento.totaleImponibileDoc)}</p>
-                      <p><strong>Totale Imposta:</strong> {formatImporto(selectedDocumento.totaleImpostaDoc)}</p>
-                      <p><strong>Totale Sconto:</strong> {formatImporto(selectedDocumento.totaleScontoDoc)}</p>
-                      <p><strong>Totale:</strong> {formatImporto(selectedDocumento.totaleDoc || selectedDocumento.totale_doc)}</p>
-                      {selectedDocumento.righe && selectedDocumento.righe.length > 0 && (
-                        <div style={{ marginTop: '1rem' }}>
-                          <p><strong>Righe:</strong> {selectedDocumento.righe.length} articoli</p>
-                          <div style={{ marginTop: '0.5rem', maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '0.5rem' }}>
-                            {selectedDocumento.righe.map((riga, index) => (
-                              <div key={index} style={{ padding: '0.25rem 0', borderBottom: index < selectedDocumento.righe.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                                <small>
-                                  <strong>#{riga.riga}:</strong> {riga.descrizione || riga.articolo} - 
-                                  Qta: {riga.quantita} {riga.unita} - 
-                                  Prezzo: {formatImporto(riga.prezzoScontato || riga.prezzo)} - 
-                                  Tot: {formatImporto(riga.totaleRiga)}
-                                </small>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-                      <button
-                        onClick={() => generaPDF(selectedDocumento)}
-                        style={{
-                          background: '#3b82f6',
-                          color: 'white',
-                          border: 'none',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Genera PDF
-                      </button>
-                      <button
-                        onClick={() => collegaAttivita(selectedDocumento.id)}
-                        style={{
-                          background: '#10b981',
-                          color: 'white',
-                          border: 'none',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Collega ad Attività
-                      </button>
-                    </div>
-                  </div>
-                )
-              }
-            ]}
-          />
-        )}
-      </SidePanel>
+
     </div>
   );
 }

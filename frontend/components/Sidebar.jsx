@@ -8,9 +8,10 @@ const navItems = [
   { 
     label: "Pianificazione",
     submenu: [
+      { href: "/appunti", label: "Appunti" },
+      { href: "/agenda-autisti", label: "Agenda Autisti" },
       { href: "/calendario-scadenze", label: "Calendario Scadenze" },
-      { href: "/pianificazione", label: "Agenda Settimanale" },
-      { href: "/agenda-giornaliera", label: "Agenda Giornaliera" },
+      { href: "/pianificazione", label: "Agenda" },
       { href: "/attivita", label: "Attività" },
       { href: "/scadenze", label: "Scadenze" },
     ]
@@ -39,7 +40,8 @@ const protectedPaths = [
   "/documenti",
   "/tipi-attivita",
   "/pianificazione",
-  "/agenda-giornaliera",
+  "/appunti",
+  "/agenda-autisti",
   "/calendario-scadenze",
   "/utenti",
   "/impostazioni-arca",

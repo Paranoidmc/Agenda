@@ -40,6 +40,10 @@ const nextConfig = {
         destination: 'http://localhost:8000/api/login',
       },
       {
+        source: '/session-login-controller',
+        destination: 'http://localhost:8000/api/session-login-controller',
+      },
+      {
         source: '/token-login',
         destination: 'http://localhost:8000/api/token-login',
       },

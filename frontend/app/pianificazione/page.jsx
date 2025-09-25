@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
+import AgendaGiornalieraPage from "../agenda-giornaliera/page";
+import { useSearchParams } from "next/navigation";
 
 // Mappa colori stati (coerente con Agenda Giornaliera)
 const statusColorMap = {
@@ -25,7 +27,10 @@ import api from "../../lib/api";
 import "./page.css";
 
 export default function PianificazionePage() {
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState("Cantiere");
+  // Nuova modalità calendario: settimana o giorno
+  const [calendarMode, setCalendarMode] = useState('week'); // 'week' | 'day'
   const [currentWeek, setCurrentWeek] = useState(getWeekArray(new Date()));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [events, setEvents] = useState([]);
@@ -64,6 +69,64 @@ export default function PianificazionePage() {
     setCurrentWeek(getWeekArray(today));
     setSelectedDate(today);
   }
+
+  // Navigazione giornaliera quando in modalità "day"
+  function handlePrevDay() {
+    const prevDay = new Date(selectedDate);
+    prevDay.setDate(prevDay.getDate() - 1);
+    setSelectedDate(prevDay);
+    // Se usciamo dalla settimana corrente, ricalcola la settimana
+    if (prevDay < currentWeek[0] || prevDay > currentWeek[6]) {
+      setCurrentWeek(getWeekArray(prevDay));
+    }
+  }
+  function handleNextDay() {
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    setSelectedDate(nextDay);
+    if (nextDay < currentWeek[0] || nextDay > currentWeek[6]) {
+      setCurrentWeek(getWeekArray(nextDay));
+    }
+  }
+  function handleTodayDay() {
+    const today = new Date();
+    setSelectedDate(today);
+    if (today < currentWeek[0] || today > currentWeek[6]) {
+      setCurrentWeek(getWeekArray(today));
+    }
+  }
+
+  // Inizializza da query params (mode, date) e localStorage
+  useEffect(() => {
+    // URL params
+    const mode = searchParams?.get('mode');
+    if (mode === 'day' || mode === 'week') {
+      setCalendarMode(mode);
+    } else {
+      // fallback: preferenza da localStorage
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('calendarMode') : null;
+      if (saved === 'day' || saved === 'week') setCalendarMode(saved);
+    }
+
+    const date = searchParams?.get('date');
+    if (date) {
+      const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date + 'T00:00:00') : new Date(date);
+      if (!isNaN(parsed)) {
+        setSelectedDate(parsed);
+        if (parsed < currentWeek[0] || parsed > currentWeek[6]) {
+          setCurrentWeek(getWeekArray(parsed));
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persiste preferenza modalità calendario
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calendarMode', calendarMode);
+    }
+  }, [calendarMode]);
 
   // Fetch dati reali
   useEffect(() => {
@@ -119,12 +182,29 @@ export default function PianificazionePage() {
       if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return new Date(val + 'T00:00:00');
       return new Date(val);
     }
-    // Autista
-    let d = ev.driver || ev.autista;
-    if (!d && Array.isArray(ev.drivers) && ev.drivers.length > 0) d = ev.drivers[0];
+    // Autista: supporta molteplici shape (singolo o multiplo)
     let driverName = 'N/D';
-    if (d && (d.nome || d.cognome || d.name || d.surname)) {
-      driverName = `${d.nome || d.name || ''} ${d.cognome || d.surname || ''}`.trim() || 'N/D';
+    const toFullName = (p) => {
+      if (!p) return '';
+      const first = p.nome || p.name || '';
+      const last = p.cognome || p.surname || '';
+      return `${first} ${last}`.trim() || (p.full_name || p.fullName || p.display_name || p.displayName || p.name || '');
+    };
+    // Possibili liste di autisti
+    const driversArray = (
+      (Array.isArray(ev.drivers) && ev.drivers)
+      || (Array.isArray(ev.assigned_drivers) && ev.assigned_drivers)
+      || (Array.isArray(ev.driverList) && ev.driverList)
+      || (Array.isArray(ev.assignees) && ev.assignees)
+    );
+    if (Array.isArray(driversArray) && driversArray.length > 0) {
+      const names = driversArray.map(d => typeof d === 'string' ? d : toFullName(d)).filter(Boolean);
+      if (names.length > 0) driverName = names.join(', ');
+    } else {
+      // Fallback singolo
+      const d = ev.driver || ev.autista || ev.assigned_driver || ev.primary_driver;
+      const name = typeof d === 'string' ? d : toFullName(d);
+      if (name) driverName = name;
     }
     // Veicolo
     let v = ev.vehicle || ev.veicolo;
@@ -177,10 +257,25 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
     } else if (mode === 'Driver') {
       const driversMap = {};
       normalizedEvents.forEach(ev => {
-        const driver = ev.data.driver || ev.data.autista;
-        if (!driver) return;
-        if (!driversMap[driver.id]) driversMap[driver.id] = { id: driver.id, name: (driver.nome || '') + ' ' + (driver.cognome || ''), events: [] };
-        driversMap[driver.id].events.push(ev);
+        // Supporta più autisti per evento
+        let list = [];
+        if (Array.isArray(ev.data?.drivers) && ev.data.drivers.length > 0) {
+          list = ev.data.drivers;
+        } else if (Array.isArray(ev.data?.assigned_drivers) && ev.data.assigned_drivers.length > 0) {
+          list = ev.data.assigned_drivers;
+        } else if (Array.isArray(ev.data?.assignees) && ev.data.assignees.length > 0) {
+          list = ev.data.assignees;
+        } else if (ev.data?.driver || ev.data?.autista) {
+          list = [ev.data.driver || ev.data.autista];
+        }
+        list.forEach(driver => {
+          const id = driver?.id || driver?.driver_id || (typeof driver === 'string' ? driver : undefined);
+          const name = (driver && (driver.nome || driver.name) ? `${driver.nome || driver.name} ${driver.cognome || driver.surname || ''}`.trim() : (typeof driver === 'string' ? driver : 'Senza nome'));
+          if (!id && typeof driver !== 'string') return; // evita righe senza id quando non stringa
+          const key = id || name;
+          if (!driversMap[key]) driversMap[key] = { id: key, name, events: [] };
+          driversMap[key].events.push(ev);
+        });
       });
       setRows(Object.values(driversMap));
     } else if (mode === 'Vehicle') {
@@ -204,6 +299,19 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
     return `${start} - ${end} ${weekArr[0].getFullYear()}`;
   }
 
+  // Formattazione data singolo giorno
+  function formatDay(date) {
+    if (!date) return '';
+    const dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
+    const day = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+    return `${dayName.charAt(0).toUpperCase()}${dayName.slice(1)} — ${day}`;
+  }
+
+  // Mappa viewMode verso i valori attesi da WeeklyCalendar
+  const mappedViewMode = calendarMode === 'day'
+    ? 'day'
+    : (viewMode === 'Driver' ? 'driver' : (viewMode === 'Vehicle' ? 'vehicle' : 'site'));
+
   return (
     <div className="page-container">
       {/* Legenda colori stati attività */}
@@ -218,39 +326,63 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
           ))}
         </div>
       </div>
-      <div className="calendar-header">
-        {/* Sinistra: Navigazione Settimana */}
-        <div className="calendar-navigation">
-          <button className="nav-button" onClick={handlePrevWeek} aria-label="Settimana precedente">&lt;</button>
-          <button className="nav-button current" onClick={handleToday}>Questa settimana</button>
-          <button className="nav-button" onClick={handleNextWeek} aria-label="Settimana successiva">&gt;</button>
-        </div>
-        {/* Centro: Range Date */}
-        <div className="current-date">{formatWeekRange(currentWeek)}</div>
-        {/* Destra: Selettori Vista */}
-        <div className="view-selectors">
-          <button className={"view-selector" + (viewMode === "Cantiere" ? " active" : "")} onClick={() => setViewMode("Cantiere")}>Cantiere</button>
-          <button className={"view-selector" + (viewMode === "Driver" ? " active" : "")} onClick={() => setViewMode("Driver")}>Autista</button>
-          <button className={"view-selector" + (viewMode === "Vehicle" ? " active" : "")} onClick={() => setViewMode("Vehicle")}>Veicolo</button>
-        </div>
-      </div>
-      <div className="calendar-container">
-        {/* Loading/Error */}
-        {loading && <div style={{ padding: 24, textAlign: 'center' }}>Caricamento dati...</div>}
-        {error && <div style={{ padding: 24, color: 'red', textAlign: 'center' }}>{error}</div>}
-        {/* Calendario */}
-        {!loading && !error && (
-          <WeeklyCalendar
-            events={events}
-            currentWeek={currentWeek}
-            viewMode={viewMode}
-            rows={rows}
-            selectedDate={selectedDate}
-            onPrevWeek={handlePrevWeek}
-            onNextWeek={handleNextWeek}
-          />
-        )}
-      </div>
+      {calendarMode === 'week' ? (
+        <>
+          <div className="calendar-header">
+            {/* Sinistra: Navigazione Settimana */}
+            <div className="calendar-navigation">
+              <button className="nav-button" onClick={handlePrevWeek} aria-label="Settimana precedente">&lt;</button>
+              <button className="nav-button current" onClick={handleToday}>Questa settimana</button>
+              <button className="nav-button" onClick={handleNextWeek} aria-label="Settimana successiva">&gt;</button>
+            </div>
+            {/* Centro: Range Date */}
+            <div className="current-date">{formatWeekRange(currentWeek)}</div>
+            {/* Destra: Selettori Vista + Toggle modalità */}
+            <div className="view-selectors" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className={"view-selector" + (viewMode === "Cantiere" ? " active" : "")} onClick={() => setViewMode("Cantiere")}>Cantiere</button>
+                <button className={"view-selector" + (viewMode === "Driver" ? " active" : "")} onClick={() => setViewMode("Driver")}>Autista</button>
+                <button className={"view-selector" + (viewMode === "Vehicle" ? " active" : "")} onClick={() => setViewMode("Vehicle")}>Veicolo</button>
+              </div>
+              <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className={"view-selector" + (calendarMode === "week" ? " active" : "")} onClick={() => setCalendarMode('week')}>Settimana</button>
+                <button className={"view-selector" + (calendarMode === "day" ? " active" : "")} onClick={() => setCalendarMode('day')}>Giorno</button>
+              </div>
+            </div>
+          </div>
+          <div className="calendar-container">
+            {/* Loading/Error */}
+            {loading && <div style={{ padding: 24, textAlign: 'center' }}>Caricamento dati...</div>}
+            {error && <div style={{ padding: 24, color: 'red', textAlign: 'center' }}>{error}</div>}
+            {/* Calendario */}
+            {!loading && !error && (
+              <WeeklyCalendar
+                events={events}
+                currentWeek={currentWeek}
+                viewMode={mappedViewMode}
+                rows={rows}
+                selectedDate={selectedDate}
+                onPrevWeek={handlePrevWeek}
+                onNextWeek={handleNextWeek}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Header minimale: solo toggle per tornare alla settimana */}
+          <div className="calendar-header">
+            <div style={{ flex: 1 }} />
+            <div className="current-date">{formatDay(selectedDate)}</div>
+            <div className="view-selectors" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button className={"view-selector" + (calendarMode === "week" ? "" : "")} onClick={() => setCalendarMode('week')}>Torna a Settimana</button>
+            </div>
+          </div>
+          {/* Render esatto della pagina agenda giornaliera */}
+          <AgendaGiornalieraPage />
+        </>
+      )}
     </div>
   );
 }

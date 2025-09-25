@@ -109,17 +109,48 @@ class ArcaSync extends Command
             $res = $client->get('destinazioni', ['headers' => $headers]);
             $list = json_decode($res->getBody(), true);
             foreach ($list as $item) {
+                // Normalizza codici (trim spazi)
+                $codiceCliente = isset($item['codiceCliente']) ? trim((string)$item['codiceCliente']) : null;
+                $codiceDest = isset($item['codice']) ? trim((string)$item['codice']) : null;
+
                 // Trova client_id tramite codiceCliente
-                $clientRow = DB::table('clients')->where('codice_arca', $item['codiceCliente'])->first();
+                $clientRow = $codiceCliente ? DB::table('clients')->where('codice_arca', $codiceCliente)->first() : null;
                 $client_id = $clientRow ? $clientRow->id : null;
+
+                // Se il cliente non esiste, logga warning e salta (evita client_id NULL su colonna NOT NULL)
+                if (!$client_id) {
+                    $this->warn("Destinazione senza cliente match: codiceDest={$item['codice']} codiceCliente={$item['codiceCliente']} — record saltato");
+                    Log::warning('ArcaSync destinazione senza cliente', [
+                        'codice_destinazione' => $item['codice'] ?? null,
+                        'codice_cliente' => $item['codiceCliente'] ?? null,
+                    ]);
+                    continue;
+                }
+
+                // Verifica se esiste già e se cambia l'associazione cliente
+                $existing = $codiceDest ? DB::table('sites')->where('codice_arca', $codiceDest)->first() : null;
+                if ($existing && (int)$existing->client_id !== (int)$client_id) {
+                    $this->line("Aggiornamento associazione cantiere: codice={$item['codice']} client_id {$existing->client_id} -> {$client_id}");
+                    Log::info('ArcaSync cambio client su site', [
+                        'site_id' => $existing->id,
+                        'codice_arca' => $item['codice'],
+                        'from_client_id' => $existing->client_id,
+                        'to_client_id' => $client_id,
+                    ]);
+                }
+
                 DB::table('sites')->updateOrInsert(
-                    ['codice_arca' => $item['codice']],
+                    [
+                        'client_id' => $client_id,
+                        'codice_arca' => $codiceDest,
+                    ],
                     [
                         'name' => $item['descrizione'],  // Usa 'name' invece di 'nome'
                         'address' => $item['indirizzo'] ?? null,  // Usa 'address' invece di 'indirizzo'
                         'city' => $item['localita'] ?? null,  // Usa 'city' invece di 'comune'
                         'province' => $item['provincia'] ?? null,
-                        'client_id' => $client_id
+                        'client_id' => $client_id,
+                        'updated_at' => now(),
                     ]
                 );
             }

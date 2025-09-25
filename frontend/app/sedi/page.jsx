@@ -3,11 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
-import SidePanel from "../../components/SidePanel";
-import EntityForm from "../../components/EntityForm";
 import PageHeader from "../../components/PageHeader";
-import TabPanel from "../../components/TabPanel";
-import ActivityList from "../../components/ActivityList";
 import DataTable from "../../components/DataTable";
 
 export default function SediPage() {
@@ -17,18 +13,10 @@ export default function SediPage() {
   const [fetching, setFetching] = useState(true);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(20000);
+  const [perPage, setPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
-  const [selectedSede, setSelectedSede] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [tableWidth, setTableWidth] = useState('100%');
   const [clienti, setClienti] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [loadingActivities, setLoadingActivities] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
 
   // Campi del form sede
@@ -60,18 +48,7 @@ export default function SediPage() {
     }
   }, [currentPage, perPage]);
 
-  // Effetto per animare la tabella quando il pannello si apre/chiude
-  useEffect(() => {
-    if (isPanelOpen) {
-      // Riduci la larghezza della tabella con un ritardo per l'animazione
-      setTimeout(() => {
-        setTableWidth('60%');
-      }, 50);
-    } else {
-      // Ripristina la larghezza della tabella
-      setTableWidth('100%');
-    }
-  }, [isPanelOpen]);
+  // Nessun sidepanel: tabella sempre full width
 
   const fetchSedi = async () => {
     await fetchSediWithSearch(searchTerm);
@@ -162,137 +139,12 @@ export default function SediPage() {
   };
 
   const handleViewDetails = (sede) => {
-    setSelectedSede(sede);
-    setIsEditing(false);
-    setIsPanelOpen(true);
-    
-    // Carica le attività per questa sede
-    loadActivities(sede.id);
+    if (sede?.id) router.push(`/sedi/${sede.id}`);
   };
   
-  const loadActivities = async (siteId) => {
-    if (!siteId) return;
-    
-    setLoadingActivities(true);
-    try {
-      const response = await api.get(`/sites/${siteId}/activities`);
-      setActivities(response.data);
-    } catch (err) {
-      console.error("Errore nel caricamento delle attività:", err);
-    } finally {
-      setLoadingActivities(false);
-    }
-  };
-
-  const handleClosePanel = () => {
-    setIsPanelOpen(false);
-    // Reset dello stato dopo che l'animazione di chiusura è completata
-    setTimeout(() => {
-      setSelectedSede(null);
-      setIsEditing(false);
-    }, 300);
-  };
-
-  const handleSaveSede = async (formData) => {
-    setIsSaving(true);
-    try {
-      // Filtra solo i campi permessi dal database
-      const allowedFields = ['id','nome','indirizzo','citta','cap','provincia','client_id','note','status'];
-      const cleanedData = {};
-      for (const key of allowedFields) {
-        if (formData[key] !== undefined) cleanedData[key] = formData[key];
-      }
-      // Assicuriamoci che client_id sia un numero se presente
-      if (cleanedData.client_id) {
-        cleanedData.client_id = Number(cleanedData.client_id);
-      }
-      // Log per debug
-      let response;
-      if (cleanedData.id) {
-        response = await api.put(`/sites/${cleanedData.id}`, cleanedData);
-      } else {
-        response = await api.post('/sites', cleanedData);
-      }
-      
-      setIsEditing(false);
-      setDataVersion(v => v + 1); 
-      handleClosePanel();
-      
-      const message = cleanedData.id ? 'Sede aggiornata con successo!' : 'Sede creata con successo!';
-      if (typeof showToast === 'function') {
-        showToast(message, 'success');
-      } else {
-        alert(message);
-      }
-
-    } catch (err) {
-      console.error("Errore durante il salvataggio:", err);
-      
-      // Mostra dettagli dell'errore per il debug
-      if (err.response) {
-        console.error("Dettagli errore:", {
-          status: err.response.status,
-          data: err.response.data,
-          headers: err.response.headers
-        });
-        
-        // Mostra un messaggio più specifico se disponibile
-        const errorMessage = err.response.data?.message || "Si è verificato un errore durante il salvataggio. Riprova più tardi.";
-        if (typeof showToast === 'function') {
-          showToast(errorMessage, 'error');
-        } else {
-          alert(errorMessage);
-        }
-        setIsEditing(true); // Mantiene il form aperto
-      } else if (err.request) {
-        // La richiesta è stata effettuata ma non è stata ricevuta alcuna risposta
-        console.error("Nessuna risposta ricevuta:", err.request);
-        const noResponseError = "Nessuna risposta dal server. Controlla la tua connessione o contatta l'assistenza.";
-        if (typeof showToast === 'function') {
-          showToast(noResponseError, 'error');
-        } else {
-          alert(noResponseError);
-        }
-        setIsEditing(true); // Mantiene il form aperto
-      } else {
-        // Si è verificato un errore durante l'impostazione della richiesta
-        const setupError = "Errore imprevisto durante la configurazione della richiesta.";
-        if (typeof showToast === 'function') {
-          showToast(setupError, 'error');
-        } else {
-          alert(setupError);
-        }
-        setIsEditing(true); // Mantiene il form aperto
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDeleteSede = async (id) => {
-    if (!id) return;
-    
-    setIsDeleting(true);
-    try {
-      await api.delete(`/sites/${id}`);
-      
-      // Aggiorna la lista dei dati
-      setDataVersion(v => v + 1);
-      
-      // Chiudi il pannello
-      handleClosePanel();
-    } catch (err) {
-      console.error("Errore durante l'eliminazione:", err);
-      alert("Si è verificato un errore durante l'eliminazione. Riprova più tardi.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
+  // Creazione su pagina dedicata
   const handleCreateNew = () => {
-    setSelectedSede({});
-    setIsEditing(true);
-    setIsPanelOpen(true);
+    router.push('/sedi/new');
   };
 
   if (loading || fetching) return <div className="centered">Caricamento...</div>;
@@ -305,13 +157,7 @@ export default function SediPage() {
         buttonLabel="Nuovo Cantiere" 
         onAddClick={handleCreateNew} 
       />
-      <div 
-        style={{ 
-          transition: 'width 0.3s ease-in-out',
-          width: tableWidth,
-          overflow: 'hidden'
-        }}
-      >
+      <div>
         <DataTable 
           data={sedi}
           columns={[
@@ -346,10 +192,7 @@ export default function SediPage() {
               render: (item) => (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewDetails(item);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); router.push(`/sedi/${item.id}`); }}
                     style={{ 
                       background: 'var(--primary)', 
                       color: '#fff', 
@@ -360,24 +203,7 @@ export default function SediPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    Modifica
-                  </button>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/sedi/${item.id}`);
-                    }}
-                    style={{ 
-                      background: '#f3f3f3', 
-                      color: '#333', 
-                      borderRadius: 6, 
-                      padding: '0.4em 1em', 
-                      fontSize: 14,
-                      border: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Visualizza
+                    Dettagli
                   </button>
                 </div>
               )
@@ -395,77 +221,13 @@ export default function SediPage() {
           // Props per filtri client-side (disabilitati per server-side)
           filterableColumns={[]}
           onRowClick={handleViewDetails}
-          selectedRow={selectedSede}
+          selectedRow={null}
           searchPlaceholder="Cerca sedi..."
           emptyMessage={fetching ? "Caricamento..." : "Nessuna sede trovata"}
           defaultVisibleColumns={['nome', 'indirizzo', 'citta', 'provincia', 'client.nome', 'actions']}
         />
       </div>
-
-      {/* Pannello laterale per i dettagli */}
-      <SidePanel 
-        isOpen={isPanelOpen} 
-        onClose={handleClosePanel} 
-        title={isEditing ? "Modifica Cantiere" : "Dettagli Cantiere"}
-      >
-        {selectedSede && (
-          <TabPanel 
-            tabs={[
-              {
-                id: 'details',
-                label: 'Dettagli',
-                content: (
-                  <EntityForm
-                    data={selectedSede}
-                    fields={sedeFields}
-                    onSave={handleSaveSede}
-                    onDelete={handleDeleteSede}
-                    isEditing={isEditing}
-                    setIsEditing={setIsEditing}
-                    isLoading={isSaving || isDeleting}
-                  />
-                )
-              },
-              {
-                id: 'activities',
-                label: 'Attività',
-                count: activities.length,
-                content: (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                      <h3 style={{ margin: 0 }}>Attività del cantiere</h3>
-                      <button
-                        onClick={() => router.push(`/attivita/new?site_id=${selectedSede.id}`)}
-                        style={{ 
-                          background: 'var(--primary)', 
-                          color: '#fff', 
-                          borderRadius: 6, 
-                          padding: '0.4em 1em', 
-                          fontSize: 14,
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Nuova Attività
-                      </button>
-                    </div>
-                    
-                    {loadingActivities ? (
-                      <div>Caricamento attività...</div>
-                    ) : (
-                      <ActivityList 
-                        siteId={selectedSede.id} 
-                        onActivityClick={(activity) => router.push(`/attivita/${activity.id}`)}
-                      />
-                    )}
-                  </div>
-                )
-              }
-            ]}
-            defaultTab="details"
-          />
-        )}
-      </SidePanel>
+      {/* Dettaglio spostato su pagina dedicata /sedi/[id] */}
     </div>
   );
 }
