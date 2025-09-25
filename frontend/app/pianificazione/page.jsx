@@ -1,8 +1,9 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
 import AgendaGiornalieraPage from "../agenda-giornaliera/page";
 import { useSearchParams } from "next/navigation";
+export const dynamic = 'force-dynamic';
 
 // Mappa colori stati (coerente con Agenda Giornaliera)
 const statusColorMap = {
@@ -26,7 +27,7 @@ const statusLabels = {
 import api from "../../lib/api";
 import "./page.css";
 
-export default function PianificazionePage() {
+function PianificazioneInner() {
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState("Cantiere");
   // Nuova modalità calendario: settimana o giorno
@@ -384,5 +385,13 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
         </>
       )}
     </div>
+  );
+}
+
+export default function PianificazionePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}>Caricamento…</div>}>
+      <PianificazioneInner />
+    </Suspense>
   );
 }
