@@ -14,7 +14,7 @@ Crea/modifica il file `.env` sul server di produzione con queste impostazioni:
 ```env
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://[URL-BACKEND-PRODUZIONE]
+APP_URL=https://api.edilcipriano.peels.it
 
 # Session - CRUCIALE per l'autenticazione SPA
 SESSION_DRIVER=database
@@ -26,7 +26,7 @@ SESSION_SAME_SITE=none
 CORS_ALLOWED_ORIGINS=https://edilcipriano.peels.it,https://attivita.edilcipriano.peels.it
 ```
 
-**Sostituisci `[URL-BACKEND-PRODUZIONE]`** con l'URL effettivo dove è deployato il backend (es. `https://api.edilcipriano.peels.it`)
+✅ **URL Backend configurato:** `https://api.edilcipriano.peels.it`
 
 #### B. Comandi da eseguire sul server dopo il deployment
 
@@ -61,11 +61,6 @@ chown -R www-data:www-data storage bootstrap/cache
 
 Nel tuo sistema CI/CD (Vercel, Netlify, ecc.), imposta:
 
-```env
-NEXT_PUBLIC_API_URL=https://[URL-BACKEND-PRODUZIONE]/api/
-```
-
-**Esempio:** Se il backend è su `https://api.edilcipriano.peels.it`, imposta:
 ```env
 NEXT_PUBLIC_API_URL=https://api.edilcipriano.peels.it/api/
 ```
