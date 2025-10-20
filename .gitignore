@@ -98,3 +98,4 @@ Thumbs.db
 # Misc
 .DS_Store
 *.pem
+storage/logs/laravel.log
