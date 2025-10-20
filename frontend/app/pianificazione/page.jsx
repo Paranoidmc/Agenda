@@ -372,16 +372,21 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
         </>
       ) : (
         <>
-          {/* Header minimale: solo toggle per tornare alla settimana */}
+          {/* Header con navigazione giornaliera */}
           <div className="calendar-header">
-            <div style={{ flex: 1 }} />
+            {/* Navigazione Giornaliera */}
+            <div className="calendar-navigation">
+              <button className="nav-button" onClick={handlePrevDay} aria-label="Giorno precedente">&lt;</button>
+              <button className="nav-button current" onClick={handleTodayDay}>Oggi</button>
+              <button className="nav-button" onClick={handleNextDay} aria-label="Giorno successivo">&gt;</button>
+            </div>
             <div className="current-date">{formatDay(selectedDate)}</div>
             <div className="view-selectors" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button className={"view-selector" + (calendarMode === "week" ? "" : "")} onClick={() => setCalendarMode('week')}>Torna a Settimana</button>
+              <button className={"view-selector"} onClick={() => setCalendarMode('week')}>Torna a Settimana</button>
             </div>
           </div>
           {/* Render esatto della pagina agenda giornaliera */}
-          <AgendaGiornalieraPage />
+          <AgendaGiornalieraPage initialDate={selectedDate} />
         </>
       )}
     </div>

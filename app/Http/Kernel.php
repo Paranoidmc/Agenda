@@ -14,15 +14,12 @@ class Kernel extends HttpKernel
      * @var array
      */
     protected $middleware = [
-        // CORS Middleware (Laravel 9+)
-        \App\Http\Middleware\HandleCors::class,
-        // Additional CORS headers middleware
-        \App\Http\Middleware\AddCorsHeaders::class,
-        // Fallback for older Laravel (Fruitcake)
-        // \Fruitcake\Cors\HandleCors::class,
-        \Illuminate\Foundation\Http\Middleware\CheckForMaintenanceMode::class,
+        // \App\Http\Middleware\TrustHosts::class,
+        \App\Http\Middleware\TrustProxies::class,
+        \Illuminate\Http\Middleware\HandleCors::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance::class,
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
-        \App\Http\Middleware\TrimStrings::class,
+        \Illuminate\Foundation\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
     ];
 

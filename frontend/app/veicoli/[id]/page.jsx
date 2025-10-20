@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { FiArrowLeft, FiEdit, FiTrash2, FiSave, FiX, FiTruck } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiTrash2, FiSave, FiX, FiTruck, FiFileText } from "react-icons/fi";
 import api from "../../../lib/api";
 import { useAuth } from "../../../context/AuthContext";
 import PageHeader from "../../../components/PageHeader";
+import VehicleDocumentSection from "../../../components/VehicleDocumentSection";
 
 export default function VeicoloDetailPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function VeicoloDetailPage() {
   const [activeTab, setActiveTab] = useState(0);
 
   const veicoloId = params.id;
-  const canEdit = user?.role === 'admin';
+  const canEdit = true; // Permetti modifica a tutti gli utenti autenticati
 
   // Campi completi del form veicolo
   const veicoloFields = [
@@ -122,6 +123,11 @@ export default function VeicoloDetailPage() {
       fields: veicoloFields.filter(f => [
         'contract_holder','ownership_type','rental_type','advance_paid','final_installment','monthly_fee','contract_start_date','contract_end_date','contract_duration_months','contract_kilometers','invoice_amount_excl_vat','invoice_amount_incl_vat','contract_equipment','returned_or_redeemed'
       ].includes(f.name))
+    },
+    {
+      label: 'Documenti',
+      fields: [], // Tab speciale per documenti
+      isDocuments: true
     }
   ];
 
@@ -391,10 +397,17 @@ export default function VeicoloDetailPage() {
           border: '1px solid #e5e7eb'
         }}>
           <h3 style={{ marginTop: 0, marginBottom: 25, color: '#1f2937' }}>
-            🚗 {tabGroups[activeTab]?.label}
+            {tabGroups[activeTab]?.isDocuments ? '📄' : '🚗'} {tabGroups[activeTab]?.label}
           </h3>
           
-          {isEditing ? (
+          {tabGroups[activeTab]?.isDocuments ? (
+            // Tab Documenti
+            <div>
+              <VehicleDocumentSection veicoloId={veicoloId} categoria="assicurazione" />
+              <VehicleDocumentSection veicoloId={veicoloId} categoria="bollo" />
+              <VehicleDocumentSection veicoloId={veicoloId} categoria="manutenzione" />
+            </div>
+          ) : isEditing ? (
             // Modalità modifica
             <div style={{ 
               display: 'grid', 

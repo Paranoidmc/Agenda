@@ -24,6 +24,19 @@ class ActivityController extends Controller
 
                 $query = Activity::with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType', 'resources']);
         
+        // Filtraggio per data singola (giorno intero) se passato 'date' (YYYY-MM-DD)
+        if ($request->filled('date')) {
+            $day = $request->input('date');
+            Log::info('ActivityController: Filtraggio per giorno singolo', [
+                'date' => $day,
+            ]);
+            $query->where('data_inizio', '<=', $day . ' 23:59:59')
+                  ->where(function($q) use ($day) {
+                      $q->whereNull('data_fine')
+                        ->orWhere('data_fine', '>=', $day . ' 00:00:00');
+                  });
+        }
+
         // Filtraggio per intervallo date (inclusione se l'attività tocca anche solo parzialmente il range)
         if ($request->has('start_date') && $request->has('end_date')) {
             Log::info('ActivityController: Filtraggio per date applicato', [
@@ -399,8 +412,11 @@ class ActivityController extends Controller
      */
     public function getDriverActivities($driverId)
     {
-        $activities = Activity::where('driver_id', $driverId)
-            ->with(['client', 'driver', 'vehicle', 'site.client', 'activityType'])
+        // Filtra le attività che hanno una risorsa con lo specifico driver
+        $activities = Activity::whereHas('resources', function ($q) use ($driverId) {
+                $q->where('driver_id', $driverId);
+            })
+            ->with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType'])
             ->get();
         
         return $this->formatActivitiesResponse($activities);
@@ -674,6 +690,57 @@ class ActivityController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore interno del server'
+            ], 500);
+        }
+    }
+
+    /**
+     * Rimuove un documento allegato da un'attività
+     */
+    public function detachDocument($activityId, $documentId)
+    {
+        try {
+            // Verifica che l'attività esista
+            $activity = Activity::find($activityId);
+            if (!$activity) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Attività non trovata'
+                ], 404);
+            }
+
+            // Verifica che l'associazione esista
+            $existing = DB::table('activity_documents')
+                ->where('activity_id', $activityId)
+                ->where('document_id', $documentId)
+                ->first();
+
+            if (!$existing) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Allegato non trovato per questa attività'
+                ], 404);
+            }
+
+            // Rimuovi dal pivot
+            DB::table('activity_documents')
+                ->where('activity_id', $activityId)
+                ->where('document_id', $documentId)
+                ->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Documento rimosso dall\'attività'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Errore nella rimozione documento dall\'attività', [
+                'activity_id' => $activityId,
+                'document_id' => $documentId,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Errore interno del server'

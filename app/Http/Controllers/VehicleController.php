@@ -490,7 +490,7 @@ class VehicleController extends Controller
 
         try {
             $validated = $request->validate([
-                'plate' => 'sometimes|required|string|max:20|unique:vehicles,plate,' . $vehicle->id,
+                'plate' => 'sometimes|string|max:20',
                 'vin_code' => 'nullable|string|max:50',
                 'engine_serial_number' => 'nullable|string|max:50',
                 'brand' => 'sometimes|required|string|max:255',
@@ -544,9 +544,9 @@ class VehicleController extends Controller
                 'returned_or_redeemed' => 'nullable|string|max:255',
 
                 // Campi in italiano
-                'targa' => 'sometimes|required|string|max:20|unique:vehicles,plate,' . $vehicle->id,
-                'modello' => 'sometimes|required|string|max:255',
-                'marca' => 'sometimes|required|string|max:255',
+                'targa' => 'sometimes|string|max:20',
+                'modello' => 'sometimes|string|max:255',
+                'marca' => 'sometimes|string|max:255',
                 'colore' => 'nullable|string|max:50',
                 'anno' => 'nullable|integer',
                 'tipo' => 'nullable|string|max:50',
@@ -645,77 +645,32 @@ class VehicleController extends Controller
             if (array_key_exists('returned_or_redeemed', $validated)) $data['returned_or_redeemed'] = $validated['returned_or_redeemed'] === '' ? null : $validated['returned_or_redeemed'];
 
             if (array_key_exists('status', $validated)) $data['status'] = $validated['status'] === '' ? null : $validated['status'];
+            if (array_key_exists('gruppi', $validated)) $data['gruppi'] = $validated['gruppi'] === '' ? null : $validated['gruppi'];
+            if (array_key_exists('autista_assegnato', $validated)) $data['autista_assegnato'] = $validated['autista_assegnato'] === '' ? null : $validated['autista_assegnato'];
+            if (array_key_exists('link', $validated)) $data['link'] = $validated['link'] === '' ? null : $validated['link'];
 
             $vehicle->update($data);
             
-            // Gestiamo i campi decimali
-            $vehicle->max_load = is_null($vehicle->max_load) ? null : $vehicle->max_load;
-            $vehicle->purchase_price = is_null($vehicle->purchase_price) ? null : $vehicle->purchase_price;
-            $vehicle->advance_paid = is_null($vehicle->advance_paid) ? null : $vehicle->advance_paid;
-            $vehicle->final_installment = is_null($vehicle->final_installment) ? null : $vehicle->final_installment;
-            $vehicle->monthly_fee = is_null($vehicle->monthly_fee) ? null : $vehicle->monthly_fee;
-            $vehicle->invoice_amount_excl_vat = is_null($vehicle->invoice_amount_excl_vat) ? null : $vehicle->invoice_amount_excl_vat;
-            $vehicle->invoice_amount_incl_vat = is_null($vehicle->invoice_amount_incl_vat) ? null : $vehicle->invoice_amount_incl_vat;
-            $vehicle->power_kw = is_null($vehicle->power_kw) ? null : $vehicle->power_kw;
-            $vehicle->engine_hours = is_null($vehicle->engine_hours) ? null : $vehicle->engine_hours;
-            $vehicle->fuel_type = is_null($vehicle->fuel_type) ? null : $vehicle->fuel_type;
-            
-            // Aggiungiamo i campi in italiano
-            $vehicle->targa = $vehicle->plate;
-            $vehicle->nome = $vehicle->name;
-            $vehicle->marca = $vehicle->brand;
-            $vehicle->modello = $vehicle->model;
-            $vehicle->anno = $vehicle->year;
-            $vehicle->tipo = $vehicle->type;
-            $vehicle->stato = $vehicle->status;
-            $vehicle->note = $vehicle->notes;
-            $vehicle->colore = $vehicle->color;
-            $vehicle->chilometraggio = $vehicle->odometer;
-            $vehicle->ore_motore = $vehicle->engine_hours;
-            $vehicle->portata_max = $vehicle->max_load;
-            $vehicle->numero_telaio = $vehicle->chassis_number;
-            $vehicle->data_acquisto = $vehicle->purchase_date;
-            $vehicle->prezzo_acquisto = $vehicle->purchase_price;
-            $vehicle->misura_gomme_anteriori = $vehicle->front_tire_size;
-            $vehicle->misura_gomme_posteriori = $vehicle->rear_tire_size;
-            $vehicle->vin = $vehicle->vin_code;
-            $vehicle->cilindrata = $vehicle->engine_capacity;
-            $vehicle->codice_motore = $vehicle->engine_code;
-            $vehicle->matricola_motore = $vehicle->engine_serial_number;
-            $vehicle->cavalli_fiscali = $vehicle->fiscal_horsepower;
-            $vehicle->potenza_kw = $vehicle->power_kw;
-            $vehicle->numero_immatricolazione = $vehicle->registration_number;
-            $vehicle->classe_euro = $vehicle->euro_classification;
-            $vehicle->gruppi = $vehicle->groups;
-            $vehicle->autista_assegnato = $vehicle->assigned_driver;
-            $vehicle->data_prima_immatricolazione = $vehicle->first_registration_date;
-            $vehicle->proprieta = $vehicle->ownership;
-            $vehicle->carburante = $vehicle->fuel_type;
-            $vehicle->km = $vehicle->odometer;
-            $vehicle->contratto_titolare = $vehicle->contract_holder;
-            $vehicle->tipo_proprieta = $vehicle->ownership_type;
-            $vehicle->tipo_noleggio = $vehicle->rental_type;
-            $vehicle->acconto_pagato = $vehicle->advance_paid;
-            $vehicle->rata_finale = $vehicle->final_installment;
-            $vehicle->canone_mensile = $vehicle->monthly_fee;
-            $vehicle->data_inizio_contratto = $vehicle->contract_start_date;
-            $vehicle->data_fine_contratto = $vehicle->contract_end_date;
-            $vehicle->allarme_mensile = $vehicle->monthly_alert;
-            $vehicle->allarme_fine = $vehicle->end_alert;
-            $vehicle->giorno_pagamento_rata = $vehicle->installment_payment_day;
-            $vehicle->fornitore = $vehicle->supplier;
-            $vehicle->data_riconsegna = $vehicle->collection_date;
-            $vehicle->durata_contratto_mesi = $vehicle->contract_duration_months;
-            $vehicle->chilometraggio_contratto = $vehicle->contract_kilometers;
-            $vehicle->importo_fattura_esclusa_iva = $vehicle->invoice_amount_excl_vat;
-            $vehicle->importo_fattura_inclusa_iva = $vehicle->invoice_amount_incl_vat;
-            $vehicle->attrezzatura_contratto = $vehicle->contract_equipment;
-            $vehicle->pneumatici = $vehicle->tires;
-            $vehicle->restituito_o_riscattato = $vehicle->returned_or_redeemed;
-            $vehicle->link_esterno = $vehicle->external_link;
-            
             return response()->json($vehicle);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('VehicleController@update VALIDATION ERROR', [
+                'errors' => $e->errors(),
+                'message' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'message' => 'Errore di validazione',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
+            \Log::error('VehicleController@update EXCEPTION', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'message' => 'Si è verificato un errore durante l\'aggiornamento del veicolo.',
                 'exception' => get_class($e),

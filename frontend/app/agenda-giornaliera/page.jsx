@@ -117,7 +117,7 @@ function getActivityFields(activityData, clients, sites, drivers, vehicles, acti
 }
 
 
-export default function AgendaGiornalieraPage() {
+export default function AgendaGiornalieraPage({ initialDate = null }) {
   // LOG globale: il componente viene renderizzato
   // ...
   // Funzione per gestire il cambio cliente nel form attività
@@ -143,7 +143,7 @@ export default function AgendaGiornalieraPage() {
   const [events, setEvents] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(initialDate || new Date());
   const [viewMode, setViewMode] = useState("day"); // Sempre in modalità giorno
   const [drivers, setDrivers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -241,6 +241,13 @@ export default function AgendaGiornalieraPage() {
     if (deadline.stato === 'annullato') return '#ec4899';     // Rosa
     return '#6b7280'; // Grigio scuro per default
   }
+
+  // Aggiorna currentDate quando initialDate cambia
+  useEffect(() => {
+    if (initialDate) {
+      setCurrentDate(initialDate);
+    }
+  }, [initialDate]);
 
   // Forza il refetch ogni volta che cambia la data selezionata
   useEffect(() => {

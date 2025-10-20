@@ -22,6 +22,9 @@ export default function AppuntiPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showDeleteRowModal, setShowDeleteRowModal] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState(null);
 
   // Carica anagrafiche base per suggerimenti
   useEffect(() => {
@@ -97,6 +100,43 @@ export default function AppuntiPage() {
 
   const addRow = () => setRows(prev => [...prev, emptyRow()]);
   const clearRows = () => setRows([emptyRow()]);
+  const deleteRow = (idx) => {
+    setRows(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.length ? next : [emptyRow()];
+    });
+  };
+
+  const handleDeleteRowClick = (idx) => {
+    setRowToDelete(idx);
+    setShowDeleteRowModal(true);
+  };
+
+  const confirmDeleteRow = () => {
+    if (rowToDelete !== null) {
+      deleteRow(rowToDelete);
+    }
+    setShowDeleteRowModal(false);
+    setRowToDelete(null);
+  };
+
+  const cancelDeleteRow = () => {
+    setShowDeleteRowModal(false);
+    setRowToDelete(null);
+  };
+  
+  const handleClearClick = () => {
+    setShowConfirmModal(true);
+  };
+
+  const confirmClear = () => {
+    clearRows();
+    setShowConfirmModal(false);
+  };
+
+  const cancelClear = () => {
+    setShowConfirmModal(false);
+  };
 
   const updateCell = (idx, key, value) => {
     setRows(prev => prev.map((r, i) => (i === idx ? { ...r, [key]: value } : r)));
@@ -145,7 +185,7 @@ export default function AppuntiPage() {
           {saving ? "Salvataggio..." : "Salva ora"}
         </button>
         <button onClick={addRow} style={btnLight}>+ Riga</button>
-        <button onClick={clearRows} style={btnLight}>Svuota</button>
+        <button onClick={handleClearClick} style={btnLight}>Svuota</button>
       </div>
 
       <div style={{ overflowX: "auto" }}>
@@ -158,6 +198,7 @@ export default function AppuntiPage() {
               <th style={thStyle}>Autista 1</th>
               <th style={thStyle}>Autista 2</th>
               <th style={thStyle}>Consegna da fare</th>
+              <th style={{ ...thStyle, textAlign: 'center', width: 80 }}>Azioni</th>
             </tr>
           </thead>
           <tbody>
@@ -196,6 +237,15 @@ export default function AppuntiPage() {
                     style={cellInputStyle}
                   />
                 </td>
+                <td style={{ ...tdStyle, textAlign: 'center' }}>
+                  <button
+                    onClick={() => handleDeleteRowClick(idx)}
+                    title="Elimina riga"
+                    style={btnDeleteSmall}
+                  >
+                    ✕
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -208,6 +258,50 @@ export default function AppuntiPage() {
           <span style={{ color: '#4caf50' }}>Salvato automaticamente: {lastSavedAt.toLocaleTimeString()}</span>
         )}
       </div>
+
+      {/* Modal di conferma */}
+      {showConfirmModal && (
+        <div style={modalOverlayStyle}>
+          <div style={modalContentStyle}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 600 }}>
+              Conferma cancellazione
+            </h3>
+            <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14 }}>
+              Sei sicuro di voler cancellare tutto?
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button onClick={cancelClear} style={btnSecondary}>
+                Annulla
+              </button>
+              <button onClick={confirmClear} style={btnDanger}>
+                Sì, cancella tutto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal di conferma per eliminazione singola riga */}
+      {showDeleteRowModal && (
+        <div style={modalOverlayStyle}>
+          <div style={modalContentStyle}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 600 }}>
+              Conferma eliminazione riga
+            </h3>
+            <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14 }}>
+              Sei sicuro di voler eliminare questa riga?
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button onClick={cancelDeleteRow} style={btnSecondary}>
+                Annulla
+              </button>
+              <button onClick={confirmDeleteRow} style={btnDanger}>
+                Sì, elimina riga
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -267,4 +361,59 @@ const btnLight = {
   border: "1px solid #e5e5ea",
   borderRadius: 6,
   cursor: "pointer",
+};
+
+const btnSecondary = {
+  padding: "10px 16px",
+  background: "#f2f2f7",
+  color: "#333",
+  border: "1px solid #e5e5ea",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 500,
+};
+
+const btnDanger = {
+  padding: "10px 16px",
+  background: "#ff3b30",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 500,
+};
+
+const btnDeleteSmall = {
+  padding: "6px 10px",
+  background: "#ffecec",
+  color: "#d32f2f",
+  border: "1px solid #f4c7c7",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 13,
+  fontWeight: 600,
+};
+
+const modalOverlayStyle = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: "rgba(0, 0, 0, 0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+};
+
+const modalContentStyle = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 24,
+  maxWidth: 400,
+  width: "90%",
+  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
 };

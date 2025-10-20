@@ -4,7 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\ProfessionalDriverLicense;
+use App\Models\Activity;
 
 class Driver extends Model
 {
@@ -64,6 +67,11 @@ class Driver extends Model
         static::updating(function ($driver) {
             static::checkLicenseExpiry($driver);
         });
+    }
+    
+    public function professionalLicenses(): HasMany
+    {
+        return $this->hasMany(ProfessionalDriverLicense::class, 'driver_id');
     }
     
     protected static function checkLicenseExpiry($driver)

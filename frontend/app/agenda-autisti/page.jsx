@@ -22,7 +22,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function AgendaAutistiPage() {
   const [date, setDate] = useState(todayISO());
-  const [view, setView] = useState("day"); // 'day' | 'week'
+  const [view, setView] = useState("grid"); // 'day' | 'week' | 'grid'
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingActs, setLoadingActs] = useState(false);
@@ -76,7 +76,7 @@ export default function AgendaAutistiPage() {
         const results = await Promise.all(days.map(async (d) => {
           const params = new URLSearchParams({ perPage: "500", date: String(d) });
           params.append("include", "resources");
-          const { data } = await api.get(`/activities?${params.toString()}`);
+          const { data } = await api.get(`/activities?${params.toString()}`, { useCache: false, skipLoadingState: false });
           const items = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
           return [d, items];
         }));
@@ -104,12 +104,21 @@ export default function AgendaAutistiPage() {
     const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
     for (const d of weekDays) {
       const items = activitiesByDay[d] || [];
+      const dayStart = toDate(d);
+      const dayEnd = toDate(d);
+      if (dayStart && dayEnd) {
+        dayStart.setHours(0, 0, 0, 0);
+        dayEnd.setHours(23, 59, 59, 999);
+      }
       for (const act of items) {
         const start = act.data_inizio || act.start_date || act.start;
         const end = act.data_fine || act.end_date || act.end;
-        // Filtra per data esatta del giorno d per evitare "corse passate" di altri giorni
-        const startDate = toDate(start);
-        if (!startDate || startDate.toISOString().slice(0,10) !== d) continue;
+        // Includi attività che si sovrappongono al giorno (non solo quelle che iniziano oggi)
+        const s = toDate(start);
+        const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
+        if (!s || !dayStart || !dayEnd) continue;
+        const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
+        if (!overlaps) continue;
         // Filtra per stato se richiesto
         const status = String(act.status || act.stato || '').toLowerCase();
         if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
@@ -132,6 +141,47 @@ export default function AgendaAutistiPage() {
     return acc;
   }, [activitiesByDay, weekDays, drivers, includeAllStatuses]);
 
+  // Costruisce gli slot orari dalle 06:00 alle 18:00, step 30 minuti
+  const timeSlots = useMemo(() => {
+    const startHour = 6;
+    const endHour = 18;
+    const slots = [];
+    const base = toDate(date);
+    if (!base) return slots;
+    for (let h = startHour; h <= endHour; h++) {
+      for (let m of [0, 30]) {
+        if (h === endHour && m > 0) continue; // non superare 18:00
+        const d = new Date(base);
+        d.setHours(h, m, 0, 0);
+        slots.push(d);
+      }
+    }
+    return slots;
+  }, [date]);
+
+  // Helper: trova l'attività del driver che copre lo slot specifico
+  const getActivityForSlot = (driverId, slotDate) => {
+    const list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
+    if (!list.length) return null;
+    const t = slotDate.getTime();
+    for (const a of list) {
+      const s = toDate(a.start);
+      const e = toDate(a.end) || new Date(s.getTime() + 60 * 60 * 1000); // default 1h se end mancante
+      if (!s) continue;
+      if (t >= s.getTime() && t < e.getTime()) {
+        // Estrai la destinazione dalla descrizione dell'attività
+        const descrizione = a.descrizione || '';
+        // Se la descrizione contiene informazioni sulla destinazione, usala
+        // Altrimenti usa la descrizione completa
+        return {
+          ...a,
+          destinazione: descrizione.length > 20 ? descrizione.substring(0, 17) + '...' : descrizione
+        };
+      }
+    }
+    return null;
+  };
+
   const driverList = useMemo(() => {
     // Mostra solo autisti con impegni in periodo selezionato (giorno o settimana)
     const hasAssignments = new Set(Object.keys(groupedByDriver));
@@ -148,10 +198,21 @@ export default function AgendaAutistiPage() {
     const withActs = new Set();
     for (const day of weekDays) {
       const items = activitiesByDay[day] || [];
+      const dayStart = toDate(day);
+      const dayEnd = toDate(day);
+      if (dayStart && dayEnd) {
+        dayStart.setHours(0, 0, 0, 0);
+        dayEnd.setHours(23, 59, 59, 999);
+      }
       for (const act of items) {
-        // data esatta e stato
+        // Sovrapposizione al giorno e stato
         const start = act.data_inizio || act.start_date || act.start;
-        const sd = toDate(start); if (!sd || sd.toISOString().slice(0,10) !== day) continue;
+        const end = act.data_fine || act.end_date || act.end;
+        const s = toDate(start);
+        const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
+        if (!s || !dayStart || !dayEnd) continue;
+        const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
+        if (!overlaps) continue;
         const status = String(act.status || act.stato || '').toLowerCase();
         const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
         if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
@@ -203,7 +264,8 @@ export default function AgendaAutistiPage() {
         </div>
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={dateInputStyle} />
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={() => setView('day')} style={view === 'day' ? btnPrimary : btnLight}>Giorno</button>
+          <button onClick={() => setView('day')} style={view === 'day' ? btnPrimary : btnLight}>Lista</button>
+          <button onClick={() => setView('grid')} style={view === 'grid' ? btnPrimary : btnLight}>Tabella Oraria</button>
           <button onClick={() => setView('week')} style={view === 'week' ? btnPrimary : btnLight}>Settimana</button>
         </div>
         <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
@@ -246,6 +308,75 @@ export default function AgendaAutistiPage() {
               </div>
             ))
           )}
+        </div>
+      ) : view === 'grid' ? (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
+                {drivers
+                  .filter(d => {
+                    const q = driverQuery.trim().toLowerCase();
+                    if (!q) return true;
+                    const full = ((d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')).toLowerCase();
+                    return full.includes(q);
+                  })
+                  .map(d => (
+                  <th key={d.id} style={{ ...thStyle, minWidth: 180, textAlign: 'center' }} title={String(d.id)}>
+                    {(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loadingActs ? (
+                <tr><td style={tdStyle} colSpan={1 + drivers.length}>Caricamento impegni...</td></tr>
+              ) : timeSlots.length === 0 ? (
+                <tr><td style={tdStyle} colSpan={1 + drivers.length}>Nessuno slot disponibile</td></tr>
+              ) : (
+                timeSlots.map((slot, idx) => (
+                  <tr key={idx}>
+                    <td style={{ ...tdStyle, position: 'sticky', left: 0, zIndex: 1, background: '#fff', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      {slot.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    {drivers
+                      .filter(d => {
+                        const q = driverQuery.trim().toLowerCase();
+                        if (!q) return true;
+                        const full = ((d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')).toLowerCase();
+                        return full.includes(q);
+                      })
+                      .map(d => {
+                        const act = getActivityForSlot(d.id, slot);
+                        return (
+                          <td key={d.id} style={{ ...tdStyle, minWidth: 180, textAlign: 'center' }}>
+                            {act ? (
+                              <div style={{ 
+                                background: '#e3f2fd', 
+                                padding: '4px 8px', 
+                                borderRadius: '4px', 
+                                fontSize: '12px',
+                                color: '#1976d2',
+                                fontWeight: 500,
+                                textAlign: 'center'
+                              }}>
+                                {act.destinazione || act.descrizione || 'Attività'}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#bbb' }}>—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
+            Tabella oraria: vengono mostrati tutti gli autisti. Se hanno attività nell'orario, viene mostrata la destinazione.
+          </div>
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>

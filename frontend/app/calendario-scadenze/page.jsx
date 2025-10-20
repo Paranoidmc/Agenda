@@ -10,8 +10,6 @@ import "@fullcalendar/common/main.css";
 
 export default function CalendarioScadenzePage() {
   const [scadenze, setScadenze] = useState([]);
-  const [mezziNoleggiati, setMezziNoleggiati] = useState([]);
-  const [veicoli, setVeicoli] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,15 +23,6 @@ export default function CalendarioScadenzePage() {
         })
         .catch(() => {
           setScadenze([]);
-        });
-      // Carica veicoli (per periodi di noleggio)
-      api.get('/vehicles')
-        .then(res => {
-          let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-          setVeicoli(arr);
-        })
-        .catch(() => {
-          setVeicoli([]);
         })
         .finally(() => {
           setLoading(false);
@@ -101,56 +90,6 @@ export default function CalendarioScadenzePage() {
       })
     : [];
 
-  // Eventi noleggio veicoli
-  // Helper per normalizzare date: se formato YYYY-MM-DD, aggiungi T00:00:00
-  function normalizeDateStr(str) {
-    if (!str) return str;
-    // Se è solo YYYY-MM-DD, aggiungi orario
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      return str + 'T00:00:00';
-    }
-    return str;
-  }
-  const eventiNoleggi = Array.isArray(veicoli)
-    ? veicoli.filter(v => v.contract_start_date && v.contract_end_date).map(v => {
-        const titolo = `Noleggio: ${(v.targa || v.plate || '')} ${(v.marca || v.brand || '')} ${(v.modello || v.model || '')}`.trim();
-        const tooltip = `<div style='font-weight:bold;'>Periodo NOLEGGIO</div>` +
-          `<div><b>Veicolo:</b> ${(v.targa || v.plate || '')} ${(v.marca || v.brand || '')} ${(v.modello || v.model || '')}</div>` +
-          `<div><b>Dal:</b> ${new Date(v.contract_start_date).toLocaleDateString('it-IT')}</div>` +
-          `<div><b>Al:</b> ${new Date(v.contract_end_date).toLocaleDateString('it-IT')}</div>`;
-        return {
-          id: 'noleggio-' + v.id,
-          title: titolo,
-          start: normalizeDateStr(v.contract_start_date),
-          end: normalizeDateStr(v.contract_end_date),
-          color: '#374151', // grigio scuro
-          display: 'background', // evidenzia il periodo
-          extendedProps: { ...v, tooltip, isNoleggio: true },
-        };
-      })
-    : [];
-  // Debug: logga tutti i veicoli che dovrebbero apparire come eventi noleggio
-  if (Array.isArray(veicoli)) {
-    const debugNoleggi = veicoli.filter(v => v.contract_start_date && v.contract_end_date);
-    if (debugNoleggi.length > 0) {
-    }
-  }
-
-  // Eventi noleggio "box" (non background)
-  const eventiNoleggiBox = Array.isArray(veicoli)
-    ? veicoli.filter(v => v.contract_start_date && v.contract_end_date).map(v => ({
-        id: 'noleggio-box-' + v.id,
-        title: `Noleggio: ${(v.plate || v.targa)} ${(v.brand || v.marca || '')} ${(v.model || v.modello || '')}`.trim(),
-        start: normalizeDateStr(v.contract_start_date),
-        end: normalizeDateStr(v.contract_end_date),
-        color: '#374151', // grigio scuro
-        textColor: '#fff',
-        eventDisplay: 'block',
-      }))
-    : [];
-  // Unisci eventi scadenze e noleggi box
-  const eventi = [...eventiScadenze, ...eventiNoleggiBox];
-
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       <Sidebar />
@@ -177,7 +116,7 @@ export default function CalendarioScadenzePage() {
               initialView="dayGridMonth"
               locale={itLocale}
               height="auto"
-              events={eventi}
+              events={eventiScadenze}
               headerToolbar={{
                 left: "prev,next today",
                 center: "title",

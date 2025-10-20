@@ -15,7 +15,6 @@ export const AuthProvider = ({ children }) => {
       
       // Controlla se abbiamo un utente in localStorage
       let userFromStorage = null;
-      let tokenFromStorage = null;
       
       if (typeof window !== 'undefined') {
         try {
@@ -24,7 +23,7 @@ export const AuthProvider = ({ children }) => {
             userFromStorage = JSON.parse(userJson);
           }
           
-          tokenFromStorage = localStorage.getItem('token');
+          // Non usiamo Authorization Bearer con sessione Sanctum
         } catch (error) {
           console.error("[AUTH] Errore nel parsing dei dati utente da localStorage:", error);
           localStorage.removeItem('user');
@@ -43,12 +42,7 @@ export const AuthProvider = ({ children }) => {
 
       // ✅ FIX: Verifica PRIMA di impostare l'utente
       try {
-        const res = await api.get("/user", { 
-          withCredentials: true,
-          headers: {
-            ...(tokenFromStorage ? { 'Authorization': `Bearer ${tokenFromStorage}` } : {})
-          }
-        });
+        const res = await api.get("/user", { withCredentials: true });
         
         if (res.data) {
           // ✅ Solo ora imposta l'utente come loggato
@@ -97,7 +91,11 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       // Ottieni sempre il CSRF cookie prima del login
-      await api.get("/sanctum/csrf-cookie", { withCredentials: true });
+      await api.get("/sanctum/csrf-cookie", {
+        withCredentials: true,
+        useCache: false,
+        skipLoadingState: true,
+      });
       // Login solo tramite sessione
       const res = await api.post("/session-login-controller", { email, password }, { withCredentials: true });
       if (res.data && res.data.user) {

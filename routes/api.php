@@ -18,6 +18,8 @@ use App\Http\Controllers\DocumentiController;
 
 use App\Http\Controllers\VehicleDeadlineController;
 use App\Http\Controllers\VehicleTrackingController;
+use App\Http\Controllers\ProfessionalDriverLicenseController;
+use App\Http\Controllers\RentalVehicleController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 
 /*
@@ -57,6 +59,7 @@ Route::get('driver-activities/{driverName}', [\App\Http\Controllers\Api\DriverAc
 Route::post('driver-activities/{activityId}/start', [\App\Http\Controllers\Api\DriverActivityController::class, 'startActivity']);
 Route::post('driver-activities/{activityId}/end', [\App\Http\Controllers\Api\DriverActivityController::class, 'endActivity']);
 Route::post('driver-activities/{activityId}/upload-ddt', [\App\Http\Controllers\Api\DriverActivityController::class, 'uploadDdt']);
+Route::get('download-document/{documentId}', [\App\Http\Controllers\Api\DriverActivityController::class, 'downloadDocument']);
 
 // Rotte alternative per compatibilità con PWA frontend
 Route::post('activities/{id}/start', [\App\Http\Controllers\Api\DriverActivityController::class, 'startActivity']);
@@ -111,6 +114,11 @@ Route::middleware(['web', 'auth:sanctum'])->group(function () {
     Route::get('/vehicle-deadlines/all', [VehicleDeadlineController::class, 'allWithVehicles']);
     Route::apiResource('vehicle-deadlines', VehicleDeadlineController::class);
 
+    // Rental Vehicles Routes
+    Route::get('/rental-vehicles', [RentalVehicleController::class, 'index']);
+    Route::get('/rental-vehicles/statistics', [RentalVehicleController::class, 'statistics']);
+    Route::get('/rental-vehicles/{id}', [RentalVehicleController::class, 'show']);
+
     // Vehicle-related routes
     Route::get('/vehicles/{vehicle}/activities', [ActivityController::class, 'getVehicleActivities']);
     Route::get('/vehicles/{vehicle}/deadlines', [VehicleDeadlineController::class, 'getVehicleDeadlines']);
@@ -128,10 +136,17 @@ Route::middleware(['web', 'auth:sanctum'])->group(function () {
     Route::get('sites/{site}/activities', [ActivityController::class, 'getSiteActivities']);
     Route::get('clients/{client}/activities', [ActivityController::class, 'getClientActivities']);
     Route::get('drivers/{driver}/activities', [ActivityController::class, 'getDriverActivities']);
+    // Patenti professionali autista
+    Route::get('drivers/{driver}/professional-licenses', [ProfessionalDriverLicenseController::class, 'index']);
+    Route::post('drivers/{driver}/professional-licenses', [ProfessionalDriverLicenseController::class, 'store']);
+    Route::put('drivers/{driver}/professional-licenses/{license}', [ProfessionalDriverLicenseController::class, 'update']);
+    Route::delete('drivers/{driver}/professional-licenses/{license}', [ProfessionalDriverLicenseController::class, 'destroy']);
     
     // Allegamento documenti alle attività
     Route::post('activities/attach-document', [ActivityController::class, 'attachDocument']);
     Route::get('activities/{activity}/documents', [ActivityController::class, 'getAttachedDocuments']);
+    Route::delete('activities/{activity}/documents/{document}', [ActivityController::class, 'detachDocument']);
+    Route::delete('activities/{activity}', [ActivityController::class, 'destroy']);
     
 
     

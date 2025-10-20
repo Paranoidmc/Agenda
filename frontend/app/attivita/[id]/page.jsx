@@ -125,6 +125,23 @@ export default function AttivitaDetailPage() {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
+  // Rimuove un documento allegato dall'attività
+  const detachDocumentFromActivity = async (documentId) => {
+    if (!attivita?.id) return;
+    try {
+      const res = await api.delete(`/activities/${attivita.id}/documents/${documentId}`);
+      if (res.data?.success) {
+        console.log('🗑️ Documento rimosso con successo');
+        fetchAttachedDocuments(attivita.id);
+      } else {
+        console.warn('⚠️ Rimozione non confermata:', res.data);
+      }
+    } catch (e) {
+      console.error('❌ Errore nella rimozione allegato:', e);
+      alert('Errore nella rimozione del documento.');
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     try {
@@ -164,13 +181,13 @@ export default function AttivitaDetailPage() {
     try {
       console.log('🔍 Caricamento documenti allegati per attività:', activityId);
       const response = await api.get(`/activities/${activityId}/documents`);
-      
-      if (response.data.success) {
-        const documents = response.data.data || [];
-        console.log(`✅ ${documents.length} documenti allegati caricati:`, documents);
+      const payload = response?.data ?? {};
+      if (payload.success) {
+        const documents = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+        console.log(`✅ Documenti allegati caricati (${documents.length}):`, documents);
         setAttachedDocuments(documents);
       } else {
-        console.warn('⚠️ Nessun documento allegato trovato:', response.data.message);
+        console.warn('⚠️ Nessun documento allegato trovato:', payload.message);
         setAttachedDocuments([]);
       }
     } catch (error) {
@@ -217,6 +234,8 @@ export default function AttivitaDetailPage() {
         setSuggestedDocuments(prev => prev.filter(doc => doc.id !== documentId));
         // Ricarica i documenti allegati
         fetchAttachedDocuments(attivita.id);
+      } else {
+        console.warn('⚠️ Allegamento documento non confermato:', response.data);
       }
     } catch (error) {
       console.error('❌ Errore nell\'allegare documento:', error);
@@ -224,12 +243,33 @@ export default function AttivitaDetailPage() {
     }
   };
 
-  // Funzione per suggerire documenti allegabili (solo cliente e data)
+  // Restituisce il giorno lavorativo precedente (salta sabato e domenica).
+  // Esempi: lunedì -> venerdì (−3), domenica -> venerdì (−2), martedì->lunedì (−1)
+  const previousWorkingDay = (dateOnly) => {
+    try {
+      if (!dateOnly) return null;
+      const [y, m, d] = String(dateOnly).split('-').map(Number);
+      const dt = new Date(y, (m - 1), d);
+      // sposta indietro di un giorno finché non è lun-ven
+      do {
+        dt.setDate(dt.getDate() - 1);
+      } while ([0, 6].includes(dt.getDay())); // 0=dom, 6=sab
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    } catch {
+      return dateOnly;
+    }
+  };
+
+  // Funzione per suggerire documenti allegabili (match su cliente+Sede e data = giorno lavorativo precedente)
   const suggestDocuments = async (clientId, dataInizio) => {
-    console.log('🔍 suggestDocuments chiamata con:', { clientId, dataInizio });
+    console.log('🔍 suggestDocuments chiamata con:', { clientId, dataInizio, siteId: attivita?.site_id });
     
-    if (!clientId || !dataInizio) {
-      console.log('❌ Parametri mancanti (cliente o data), pulisco suggerimenti');
+    // Devono combaciare sia cliente che sede: se manca la sede, non suggeriamo nulla
+    if (!clientId || !dataInizio || !attivita?.site_id) {
+      console.log('❌ Parametri mancanti (cliente, data o sede), pulisco suggerimenti');
       setSuggestedDocuments([]);
       setSuggestionsFetched(false);
       return;
@@ -237,29 +277,162 @@ export default function AttivitaDetailPage() {
 
     setLoadingSuggestions(true);
     try {
-      console.log('📡 Chiamata API suggestForActivity...');
-      const response = await api.post('/documenti/suggest-for-activity', {
-        client_id: clientId,
-        site_id: attivita?.site_id || null,
-        data_inizio: dataInizio
+      const effectiveDate = previousWorkingDay(dataInizio);
+      console.log('📡 Chiamata API GET /documenti (cliente+sede), filtro data SOLO lato client su giorno precedente:', { effectiveDate, cliente: clientId, sede: attivita?.site_id || null });
+      const response = await api.get('/documenti', {
+        params: {
+          cliente: clientId, // nome parametro backend
+          sede: attivita?.site_id || null, // nome parametro backend
+          per_page: 100
+        }
       });
       
       console.log('📨 Risposta API:', response.data);
       
       if (response.data.success) {
-        const documents = response.data.data || [];
-        console.log(`✅ ${documents.length} documenti suggeriti:`, documents);
-        setSuggestedDocuments(documents);
+        const raw = Array.isArray(response.data.data) ? response.data.data : [];
+        // Alcuni endpoint ritornano oggetti avvolti: { documento: {..}, match_score, match_reason }
+        const documents = raw.map(item => (item && item.documento) ? { ...item.documento, _match: { score: item.match_score, reason: item.match_reason } } : item);
+
+        // Helper: normalizza la data del documento su YYYY-MM-DD
+        const pickDocDate = (doc) => {
+          const candidates = [
+            doc.data_doc,
+            doc.dataDoc,
+            doc.data_consegna,
+            doc.dataConsegna,
+            doc.data,
+            doc.date,
+            doc.emission_date,
+            doc.created_at,
+            doc.updated_at,
+          ].filter(Boolean);
+          for (const c of candidates) {
+            try {
+              if (typeof c === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c)) return c;
+              const d = new Date(c);
+              if (!isNaN(d)) {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+              }
+            } catch {}
+          }
+          return null;
+        };
+
+        // Enforce match su cliente+sede+data (giorno lavorativo precedente) lato frontend
+        const targetSiteId = String(attivita.site_id);
+        const filtered = documents.filter(doc => {
+          const candidateClientIds = [doc.client_id, doc?.client?.id, doc?.cliente?.id].filter(v => v !== undefined && v !== null).map(v => String(v));
+          const okClient = candidateClientIds.includes(String(clientId));
+          const candidateSiteIds = [
+            doc.site_id,
+            doc.sede_id,
+            doc.destination_id,
+            doc.destinazione_id,
+            doc?.site?.id,
+            doc?.sede?.id,
+            doc?.destination?.id,
+          ].filter(v => v !== undefined && v !== null).map(v => String(v));
+          const okSite = candidateSiteIds.includes(targetSiteId);
+          const docDate = pickDocDate(doc);
+          const okDate = docDate === String(effectiveDate);
+          if (!(okClient && okSite && okDate)) {
+            console.log('🔎 Documento scartato per mismatch (API):', {
+              docId: doc.id,
+              client: { candidates: candidateClientIds, required: String(clientId), ok: okClient },
+              site: { candidates: candidateSiteIds, required: targetSiteId, ok: okSite },
+              date: { doc: docDate, required: String(effectiveDate), ok: okDate },
+              match: doc._match || null
+            });
+          }
+          return okClient && okSite && okDate;
+        });
+        console.log(`✅ ${filtered.length}/${documents.length} documenti suggeriti (solo GIORNO LAVORATIVO PRECEDENTE):`, filtered);
+        setSuggestedDocuments(filtered);
       } else {
-        console.warn('⚠️ Nessun documento suggerito:', response.data.message);
+        console.warn('⚠️ Nessun documento suggerito (API non success). Niente fallback: regola stretta sul giorno precedente.');
         setSuggestedDocuments([]);
       }
     } catch (error) {
       console.error('❌ Errore nel suggerimento documenti:', error);
+      console.log('ℹ️ Niente fallback: regola stretta sul giorno precedente.');
       setSuggestedDocuments([]);
     } finally {
       setLoadingSuggestions(false);
       setSuggestionsFetched(true);
+    }
+  };
+
+  // Fallback: carica tutti i documenti e filtra lato client per cliente+sede e data effettiva
+  const fallbackSuggestFromAllDocuments = async ({ clientId, siteId, effectiveDate }) => {
+    try {
+      // Prendi una pagina ampia per ridurre il rischio di tagli
+      const { data } = await api.get('/documenti', { params: { perPage: 500 } });
+      const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      console.log(`📚 Fallback: caricati ${list.length} documenti totali`, { clientId: String(clientId), siteId: String(siteId), effectiveDate: String(effectiveDate) });
+
+      // Funzione per normalizzare la data del documento: prova vari campi comuni
+      const getDocDateOnly = (doc) => {
+        const candidates = [
+          doc.data_documento,
+          doc.data,
+          doc.date,
+          doc.emission_date,
+          doc.created_at,
+          doc.updated_at,
+        ].filter(Boolean);
+        for (const c of candidates) {
+          try {
+            if (typeof c === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c)) return c;
+            const d = new Date(c);
+            if (!isNaN(d)) {
+              // Usa data locale per evitare shift di fuso verso il giorno precedente/successivo
+              const yyyy = d.getFullYear();
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              return `${yyyy}-${mm}-${dd}`;
+            }
+          } catch {}
+        }
+        return null;
+      };
+
+      const targetSiteId = String(siteId);
+      const runFilter = (targetDate) => list.filter(doc => {
+        const candidateClientIds = [doc.client_id, doc?.client?.id].filter(v => v !== undefined && v !== null).map(v => String(v));
+        const okClient = candidateClientIds.includes(String(clientId));
+        const candidateSiteIds = [
+          doc.site_id,
+          doc.sede_id,
+          doc.destination_id,
+          doc.destinazione_id,
+          doc?.site?.id,
+          doc?.sede?.id,
+          doc?.destination?.id,
+        ].filter(v => v !== undefined && v !== null).map(v => String(v));
+        const okSite = candidateSiteIds.includes(targetSiteId);
+        const docDate = getDocDateOnly(doc);
+        const okDate = docDate === String(targetDate);
+        if (!(okClient && okSite && okDate)) {
+          console.log('🔎 [Fallback] Documento scartato:', {
+            docId: doc.id,
+            client: { candidates: candidateClientIds, required: String(clientId), ok: okClient },
+            site: { candidates: candidateSiteIds, required: targetSiteId, ok: okSite },
+            date: { doc: docDate, required: String(targetDate), ok: okDate }
+          });
+        }
+        return okClient && okSite && okDate;
+      });
+
+      const filtered = runFilter(effectiveDate);
+      console.log(`✅ [Strict] Trovati ${filtered.length} documenti (solo giorno lavorativo precedente)`);
+      setSuggestedDocuments(filtered);
+    } catch (e) {
+      console.error('❌ Fallback fallito:', e);
+      setSuggestedDocuments([]);
     }
   };
 
@@ -672,6 +845,23 @@ export default function AttivitaDetailPage() {
     }
   }, [attivita?.id]);
 
+  // Quando apro in MODIFICA, se ci sono già cliente+sede+data, carico subito i suggerimenti
+  useEffect(() => {
+    if (isEditing && attivita?.client_id && attivita?.site_id && attivita?.data_inizio) {
+      const dateOnly = String(attivita.data_inizio).includes('T')
+        ? String(attivita.data_inizio).split('T')[0]
+        : String(attivita.data_inizio);
+      console.log('🚀 Edit mode: caricamento automatico suggerimenti', {
+        client_id: attivita.client_id,
+        site_id: attivita.site_id,
+        dateOnly
+      });
+      suggestDocuments(attivita.client_id, dateOnly);
+      // Rinfresca anche gli allegati per sicurezza
+      fetchAttachedDocuments(attivita.id);
+    }
+  }, [isEditing, attivita?.client_id, attivita?.site_id, attivita?.data_inizio]);
+
   // Listener per eventi di sincronizzazione documenti da altre pagine
   useEffect(() => {
     const handleDocumentsSync = (event) => {
@@ -823,14 +1013,37 @@ export default function AttivitaDetailPage() {
       }
       
       let response;
+      let createdActivityId = attivitaId;
       if (isNew) {
         response = await api.post('/activities', dataToSend);
+        createdActivityId = response?.data?.id || response?.data?.data?.id;
+        // Auto-allega eventuali documenti pre-selezionati dopo la creazione
+        if (createdActivityId && Array.isArray(preSelectedDocuments) && preSelectedDocuments.length > 0) {
+          for (const doc of preSelectedDocuments) {
+            try {
+              await api.post('/activities/attach-document', { activity_id: createdActivityId, document_id: doc.id });
+            } catch (e) {
+              console.warn('⚠️ Impossibile allegare doc post-creazione', doc?.id, e);
+            }
+          }
+        }
         // Naviga alla pagina dettaglio della nuova attività
-        router.push(`/attivita/${response.data.id}`);
+        router.push(`/attivita/${createdActivityId}`);
       } else {
         response = await api.put(`/activities/${attivitaId}`, dataToSend);
+        // Auto-allega eventuali documenti pre-selezionati anche in update
+        if (attivitaId && Array.isArray(preSelectedDocuments) && preSelectedDocuments.length > 0) {
+          for (const doc of preSelectedDocuments) {
+            try {
+              await api.post('/activities/attach-document', { activity_id: attivitaId, document_id: doc.id });
+            } catch (e) {
+              console.warn('⚠️ Impossibile allegare doc post-update', doc?.id, e);
+            }
+          }
+        }
         // Ricarica i dati aggiornati
         await loadAttivita();
+        if (attivitaId) fetchAttachedDocuments(attivitaId);
       }
       
       setIsEditing(false);
@@ -883,6 +1096,26 @@ export default function AttivitaDetailPage() {
         showBackButton={true}
         onBackClick={() => router.push("/attivita")}
       />
+
+      {canEdit && !isNew && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            style={{
+              background: '#dc3545',
+              color: '#fff',
+              borderRadius: 6,
+              padding: '0.5em 1em',
+              fontSize: 14,
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            {isDeleting ? 'Eliminazione…' : 'Elimina attività'}
+          </button>
+        </div>
+      )}
 
       {isNew || isEditing ? (
         <div>
@@ -1260,7 +1493,24 @@ export default function AttivitaDetailPage() {
 
           {/* Sezione Documenti */}
           <div style={{ background: '#fff', padding: 20, borderRadius: 8, border: '1px solid #e5e5ea' }}>
-            <h2 style={{ marginTop: 0, marginBottom: 20, color: '#1d1d1f' }}>📄 Documenti Allegati</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h2 style={{ margin: 0, color: '#1d1d1f' }}>📄 Documenti Allegati {attachedDocuments?.length ? `(${attachedDocuments.length})` : ''}</h2>
+              <button
+                onClick={() => attivita?.id && fetchAttachedDocuments(attivita.id)}
+                disabled={loadingAttached || !attivita?.id}
+                style={{
+                  background: '#0d6efd',
+                  color: '#fff',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  fontSize: 13,
+                  border: 'none',
+                  cursor: loadingAttached ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loadingAttached ? 'Aggiorno…' : 'Ricarica'}
+              </button>
+            </div>
             {loadingAttached ? (
               <div style={{ textAlign: 'center', padding: 20, color: '#666' }}>
                 <div style={{ fontSize: '24px', marginBottom: 8 }}>📄</div>
@@ -1269,22 +1519,52 @@ export default function AttivitaDetailPage() {
             ) : attachedDocuments.length > 0 ? (
               <div style={{ display: 'grid', gap: 12 }}>
                 {attachedDocuments.map((doc, index) => (
-                  <div key={index} style={{ 
+                  <div key={doc.id ?? index} style={{ 
                     padding: 12, 
                     background: '#f8f9fa', 
                     borderRadius: 6,
-                    border: '1px solid #e9ecef'
+                    border: '1px solid #e9ecef',
+                    position: 'relative'
                   }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: 4 }}>{doc.nome || doc.name || 'Documento'}</div>
+                    <button
+                      onClick={() => detachDocumentFromActivity(doc.id)}
+                      title="Rimuovi allegato"
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        background: '#dc3545',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 4,
+                        padding: '4px 6px',
+                        fontSize: 12,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Rimuovi
+                    </button>
+                    <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                      {(doc.codice_doc || doc.codiceDoc || '')}
+                      {((doc.codice_doc || doc.codiceDoc) && (doc.numero_doc || doc.numero)) ? ' • ' : ''}
+                      {(doc.numero_doc || doc.numero || '')}
+                    </div>
                     <div style={{ fontSize: '14px', color: '#666' }}>
-                      {doc.tipo && <span>Tipo: {doc.tipo} • </span>}
-                      {doc.data_documento && <span>Data: {formatDate(doc.data_documento)}</span>}
+                      {(() => {
+                        const rawDate = doc.data_doc || doc.data_documento || doc.dataDoc || doc.date || doc.created_at;
+                        return rawDate ? `Data: ${formatDate(rawDate)}` : '';
+                      })()}
                     </div>
                     {doc.descrizione && (
                       <div style={{ fontSize: '14px', marginTop: 8, color: '#555' }}>
                         {doc.descrizione}
                       </div>
                     )}
+                    <div style={{ fontSize: 13, color: '#666', marginTop: 6 }}>
+                      {doc.cliente_name && <span>Cliente: {doc.cliente_name}</span>}
+                      {(doc.cliente_name && doc.sede_name) ? ' • ' : ''}
+                      {doc.sede_name && <span>Sede: {doc.sede_name}</span>}
+                    </div>
                   </div>
                 ))}
               </div>

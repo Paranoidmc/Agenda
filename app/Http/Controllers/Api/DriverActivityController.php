@@ -30,7 +30,14 @@ class DriverActivityController extends Controller
             }
             
             // Carica le attività dell'autista tramite ActivityResource (stesso sistema del frontend)
-            $activities = Activity::with(['client', 'site', 'resources.driver', 'resources.vehicle'])
+            $activities = Activity::with([
+                'client', 
+                'site', 
+                'activityType', 
+                'resources.driver', 
+                'resources.vehicle.documentiVeicolo',
+                'resources.vehicle.deadlines'
+            ])
                 ->whereHas('resources', function ($query) use ($driver) {
                     $query->where('driver_id', $driver->id);
                 })
@@ -56,6 +63,8 @@ class DriverActivityController extends Controller
                         'nome_cliente' => $activity->client->nome ?? $activity->client->name ?? 'Cliente sconosciuto',
                         'cantiere' => $activity->site->nome ?? $activity->site->name ?? 'Cantiere non specificato',
                         'indirizzo' => $indirizzo,
+                        'tipologia' => $activity->activityType->nome ?? $activity->activityType->name ?? null,
+                        'descrizione' => $activity->descrizione,
                         'data_inizio' => $activity->data_inizio,
                         'data_fine' => $activity->data_fine,
                         'data_consegna' => $activity->created_at->format('Y-m-d'),
@@ -63,8 +72,8 @@ class DriverActivityController extends Controller
                         'stato' => $activity->status ?? 'planned',
                         'autista' => $driver->name . ' ' . $driver->surname,
                         'veicolo' => $this->getVehicleFromResources($activity),
+                        'veicolo_dettagli' => $this->getVehicleDetailsFromResources($activity),
                         'note' => $activity->notes ?? $activity->note ?? 'Nessuna nota',
-                        'descrizione' => $activity->descrizione,
                     ];
                 });
 
@@ -92,7 +101,7 @@ class DriverActivityController extends Controller
         }
 
         $vehicle = $firstResource->vehicle;
-        $vehicleName = $vehicle->name ?? $vehicle->model ?? $vehicle->brand ?? 'Veicolo';
+        $vehicleName = $vehicle->name ?? $vehicle->nome ?? $vehicle->model ?? $vehicle->brand ?? 'Veicolo';
         $vehiclePlate = $vehicle->license_plate ?? $vehicle->targa ?? $vehicle->plate ?? '';
         
         if ($vehiclePlate) {
@@ -100,6 +109,64 @@ class DriverActivityController extends Controller
         } else {
             return $vehicleName;
         }
+    }
+
+    /**
+     * Estrae i dati completi del veicolo con documenti e scadenze
+     */
+    private function getVehicleDetailsFromResources($activity)
+    {
+        if (!$activity->resources || $activity->resources->isEmpty()) {
+            return null;
+        }
+
+        $firstResource = $activity->resources->first();
+        if (!$firstResource->vehicle) {
+            return null;
+        }
+
+        $vehicle = $firstResource->vehicle;
+        
+        // Formatta i documenti
+        $documenti = $vehicle->documentiVeicolo ? $vehicle->documentiVeicolo->map(function ($doc) {
+            return [
+                'id' => $doc->id,
+                'categoria' => $doc->categoria,
+                'descrizione' => $doc->descrizione,
+                'file_path' => $doc->file_path,
+                // URL relativo per permettere al proxy Next.js di gestirlo
+                'file_url' => $doc->file_path ? '/api/p/download-document/' . $doc->id : null,
+                'data_scadenza' => $doc->data_scadenza,
+                'scaduto' => $doc->data_scadenza ? \Carbon\Carbon::parse($doc->data_scadenza)->isPast() : false,
+            ];
+        })->toArray() : [];
+
+        // Formatta le scadenze
+        $scadenze = $vehicle->deadlines ? $vehicle->deadlines->map(function ($deadline) {
+            return [
+                'id' => $deadline->id,
+                'tipo' => $deadline->type,
+                'data_scadenza' => $deadline->expiry_date,
+                'data_promemoria' => $deadline->reminder_date,
+                'note' => $deadline->notes,
+                'stato' => $deadline->status,
+                'pagato' => $deadline->pagato ?? false,
+                'importo' => $deadline->importo,
+                'scaduto' => $deadline->expiry_date ? \Carbon\Carbon::parse($deadline->expiry_date)->isPast() : false,
+                'in_scadenza' => $deadline->expiry_date ? \Carbon\Carbon::parse($deadline->expiry_date)->between(now(), now()->addDays(30)) : false,
+            ];
+        })->toArray() : [];
+
+        return [
+            'id' => $vehicle->id,
+            'targa' => $vehicle->plate,
+            'marca' => $vehicle->brand,
+            'modello' => $vehicle->model,
+            'nome' => $vehicle->nome ?? $vehicle->name ?? ($vehicle->brand . ' ' . $vehicle->model),
+            'anno' => $vehicle->year,
+            'documenti' => $documenti,
+            'scadenze' => $scadenze,
+        ];
     }
 
     /**
@@ -244,5 +311,64 @@ class DriverActivityController extends Controller
         }
 
         return response()->json(['error' => 'File non fornito'], 400);
+    }
+
+    /**
+     * Download documento veicolo
+     */
+    public function downloadDocument($documentId)
+    {
+        try {
+            $document = \App\Models\DocumentoVeicolo::findOrFail($documentId);
+            
+            if (!$document->file_path) {
+                return response()->json(['error' => 'File non trovato'], 404);
+            }
+
+            // Prova entrambi i percorsi: private e public
+            $possiblePaths = [
+                storage_path('app/' . $document->file_path),              // Path diretto (private/...)
+                storage_path('app/private/' . $document->file_path),      // Con prefix private
+                storage_path('app/public/' . $document->file_path),       // Con prefix public
+            ];
+
+            $filePath = null;
+            foreach ($possiblePaths as $path) {
+                if (file_exists($path)) {
+                    $filePath = $path;
+                    break;
+                }
+            }
+            
+            // Verifica se il file esiste
+            if (!$filePath) {
+                return response()->json([
+                    'error' => 'File non trovato sul server',
+                    'debug' => [
+                        'document_id' => $documentId,
+                        'file_path_db' => $document->file_path,
+                        'tried_paths' => $possiblePaths
+                    ]
+                ], 404);
+            }
+
+            // Determina il MIME type
+            $mimeType = mime_content_type($filePath);
+            $fileName = basename($document->file_path);
+
+            // Restituisci il file con headers corretti
+            return response()->file($filePath, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Expose-Headers' => 'Content-Disposition',
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Errore nel download del documento',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }
