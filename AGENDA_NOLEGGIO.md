@@ -125,3 +125,4 @@ Possibili miglioramenti:
 - Confronto tra periodi diversi
 - Integrazione con sistema di fatturazione
 
+
