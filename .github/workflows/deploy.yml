@@ -17,7 +17,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.2'
           extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, dom, filter, gd, json, mbstring, pdo, curl
           tools: composer:v2
 
@@ -40,7 +40,7 @@ jobs:
             php artisan route:cache
             php artisan view:cache
             php artisan queue:restart
-            sudo systemctl reload php8.3-fpm  # o php-fpm, dipende dalla versione PHP del server
+            sudo systemctl reload php8.2-fpm  # o php-fpm, dipende dalla configurazione
 
   deploy-frontend:
     name: Deploy Frontend Next.js
@@ -49,6 +49,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Next.js app
+        env:
+          NEXT_PUBLIC_API_URL: https://api.edilcipriano.peels.it/api/
+        run: |
+          cd frontend
+          npm run build
 
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@master
@@ -60,13 +79,6 @@ jobs:
           script: |
             cd /path/to/your/frontend
             git pull origin main
-            # Verifica che esista package-lock.json, altrimenti genera
-            if [ ! -f package-lock.json ]; then
-              npm install
-            else
-              npm ci
-            fi
-            # Build con variabile d'ambiente
+            npm ci
             NEXT_PUBLIC_API_URL=https://api.edilcipriano.peels.it/api/ npm run build
-            # Riavvia l'applicazione (adatta in base al tuo setup)
-            # pm2 restart nextjs || npm start
+            pm2 restart nextjs  # o il nome del tuo processo PM2
