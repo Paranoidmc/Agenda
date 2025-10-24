@@ -47,8 +47,10 @@ function getCookie(name) {
 }
 
 // Configurazione di base per axios
-// Usiamo sempre l'URL diretto del backend per evitare problemi con il proxy di Next.js
-const resolvedBaseURL = 'http://localhost:8000/api';
+// Usiamo l'URL del backend in base all'ambiente
+const resolvedBaseURL = process.env.NODE_ENV === 'production' 
+  ? 'https://api.edilcipriano.peels.it/api'
+  : 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: resolvedBaseURL,
