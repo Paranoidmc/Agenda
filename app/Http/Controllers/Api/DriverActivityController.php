@@ -41,6 +41,7 @@ class DriverActivityController extends Controller
                 ->whereHas('resources', function ($query) use ($driver) {
                     $query->where('driver_id', $driver->id);
                 })
+                ->whereDate('data_inizio', now()->format('Y-m-d')) // Filtra solo per oggi
                 ->orderBy('activities.created_at', 'desc')
                 ->get()
                 ->map(function ($activity) use ($driver) {
