@@ -101,7 +101,7 @@ class ActivityController extends Controller
         }
         
         // Carica le relazioni aggiornate
-                $query->with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType']);
+        // $query->with(['client', 'resources.driver', 'resources.vehicle', 'site.client', 'activityType']); // Rimosso perché già caricato sopra
         
         $sql = $query->toSql();
         $bindings = $query->getBindings();
@@ -116,6 +116,17 @@ class ActivityController extends Controller
             'total' => $activities->total(),
             'count_items_current_page' => count($activities->items()),
         ]);
+
+        // Debug: verifica che le relazioni resources siano caricate
+        if ($activities->items()) {
+            $firstActivity = $activities->items()[0];
+            Log::info('ActivityController: Debug prima attività', [
+                'activity_id' => $firstActivity->id,
+                'has_resources' => $firstActivity->relationLoaded('resources'),
+                'resources_count' => $firstActivity->resources ? $firstActivity->resources->count() : 0,
+                'resources_data' => $firstActivity->resources ? $firstActivity->resources->toArray() : null
+            ]);
+        }
 
         // Aggiungiamo i campi in italiano per ogni attività
         $activities->getCollection()->transform(function ($activity) {
