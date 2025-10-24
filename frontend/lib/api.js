@@ -65,6 +65,15 @@ api.interceptors.request.use(config => {
   if (!config.skipLoadingState) {
     loadingState.increment();
   }
+  
+  // Aggiungi il token di autenticazione se disponibile
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  
   if (config.method === 'get' && config.useCache !== false) {
     const cacheKey = cacheService.generateKey(config.url, config.params);
     const cachedData = cacheService.get(cacheKey);
