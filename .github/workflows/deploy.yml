@@ -3,82 +3,67 @@ name: Deploy to Production
 on:
   push:
     branches:
-      - main  # o master, dipende dal nome del tuo branch principale
+      - main
 
 jobs:
-  deploy-backend:
-    name: Deploy Backend Laravel
+  deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, dom, filter, gd, json, mbstring, pdo, curl
-          tools: composer:v2
-
-      - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction
-
-      - name: Deploy to Server via SSH
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.AGENDA_DEPLOY }}
           script: |
-            cd /path/to/your/backend
+            export LC_ALL=C
+            cd /var/www/html/edilcipriano
+
+            echo "✅ Marking repo as safe"
+            git config --global --add safe.directory /var/www/html/edilcipriano
+
+            echo "💣 Cleaning any local changes"
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+
+            echo "🔄 Pulling latest code"
             git pull origin main
-            composer install --no-dev --optimize-autoloader --no-interaction
+          
+            echo "🧷 Setting permissions"
+            sudo chown -R peels:www-data .
+            sudo chmod -R 755 .
+            sudo chmod -R 775 storage
+            sudo chmod -R 775 bootstrap/cache
+            sudo chmod -R 755 public
+          
+            echo "📦 Installing backend dependencies"
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+          
+            echo "📦 Installing front-end dependencies"
+            npm install
+          
+            echo "🛠 Building assets"
+            npm run build
+          
+            echo "🗄 Running migrations and caching"
             php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan queue:restart
-            sudo systemctl reload php8.3-fpm  # o php-fpm, dipende dalla configurazione
+            
+          
+            echo "🧹 Clearing caches"
+            php artisan optimize:clear
+            php artisan cache:clear
 
-  deploy-frontend:
-    name: Deploy Frontend Next.js
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+            echo "📦 Installing frontend dependencies"
+            cd frontend
+        
+            npm run build
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Build Next.js app
-        env:
-          NEXT_PUBLIC_API_URL: https://api.edilcipriano.peels.it/api/
-        run: |
-          cd frontend
-          npm run build
-
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST_FRONTEND }}
-          username: ${{ secrets.SSH_USERNAME_FRONTEND }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_FRONTEND }}
-          port: ${{ secrets.SSH_PORT_FRONTEND }}
-          script: |
-            cd /path/to/your/frontend
-            git pull origin main
-            npm ci
-            NEXT_PUBLIC_API_URL=https://api.edilcipriano.peels.it/api/ npm run build
-            pm2 restart nextjs  # o il nome del tuo processo PM2
+            echo "✅ Restarting PM2"
+            /home/peels/.nvm/versions/node/v18.20.8/bin/pm2 restart agenda-app
+          
+            echo "📦 Restarting nginx"
+            sudo nginx -t && sudo systemctl reload nginx
+          
+            echo "✅ Deployment finished"
