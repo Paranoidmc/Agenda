@@ -49,6 +49,9 @@ Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show']);
 // Session-based Login: The primary endpoint for users to log in.
 Route::post('/session-login-controller', [SessionLoginController::class, 'login']);
 
+// API Token Login: Alternative endpoint for API authentication.
+Route::post('/login', [SessionLoginController::class, 'apiLogin']);
+
 // Fallback route for unauthenticated requests, required by Sanctum's middleware.
 Route::get('/login', function () {
     return response()->json(['message' => 'Unauthenticated.'], 401);
@@ -70,7 +73,7 @@ Route::post('activities/{id}/end', [\App\Http\Controllers\Api\DriverActivityCont
 // =========================================================================
 // These routes require session-based authentication via Sanctum.
 
-Route::middleware(['web', 'auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
 
     // MOMAP settings (temporaneamente senza can:admin per debug)
     Route::get('/momap/device-data/{imei}', [\App\Http\Controllers\MomapDeviceController::class, 'deviceData']);
@@ -83,11 +86,12 @@ Route::middleware(['web', 'auth:sanctum'])->group(function () {
         return $request->user();
     });
 
-    // Logout the user, invalidating the session.
+    // Logout the user, invalidating the token.
     Route::any('/logout', function (Request $request) {
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        // Revoca il token corrente
+        if ($request->user()) {
+            $request->user()->currentAccessToken()->delete();
+        }
         return response()->json(['message' => 'Logout effettuato con successo']);
     });
 

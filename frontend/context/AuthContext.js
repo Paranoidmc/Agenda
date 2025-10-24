@@ -13,17 +13,22 @@ export const AuthProvider = ({ children }) => {
     const checkUser = async () => {
       setLoading(true);
       
-      // Controlla se abbiamo un utente in localStorage
+      // Controlla se abbiamo un token e utente in localStorage
       let userFromStorage = null;
+      let tokenFromStorage = null;
       
       if (typeof window !== 'undefined') {
         try {
           const userJson = localStorage.getItem('user');
+          const token = localStorage.getItem('token');
           if (userJson) {
             userFromStorage = JSON.parse(userJson);
           }
-          
-          // Non usiamo Authorization Bearer con sessione Sanctum
+          if (token) {
+            tokenFromStorage = token;
+            // Imposta il token nell'header delle richieste
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          }
         } catch (error) {
           console.error("[AUTH] Errore nel parsing dei dati utente da localStorage:", error);
           localStorage.removeItem('user');
@@ -31,28 +36,27 @@ export const AuthProvider = ({ children }) => {
         }
       }
       
-      // ✅ FIX: NON impostare l'utente finché non è verificato dal server
-      // Se non c'è un utente in localStorage, considera non autenticato
-      if (!userFromStorage) {
+      // Se non c'è un token, considera non autenticato
+      if (!tokenFromStorage || !userFromStorage) {
         setUser(null);
         setSessionExpired(false);
         setLoading(false);
         return;
       }
 
-      // ✅ FIX: Verifica PRIMA di impostare l'utente
+      // Verifica il token con il server
       try {
-        const res = await api.get("/user", { withCredentials: true });
+        const res = await api.get("/user");
         
         if (res.data) {
-          // ✅ Solo ora imposta l'utente come loggato
+          // Token valido, aggiorna i dati utente
           setUser(res.data);
           if (typeof window !== 'undefined') {
             localStorage.setItem('user', JSON.stringify(res.data));
           }
           setSessionExpired(false);
         } else {
-          // Sessione non valida
+          // Token non valido
           setUser(null);
           setSessionExpired(true);
           if (typeof window !== 'undefined') {
@@ -63,9 +67,8 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error("[AUTH] Errore nella verifica dell'autenticazione:", error);
         
-        // ✅ FIX: Gestione errori più chiara
-        if (error.response && [401, 419].includes(error.response.status)) {
-          // Sessione scaduta o non autorizzato
+        if (error.response && [401, 403].includes(error.response.status)) {
+          // Token scaduto o non autorizzato
           setUser(null);
           setSessionExpired(true);
           if (typeof window !== 'undefined') {
@@ -74,7 +77,6 @@ export const AuthProvider = ({ children }) => {
           }
         } else {
           // Altri errori (rete, server down, etc.)
-          // In caso di errore di rete, mantieni l'utente ma segnala il problema
           console.warn("[AUTH] Errore di rete, mantengo utente locale ma potrebbe essere necessario ri-autenticarsi");
           setUser(userFromStorage);
           setSessionExpired(false);
@@ -90,31 +92,26 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      // Ottieni sempre il CSRF cookie prima del login
-      await api.get("/sanctum/csrf-cookie", {
-        withCredentials: true,
-        useCache: false,
-        skipLoadingState: true,
-      });
-      // Login solo tramite sessione
-      const res = await api.post("/session-login-controller", { email, password }, { withCredentials: true });
-      if (res.data && res.data.user) {
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        setUser(res.data.user);
+      // Login tramite API token
+      const res = await api.post("/login", { email, password });
+      if (res.data && res.data.token) {
+        const token = res.data.token;
+        const user = res.data.user;
+        
+        // Salva token e utente
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // Imposta il token nell'header delle richieste future
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        setUser(user);
         setSessionExpired(false);
         setLoading(false);
-        return res.data.user;
-      }
-      // Se non abbiamo ricevuto l'utente nella risposta di login, proviamo a ottenerlo
-      const userRes = await api.get("/user", { withCredentials: true });
-      if (userRes.data) {
-        localStorage.setItem('user', JSON.stringify(userRes.data));
-        setUser(userRes.data);
-        setSessionExpired(false);
-        setLoading(false);
-        return userRes.data;
+        return user;
       } else {
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
         setUser(null);
         setSessionExpired(true);
         setLoading(false);
@@ -122,6 +119,7 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       localStorage.removeItem('user');
+      localStorage.removeItem('token');
       setUser(null);
       setSessionExpired(true);
       setLoading(false);
@@ -133,8 +131,8 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      // Chiama il backend per invalidare la sessione
-      await api.post("/logout", {}, { withCredentials: true });
+      // Chiama il backend per invalidare il token
+      await api.post("/logout");
     } catch (error) {
       console.error("[AUTH] Errore durante la chiamata di logout al backend:", error);
       // Non importa se fallisce, procediamo a pulire il frontend
@@ -142,14 +140,17 @@ export const AuthProvider = ({ children }) => {
       // Pulisce lo stato locale in ogni caso
       if (typeof window !== 'undefined') {
         localStorage.removeItem('user');
-        localStorage.removeItem('token'); // Rimuoviamo anche il token per sicurezza
+        localStorage.removeItem('token');
       }
+      
+      // Rimuove il token dall'header delle richieste
+      delete api.defaults.headers.common['Authorization'];
+      
       setUser(null);
       setSessionExpired(false);
       setLoading(false);
 
       // FORZA il reindirizzamento alla pagina di login.
-      // Questa è la parte fondamentale che mancava.
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
