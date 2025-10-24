@@ -26,8 +26,15 @@ class DriverActivityController extends Controller
                 ->first();
             
             if (!$driver) {
+                \Log::info('DriverActivityController: Driver non trovato', ['driver_name' => $driverName]);
                 return response()->json([]);
             }
+            
+            \Log::info('DriverActivityController: Driver trovato', [
+                'driver_id' => $driver->id,
+                'driver_name' => $driver->name . ' ' . $driver->surname,
+                'search_name' => $driverName
+            ]);
             
             // Carica le attività dell'autista tramite ActivityResource (stesso sistema del frontend)
             $activities = Activity::with([
@@ -41,10 +48,17 @@ class DriverActivityController extends Controller
                 ->whereHas('resources', function ($query) use ($driver) {
                     $query->where('driver_id', $driver->id);
                 })
-                ->whereDate('data_inizio', now()->format('Y-m-d')) // Filtra solo per oggi
+                // ->whereDate('data_inizio', now()->format('Y-m-d')) // Filtra solo per oggi - temporaneamente disabilitato per debug
                 ->orderBy('activities.created_at', 'desc')
-                ->get()
-                ->map(function ($activity) use ($driver) {
+                ->get();
+                
+            \Log::info('DriverActivityController: Attività trovate', [
+                'driver_id' => $driver->id,
+                'activities_count' => $activities->count(),
+                'activities_ids' => $activities->pluck('id')->toArray()
+            ]);
+                
+            $activities = $activities->map(function ($activity) use ($driver) {
                     // Costruisce l'indirizzo completo dal sito
                     $indirizzo = 'Indirizzo non specificato';
                     if ($activity->site) {
