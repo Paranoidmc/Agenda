@@ -649,10 +649,10 @@ class DocumentiController extends Controller
             ]);
             
             // Sostituisce i placeholder del documento (formato PhpWord: ${NOME_CAMPO})
-            $templateProcessor->setValue('CODICE_DOC', $documento->codice_doc ?? 'N/A');
-            $templateProcessor->setValue('NUMERO_DOC', $documento->numero_doc ?? 'N/A');
-            $templateProcessor->setValue('DATA_DOC', $documento->data_doc ? \Carbon\Carbon::parse($documento->data_doc)->format('d/m/Y') : 'N/A');
-            $templateProcessor->setValue('DATA_CONSEGNA', $documento->data_consegna ? \Carbon\Carbon::parse($documento->data_consegna)->format('d/m/Y') : 'N/A');
+            $templateProcessor->setValue('CODICE_DOC', $documento->codice_doc ?? 'Non disponibile');
+            $templateProcessor->setValue('NUMERO_DOC', $documento->numero_doc ?? 'Non disponibile');
+            $templateProcessor->setValue('DATA_DOC', $documento->data_doc ? \Carbon\Carbon::parse($documento->data_doc)->format('d/m/Y') : 'Non disponibile');
+            $templateProcessor->setValue('DATA_CONSEGNA', $documento->data_consegna ? \Carbon\Carbon::parse($documento->data_consegna)->format('d/m/Y') : 'Non disponibile');
             
             \Log::info('\u2705 Placeholder sostituiti', [
                 'codice_doc' => $documento->codice_doc,
