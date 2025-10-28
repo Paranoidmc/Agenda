@@ -52,11 +52,12 @@ export default function DataTable({
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   
   // Reset della pagina quando cambiano i dati o i filtri (solo per client-side)
+  // Per server-side, il reset è gestito dal componente padre tramite handleSearchChange
   useEffect(() => {
     if (!isServerSide) {
       setInternalCurrentPage(1);
     }
-  }, [actualSearchTerm, filters, actualItemsPerPage, isServerSide]);
+  }, [actualSearchTerm, filters, isServerSide]);
   
   // Debounce per la ricerca server-side
   useEffect(() => {
