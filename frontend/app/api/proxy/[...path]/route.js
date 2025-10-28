@@ -13,7 +13,9 @@ async function proxyRequest(request, { params }) {
     
     // Copia solo header necessari dal request originale
     const authHeader = request.headers.get('authorization');
+    console.log(`[PROXY] Auth header presente: ${!!authHeader}`);
     if (authHeader) {
+      console.log(`[PROXY] Auth header value: ${authHeader.substring(0, 30)}...`);
       headers.set('Authorization', authHeader);
     }
     
@@ -30,6 +32,9 @@ async function proxyRequest(request, { params }) {
     // Aggiungi header necessari per l'API
     headers.set('Accept', 'application/json');
     headers.set('X-Requested-With', 'XMLHttpRequest');
+    
+    // Log di debug per verificare gli header inviati
+    console.log(`[PROXY] Headers inviati:`, Object.fromEntries(Array.from(headers.entries())));
 
     const init = {
       method: request.method,
@@ -53,6 +58,17 @@ async function proxyRequest(request, { params }) {
     responseHeaders.set('Access-Control-Allow-Credentials', 'true');
 
     const body = await res.arrayBuffer();
+    
+    // Se c'è un errore 500, logga il corpo della risposta per debug
+    if (res.status === 500) {
+      try {
+        const bodyText = new TextDecoder().decode(body);
+        console.error(`[PROXY] Backend 500 error body:`, bodyText.substring(0, 500));
+      } catch (e) {
+        console.error(`[PROXY] Could not decode 500 error body`);
+      }
+    }
+    
     return new Response(body, {
       status: res.status,
       statusText: res.statusText,
