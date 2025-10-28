@@ -20,7 +20,6 @@ use App\Http\Controllers\VehicleDeadlineController;
 use App\Http\Controllers\VehicleTrackingController;
 use App\Http\Controllers\ProfessionalDriverLicenseController;
 use App\Http\Controllers\RentalVehicleController;
-use App\Http\Controllers\ProxyController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 
 /*
@@ -69,10 +68,23 @@ Route::get('download-document/{documentId}', [\App\Http\Controllers\Api\DriverAc
 Route::post('activities/{id}/start', [\App\Http\Controllers\Api\DriverActivityController::class, 'startActivity']);
 Route::post('activities/{id}/end', [\App\Http\Controllers\Api\DriverActivityController::class, 'endActivity']);
 
-// API Proxy route - forwards requests to internal API routes
-// This is used in production to avoid CORS issues
-// Route must be defined before auth middleware to handle authentication internally
-Route::any('/proxy/{path}', [ProxyController::class, 'handle'])->where('path', '.*');
+// API Proxy routes - redirect /proxy/* requests to actual API endpoints
+// This allows the frontend to use /api/proxy/* which maps to /api/*
+// We define individual proxy routes for each protected endpoint
+Route::prefix('proxy')->middleware(['auth:sanctum'])->group(function () {
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+    
+    Route::any('/{path}', function (Request $request, string $path) {
+        // Redirect to the actual API endpoint
+        $uri = '/api/' . $path;
+        if (!empty($request->query())) {
+            $uri .= '?' . http_build_query($request->query());
+        }
+        return redirect($uri, 307);
+    })->where('path', '.*');
+});
 
 // =========================================================================
 // PROTECTED ROUTES
