@@ -254,6 +254,9 @@ class DocumentiController extends Controller
     public function sincronizzaOggi()
     {
         try {
+            // Imposta il tempo massimo di esecuzione a 5 minuti
+            set_time_limit(300);
+            
             // Esegui il comando di sincronizzazione per oggi (1 giorno)
             Artisan::call('arca:sync-documenti', [
                 '--giorni' => 1,
@@ -587,6 +590,9 @@ class DocumentiController extends Controller
     public function syncDocumenti(Request $request)
     {
         try {
+            // Imposta il tempo massimo di esecuzione a 10 minuti
+            set_time_limit(600);
+            
             // Esegue il comando di sincronizzazione
             \Artisan::call('arca:sync-documenti', [
                 '--giorni' => $request->input('giorni', 7),

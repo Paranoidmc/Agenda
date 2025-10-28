@@ -343,6 +343,9 @@ class SiteController extends Controller
     public function sync()
     {
         try {
+            // Imposta il tempo massimo di esecuzione a 10 minuti
+            set_time_limit(600);
+            
             // Esegue solo la sincronizzazione cantieri del comando arca:sync
             \Artisan::call('arca:sync');
             $output = \Artisan::output();
