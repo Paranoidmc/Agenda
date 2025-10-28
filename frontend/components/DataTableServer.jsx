@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../lib/api';
 
 /**
@@ -64,18 +64,32 @@ export default function DataTableServer({
     return () => clearTimeout(timer);
   }, [searchTerm]);
   
-  // Reset della pagina quando cambiano ricerca, filtri o ordinamento
-  // Nota: itemsPerPage è gestito separatamente perché imposta la pagina a 1 manualmente
+  // Reset della pagina SOLO quando cambia effettivamente la ricerca (non alla prima load)
+  const prevDebouncedSearch = useRef('');
   useEffect(() => {
-    if (debouncedSearchTerm || Object.keys(filters).length > 0) {
+    if (prevDebouncedSearch.current !== debouncedSearchTerm && prevDebouncedSearch.current !== '') {
       setCurrentPage(1);
     }
-  }, [debouncedSearchTerm, filters]);
+    prevDebouncedSearch.current = debouncedSearchTerm;
+  }, [debouncedSearchTerm]);
+  
+  // Reset quando cambiano i filtri
+  const prevFilters = useRef({});
+  useEffect(() => {
+    if (JSON.stringify(prevFilters.current) !== JSON.stringify(filters) && Object.keys(prevFilters.current).length > 0) {
+      setCurrentPage(1);
+    }
+    prevFilters.current = filters;
+  }, [filters]);
   
   // Reset quando cambia l'ordinamento
+  const prevSortKey = useRef(null);
   useEffect(() => {
-    setCurrentPage(1);
-  }, [sortConfig.key, sortConfig.direction]);
+    if (prevSortKey.current !== null && prevSortKey.current !== sortConfig.key) {
+      setCurrentPage(1);
+    }
+    prevSortKey.current = sortConfig.key;
+  }, [sortConfig.key]);
   
   // Funzione per caricare i dati dal server
   const loadData = useCallback(async () => {
