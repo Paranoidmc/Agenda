@@ -68,21 +68,44 @@ Route::get('download-document/{documentId}', [\App\Http\Controllers\Api\DriverAc
 Route::post('activities/{id}/start', [\App\Http\Controllers\Api\DriverActivityController::class, 'startActivity']);
 Route::post('activities/{id}/end', [\App\Http\Controllers\Api\DriverActivityController::class, 'endActivity']);
 
-// API Proxy routes - redirect /proxy/* requests to actual API endpoints
+// API Proxy route - forwards requests to actual API routes
 // This allows the frontend to use /api/proxy/* which maps to /api/*
-// We define individual proxy routes for each protected endpoint
-Route::prefix('proxy')->middleware(['auth:sanctum'])->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-    
+Route::middleware(['auth:sanctum'])->prefix('proxy')->group(function () {
     Route::any('/{path}', function (Request $request, string $path) {
-        // Redirect to the actual API endpoint
-        $uri = '/api/' . $path;
-        if (!empty($request->query())) {
-            $uri .= '?' . http_build_query($request->query());
+        try {
+            $method = $request->method();
+            $route = rtrim($path, '/');
+            
+            // Build the actual API route
+            $uri = '/api/' . $route;
+            
+            if (!empty($request->query())) {
+                $uri .= '?' . http_build_query($request->query());
+            }
+            
+            // Create a sub-request to the actual API route
+            $subRequest = Request::create(
+                $uri,
+                $method,
+                $request->all(),
+                [],
+                [],
+                $request->server->all(),
+                $request->getContent()
+            );
+            
+            // Copy all headers from the original request
+            foreach ($request->headers->all() as $key => $value) {
+                $subRequest->headers->set($key, $value);
+            }
+            
+            // Handle the sub-request and return the response
+            return app()->handle($subRequest);
+            
+        } catch (\Exception $e) {
+            \Log::error('Proxy error: ' . $e->getMessage());
+            return response()->json(['error' => 'Proxy error'], 500);
         }
-        return redirect($uri, 307);
     })->where('path', '.*');
 });
 
