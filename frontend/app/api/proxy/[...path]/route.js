@@ -9,13 +9,27 @@ async function proxyRequest(request, { params }) {
   try {
     console.log(`[PROXY] ${request.method} ${targetUrl}`);
     
-    const headers = new Headers(request.headers);
-    // Rimuovi header host per sicurezza
-    headers.delete('host');
+    const headers = new Headers();
+    
+    // Copia solo header necessari dal request originale
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers.set('Authorization', authHeader);
+    }
+    
+    const contentType = request.headers.get('content-type');
+    if (contentType) {
+      headers.set('Content-Type', contentType);
+    }
+    
     // Assicura che il backend riceva JSON (se inviato)
     if (!headers.get('content-type') && request.method !== 'GET') {
       headers.set('content-type', 'application/json');
     }
+    
+    // Aggiungi header necessari per l'API
+    headers.set('Accept', 'application/json');
+    headers.set('X-Requested-With', 'XMLHttpRequest');
 
     const init = {
       method: request.method,
