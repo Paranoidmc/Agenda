@@ -15,8 +15,55 @@ export default function ClientiPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
 
   const canEdit = user?.role === 'admin';
+
+  // Sincronizzazione clienti
+  const sincronizzaClienti = async () => {
+    try {
+      setSyncing(true);
+      setSyncMessage('🔄 Sincronizzazione clienti in corso...');
+      
+      const response = await api.clienti.sync();
+      
+      if (response.data.success) {
+        setSyncMessage(`✅ Sincronizzazione completata! ${response.data.data?.clienti || 0} clienti sincronizzati`);
+        
+        // Emetti evento per notificare altre pagine
+        const syncEvent = new CustomEvent('clientsSync', {
+          detail: {
+            type: 'sync',
+            clienti: response.data.data?.clienti || 0
+          }
+        });
+        window.dispatchEvent(syncEvent);
+        
+        // Ricarica i clienti
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          perPage: String(perPage),
+        });
+        const { data } = await api.get(`/clients?${params.toString()}`);
+        if (Array.isArray(data)) {
+          setClienti(data);
+          setTotal(data.length);
+        } else if (data && Array.isArray(data.data)) {
+          setClienti(data.data);
+          setTotal(data.total || data.data.length);
+        }
+      } else {
+        setSyncMessage('❌ Errore durante la sincronizzazione');
+      }
+    } catch (error) {
+      console.error('Errore sincronizzazione clienti:', error);
+      setSyncMessage('❌ Errore durante la sincronizzazione: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMessage(''), 5000);
+    }
+  };
 
   useEffect(() => {
     const loadPage = async () => {
@@ -70,6 +117,75 @@ export default function ClientiPage() {
         buttonLabel={canEdit ? "Nuovo Cliente" : ""}
         onAddClick={canEdit ? handleCreateNew : null}
       />
+      
+      {/* Pulsante di sincronizzazione */}
+      <div style={{ 
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: '12px',
+        padding: '20px',
+        marginBottom: '24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
+        <div>
+          <h2 style={{ 
+            fontWeight: 600, 
+            margin: 0,
+            fontSize: '1.5rem',
+            color: '#1a1a1a'
+          }}>
+            Clienti Arca
+          </h2>
+          <p style={{
+            margin: '4px 0 0 0',
+            fontSize: '0.875rem',
+            color: '#6b7280'
+          }}>
+            Gestione clienti sincronizzati da Arca
+          </p>
+        </div>
+        
+        <button
+          onClick={sincronizzaClienti}
+          disabled={syncing}
+          style={{
+            backgroundColor: syncing ? '#9ca3af' : '#10b981',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: syncing ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            if (!syncing) e.target.style.backgroundColor = '#059669';
+          }}
+          onMouseLeave={(e) => {
+            if (!syncing) e.target.style.backgroundColor = '#10b981';
+          }}
+        >
+          {syncing ? '🔄 Sincronizzando...' : '🔄 Sincronizza Clienti'}
+        </button>
+      </div>
+
+      {/* Messaggio di sincronizzazione */}
+      {syncMessage && (
+        <div className={`mx-4 mb-4 p-3 rounded ${
+          syncMessage.includes('✅') 
+            ? 'bg-green-100 text-green-800 border border-green-200' 
+            : syncMessage.includes('❌')
+            ? 'bg-red-100 text-red-800 border border-red-200'
+            : 'bg-blue-100 text-blue-800 border border-blue-200'
+        }`}>
+          {syncMessage}
+        </div>
+      )}
+
       <DataTable
         data={clienti}
         columns={[

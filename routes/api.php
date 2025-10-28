@@ -107,9 +107,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Core API Resources
     Route::apiResource('drivers', DriverController::class);
+    Route::post('/drivers/sync', [DriverController::class, 'sync']);
     Route::apiResource('clients', ClientController::class);
+    Route::post('/clients/sync', [ClientController::class, 'sync']);
     Route::apiResource('activity-types', ActivityTypeController::class);
     Route::apiResource('sites', SiteController::class);
+    Route::post('/sites/sync', [SiteController::class, 'sync']);
     Route::apiResource('vehicles', VehicleController::class);
 
     Route::apiResource('activities', ActivityController::class);

@@ -1088,7 +1088,7 @@ export default function AttivitaDetailPage() {
   const attivitaTitle = isNew ? "Nuova Attività" : (attivita.descrizione || `Attività #${attivita.id}`);
 
   return (
-    <div style={{ padding: 32 }}>
+    <div style={{ padding: '32px 32px 32px 48px', maxWidth: '1400px', margin: '0 auto' }}>
       <PageHeader
         title={attivitaTitle}
         buttonLabel={canEdit ? (isEditing ? "Annulla" : isNew ? "" : "Modifica") : ""}

@@ -373,6 +373,63 @@ api.documenti = {
   }
 };
 
+// API Clienti
+api.clienti = {
+  /**
+   * Sincronizza clienti da Arca
+   * @returns {Promise} Risultato sincronizzazione
+   */
+  async sync() {
+    try {
+      const response = await api.post('/clients/sync', {}, {
+        timeout: 300000 // 5 minuti per sincronizzazioni
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Errore in sincronizzazione clienti:', error);
+      throw error;
+    }
+  }
+};
+
+// API Autisti
+api.autisti = {
+  /**
+   * Sincronizza autisti da Arca
+   * @returns {Promise} Risultato sincronizzazione
+   */
+  async sync() {
+    try {
+      const response = await api.post('/drivers/sync', {}, {
+        timeout: 300000 // 5 minuti per sincronizzazioni
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Errore in sincronizzazione autisti:', error);
+      throw error;
+    }
+  }
+};
+
+// API Cantieri (Siti)
+api.cantieri = {
+  /**
+   * Sincronizza cantieri da Arca
+   * @returns {Promise} Risultato sincronizzazione
+   */
+  async sync() {
+    try {
+      const response = await api.post('/sites/sync', {}, {
+        timeout: 300000 // 5 minuti per sincronizzazioni
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Errore in sincronizzazione cantieri:', error);
+      throw error;
+    }
+  }
+};
+
 // Aggiungi i metodi di utilità all'oggetto API
 Object.assign(api, apiUtils);
 

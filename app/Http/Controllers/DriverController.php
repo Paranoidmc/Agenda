@@ -340,4 +340,37 @@ class DriverController extends Controller
         $driver->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Sincronizza autisti da Arca
+     */
+    public function sync()
+    {
+        try {
+            // Esegue solo la sincronizzazione autisti del comando arca:sync
+            \Artisan::call('arca:sync');
+            $output = \Artisan::output();
+            
+            // Estrai il numero di autisti sincronizzati dall'output
+            $autistiSincronizzati = 0;
+            if (preg_match('/Autista sincronizzato:/', $output)) {
+                // Conta le occorrenze
+                $autistiSincronizzati = substr_count($output, 'Autista sincronizzato:');
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Sincronizzazione autisti completata con successo',
+                'data' => [
+                    'autisti' => $autistiSincronizzati
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Errore sincronizzazione autisti: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore durante la sincronizzazione: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

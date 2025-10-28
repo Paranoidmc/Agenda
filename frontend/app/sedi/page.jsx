@@ -18,6 +18,42 @@ export default function SediPage() {
   const [error, setError] = useState("");
   const [clienti, setClienti] = useState([]);
   const [dataVersion, setDataVersion] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+
+  // Sincronizzazione cantieri
+  const sincronizzaCantieri = async () => {
+    try {
+      setSyncing(true);
+      setSyncMessage('🔄 Sincronizzazione cantieri in corso...');
+      
+      const response = await api.cantieri.sync();
+      
+      if (response.data.success) {
+        setSyncMessage(`✅ Sincronizzazione completata! ${response.data.data?.cantieri || 0} cantieri sincronizzati`);
+        
+        // Emetti evento per notificare altre pagine
+        const syncEvent = new CustomEvent('sitesSync', {
+          detail: {
+            type: 'sync',
+            cantieri: response.data.data?.cantieri || 0
+          }
+        });
+        window.dispatchEvent(syncEvent);
+        
+        // Ricarica i cantieri
+        fetchSediWithSearch(searchTerm, false);
+      } else {
+        setSyncMessage('❌ Errore durante la sincronizzazione');
+      }
+    } catch (error) {
+      console.error('Errore sincronizzazione cantieri:', error);
+      setSyncMessage('❌ Errore durante la sincronizzazione: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMessage(''), 5000);
+    }
+  };
 
   // Campi del form sede
   const sedeFields = [
@@ -157,6 +193,75 @@ export default function SediPage() {
         buttonLabel="Nuovo Cantiere" 
         onAddClick={handleCreateNew} 
       />
+      
+      {/* Pulsante di sincronizzazione */}
+      <div style={{ 
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: '12px',
+        padding: '20px',
+        marginBottom: '24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
+        <div>
+          <h2 style={{ 
+            fontWeight: 600, 
+            margin: 0,
+            fontSize: '1.5rem',
+            color: '#1a1a1a'
+          }}>
+            Cantieri Arca
+          </h2>
+          <p style={{
+            margin: '4px 0 0 0',
+            fontSize: '0.875rem',
+            color: '#6b7280'
+          }}>
+            Gestione cantieri sincronizzati da Arca
+          </p>
+        </div>
+        
+        <button
+          onClick={sincronizzaCantieri}
+          disabled={syncing}
+          style={{
+            backgroundColor: syncing ? '#9ca3af' : '#10b981',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: syncing ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            if (!syncing) e.target.style.backgroundColor = '#059669';
+          }}
+          onMouseLeave={(e) => {
+            if (!syncing) e.target.style.backgroundColor = '#10b981';
+          }}
+        >
+          {syncing ? '🔄 Sincronizzando...' : '🔄 Sincronizza Cantieri'}
+        </button>
+      </div>
+
+      {/* Messaggio di sincronizzazione */}
+      {syncMessage && (
+        <div className={`mx-4 mb-4 p-3 rounded ${
+          syncMessage.includes('✅') 
+            ? 'bg-green-100 text-green-800 border border-green-200' 
+            : syncMessage.includes('❌')
+            ? 'bg-red-100 text-red-800 border border-red-200'
+            : 'bg-blue-100 text-blue-800 border border-blue-200'
+        }`}>
+          {syncMessage}
+        </div>
+      )}
+
       <div>
         <DataTable 
           data={sedi}

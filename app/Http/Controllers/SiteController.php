@@ -336,4 +336,37 @@ class SiteController extends Controller
             'data' => $sites
         ]);
     }
+
+    /**
+     * Sincronizza cantieri (siti) da Arca
+     */
+    public function sync()
+    {
+        try {
+            // Esegue solo la sincronizzazione cantieri del comando arca:sync
+            \Artisan::call('arca:sync');
+            $output = \Artisan::output();
+            
+            // Estrai il numero di cantieri sincronizzati dall'output
+            $cantieriSincronizzati = 0;
+            if (preg_match('/Cantiere sincronizzato:/', $output)) {
+                // Conta le occorrenze
+                $cantieriSincronizzati = substr_count($output, 'Cantiere sincronizzato:');
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Sincronizzazione cantieri completata con successo',
+                'data' => [
+                    'cantieri' => $cantieriSincronizzati
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Errore sincronizzazione cantieri: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore durante la sincronizzazione: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

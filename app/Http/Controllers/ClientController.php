@@ -285,4 +285,37 @@ class ClientController extends Controller
         $client->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Sincronizza clienti da Arca
+     */
+    public function sync()
+    {
+        try {
+            // Esegue solo la sincronizzazione clienti del comando arca:sync
+            \Artisan::call('arca:sync');
+            $output = \Artisan::output();
+            
+            // Estrai il numero di clienti sincronizzati dall'output
+            $clientiSincronizzati = 0;
+            if (preg_match('/Cliente sincronizzato: (\d+)/', $output)) {
+                // Conta le occorrenze
+                $clientiSincronizzati = substr_count($output, 'Cliente sincronizzato:');
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Sincronizzazione clienti completata con successo',
+                'data' => [
+                    'clienti' => $clientiSincronizzati
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Errore sincronizzazione clienti: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore durante la sincronizzazione: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

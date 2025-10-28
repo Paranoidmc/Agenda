@@ -196,6 +196,27 @@ function AttivitaContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, currentPage, perPage]);
 
+  // Listener per eventi di sincronizzazione real-time
+  useEffect(() => {
+    const handleSyncEvent = (event) => {
+      console.log('🔄 Ricevuto evento sincronizzazione in attività:', event.detail);
+      // Ricarica le attività
+      load({ page: currentPage, take: perPage });
+    };
+
+    window.addEventListener('documentsSync', handleSyncEvent);
+    window.addEventListener('clientsSync', handleSyncEvent);
+    window.addEventListener('driversSync', handleSyncEvent);
+    window.addEventListener('sitesSync', handleSyncEvent);
+
+    return () => {
+      window.removeEventListener('documentsSync', handleSyncEvent);
+      window.removeEventListener('clientsSync', handleSyncEvent);
+      window.removeEventListener('driversSync', handleSyncEvent);
+      window.removeEventListener('sitesSync', handleSyncEvent);
+    };
+  }, [currentPage, perPage]);
+
   const handleRowClick = (item) => {
     if (item?.id) router.push(`/attivita/${item.id}`);
   };

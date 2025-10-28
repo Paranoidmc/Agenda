@@ -89,6 +89,20 @@ class VehicleDeadlineController extends Controller
             $query->where('status', $request->status);
         }
         
+        // Filtraggio per ricerca testuale
+        if ($request->has('search') && $request->search) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('type', 'like', "%$search%")
+                  ->orWhere('notes', 'like', "%$search%")
+                  ->orWhereHas('vehicle', function ($sub) use ($search) {
+                      $sub->where('plate', 'like', "%$search%")
+                          ->orWhere('brand', 'like', "%$search%")
+                          ->orWhere('model', 'like', "%$search%");
+                  });
+            });
+        }
+        
         // Log della query SQL
         $sql = $query->toSql();
         $bindings = $query->getBindings();

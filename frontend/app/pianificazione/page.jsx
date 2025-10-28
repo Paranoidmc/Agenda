@@ -2,7 +2,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
 import AgendaGiornalieraPage from "../agenda-giornaliera/page";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 export const dynamic = 'force-dynamic';
 
 // Mappa colori stati (coerente con Agenda Giornaliera)
@@ -29,6 +29,7 @@ import "./page.css";
 
 function PianificazioneInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState("Cantiere");
   // Nuova modalità calendario: settimana o giorno
   const [calendarMode, setCalendarMode] = useState('week'); // 'week' | 'day'
@@ -38,6 +39,51 @@ function PianificazioneInner() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Listener per eventi di sincronizzazione real-time
+  useEffect(() => {
+    const handleSyncEvent = (event) => {
+      console.log('🔄 Ricevuto evento sincronizzazione in pianificazione:', event.detail);
+      // Ricarica le attività
+      fetchActivities();
+    };
+
+    window.addEventListener('documentsSync', handleSyncEvent);
+    window.addEventListener('clientsSync', handleSyncEvent);
+    window.addEventListener('driversSync', handleSyncEvent);
+    window.addEventListener('sitesSync', handleSyncEvent);
+
+    return () => {
+      window.removeEventListener('documentsSync', handleSyncEvent);
+      window.removeEventListener('clientsSync', handleSyncEvent);
+      window.removeEventListener('driversSync', handleSyncEvent);
+      window.removeEventListener('sitesSync', handleSyncEvent);
+    };
+  }, []);
+
+  const fetchActivities = () => {
+    setLoading(true);
+    const start = currentWeek[0].toISOString().split("T")[0];
+    const end = currentWeek[6].toISOString().split("T")[0];
+    api.get('/activities', {
+      params: {
+        start_date: start,
+        end_date: end,
+        per_page: 2000,
+        sort: 'data_inizio',
+        order: 'asc',
+      }
+    })
+      .then(res => {
+        const list = Array.isArray(res.data.data) ? res.data.data : [];
+        setEvents(list.map(normalizeEvent));
+        loadRows(viewMode, list);
+      })
+      .catch(err => {
+        setError("Errore nel caricamento attività");
+      })
+      .finally(() => setLoading(false));
+  };
 
   // Calcola array settimana (lun-dom)
   function getWeekArray(date) {
@@ -131,34 +177,22 @@ function PianificazioneInner() {
 
   // Fetch dati reali
   useEffect(() => {
-    setLoading(true);
-    setError("");
-    // Calcola range settimana
-    const start = currentWeek[0].toISOString().split("T")[0];
-    const end = currentWeek[6].toISOString().split("T")[0];
-    // Carica attività
-    api.get('/activities', {
-      params: {
-        start_date: start,
-        end_date: end,
-        per_page: 2000,
-        sort: 'data_inizio',
-        order: 'asc',
-      }
-    })
-      .then(res => {
-        const list = Array.isArray(res.data.data) ? res.data.data : [];
-        console.log("DEBUG eventi RAW dal backend:", list);
-        setEvents(list.map(normalizeEvent));
-        // Carica righe secondo viewMode
-        loadRows(viewMode, list);
-      })
-      .catch(err => {
-        setError("Errore nel caricamento attività");
-      })
-      .finally(() => setLoading(false));
+    fetchActivities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWeek, viewMode]);
+
+  // Handler per click su evento attività
+  const handleEventClick = (event) => {
+    console.log('🎯 Click su attività:', event);
+    if (event.data?.id || event.id) {
+      router.push(`/attivita/${event.data?.id || event.id}`);
+    }
+  };
+
+  // Handler per aggiunta nuova attività
+  const handleAddActivity = () => {
+    router.push('/attivita/new');
+  };
 
   // Normalizza evento per WeeklyCalendar
   // Mappa stato inglese → italiano
@@ -338,7 +372,7 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
             </div>
             {/* Centro: Range Date */}
             <div className="current-date">{formatWeekRange(currentWeek)}</div>
-            {/* Destra: Selettori Vista + Toggle modalità */}
+            {/* Destra: Selettori Vista + Toggle modalità + Aggiungi */}
             <div className="view-selectors" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button className={"view-selector" + (viewMode === "Cantiere" ? " active" : "")} onClick={() => setViewMode("Cantiere")}>Cantiere</button>
@@ -350,6 +384,29 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
                 <button className={"view-selector" + (calendarMode === "week" ? " active" : "")} onClick={() => setCalendarMode('week')}>Settimana</button>
                 <button className={"view-selector" + (calendarMode === "day" ? " active" : "")} onClick={() => setCalendarMode('day')}>Giorno</button>
               </div>
+              <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
+              <button 
+                onClick={handleAddActivity}
+                style={{
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#059669';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#10b981';
+                }}
+              >
+                ➕ Aggiungi Attività
+              </button>
             </div>
           </div>
           <div className="calendar-container">
@@ -366,6 +423,7 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
                 selectedDate={selectedDate}
                 onPrevWeek={handlePrevWeek}
                 onNextWeek={handleNextWeek}
+                onEventClick={handleEventClick}
               />
             )}
           </div>
