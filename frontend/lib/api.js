@@ -75,6 +75,13 @@ api.interceptors.request.use(config => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Log per debug in produzione
+    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`[API REQUEST] Auth header: ${config.headers.Authorization ? 'PRESENT' : 'MISSING'}`);
+    if (config.headers.Authorization) {
+      console.log(`[API REQUEST] Auth header value: ${config.headers.Authorization.substring(0, 30)}...`);
+    }
   }
   
   if (config.method === 'get' && config.useCache !== false) {
@@ -195,10 +202,20 @@ api.interceptors.response.use(
       case 500: // Server Error
         const serverErrorData = error.response.data;
         const serverErrorUrl = error.response.config?.url;
+        console.error(`[API ERROR 500] URL: ${serverErrorUrl}`);
         if (!serverErrorData || (typeof serverErrorData === 'object' && Object.keys(serverErrorData).length === 0)) {
           console.error(`Errore del server (500) su ${serverErrorUrl}: Nessun dettaglio restituito dal backend.`);
         } else {
-          console.error(`Errore del server (500) su ${serverErrorUrl}:`, serverErrorData);
+          console.error(`[API ERROR 500] Backend error details:`, serverErrorData);
+          // Se il backend ha restituito dettagli dell'errore, mostrali
+          if (typeof serverErrorData === 'object') {
+            if (serverErrorData.message) {
+              console.error(`[API ERROR 500] Error message:`, serverErrorData.message);
+            }
+            if (serverErrorData.authHeaderPresent !== undefined) {
+              console.error(`[API ERROR 500] Auth header was ${serverErrorData.authHeaderPresent ? 'PRESENT' : 'MISSING'} in proxy`);
+            }
+          }
         }
         break;
         

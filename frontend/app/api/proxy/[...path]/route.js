@@ -59,13 +59,29 @@ async function proxyRequest(request, { params }) {
 
     const body = await res.arrayBuffer();
     
-    // Se c'è un errore 500, logga il corpo della risposta per debug
+    // Se c'è un errore 500, logga e invia l'errore al client
     if (res.status === 500) {
       try {
         const bodyText = new TextDecoder().decode(body);
-        console.error(`[PROXY] Backend 500 error body:`, bodyText.substring(0, 500));
+        console.error(`[PROXY] Backend 500 error body:`, bodyText);
+        
+        // Includi i dettagli dell'errore nella risposta per debug lato client
+        const errorInfo = {
+          message: bodyText.substring(0, 1000),
+          url: targetUrl,
+          method: request.method,
+          authHeaderPresent: !!authHeader
+        };
+        return new Response(JSON.stringify(errorInfo), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
       } catch (e) {
-        console.error(`[PROXY] Could not decode 500 error body`);
+        console.error(`[PROXY] Could not decode 500 error body:`, e);
+        return new Response(JSON.stringify({ error: 'Could not decode error body' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     }
     
