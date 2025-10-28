@@ -73,6 +73,11 @@ Route::post('activities/{id}/end', [\App\Http\Controllers\Api\DriverActivityCont
 // =========================================================================
 // These routes require session-based authentication via Sanctum.
 
+// NB: CORS è gestito globalmente; manteniamo auth, ma permettiamo preflight OPTIONS
+Route::options('/{any}', function() {
+    return response('OK', 200);
+})->where('any', '.*');
+
 Route::middleware(['auth:sanctum'])->group(function () {
 
     // MOMAP settings (temporaneamente senza can:admin per debug)
