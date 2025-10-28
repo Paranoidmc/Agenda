@@ -48,9 +48,9 @@ function getCookie(name) {
 
 // Configurazione di base per axios
 // Usiamo l'URL del backend in base all'ambiente
-// In produzione chiama direttamente la backend API
+// In produzione usa percorso relativo per evitare CORS
 const resolvedBaseURL = process.env.NODE_ENV === 'production' 
-  ? 'https://edilcipriano.peels.it/api'
+  ? '/api'
   : 'http://localhost:8000/api';
 
 const api = axios.create({
