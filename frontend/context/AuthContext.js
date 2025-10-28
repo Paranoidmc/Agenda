@@ -96,23 +96,20 @@ export const AuthProvider = ({ children }) => {
       const isProduction = window.location.origin.includes('edilcipriano.peels.it');
       
       if (isProduction) {
-        // Flow session-based via Sanctum + proxy (cookie-based)
-        await api.get('/sanctum/csrf-cookie', { withCredentials: true });
-        const res = await api.post('/session-login-controller', { email, password }, { withCredentials: true });
-        if (!res || res.status >= 400) throw new Error('Login fallito');
-        // Recupera dati utente autenticato tramite cookie di sessione
-        const me = await api.get('/user', { withCredentials: true, useCache: false, skipLoadingState: false });
-        if (me?.data) {
-          setUser(me.data);
-          localStorage.setItem('user', JSON.stringify(me.data));
-          // Rimuovi eventuale token precedente
-          localStorage.removeItem('token');
-          delete api.defaults.headers.common['Authorization'];
+        // PROVVISORIO: usa login token-based in produzione per evitare cookie/proxy
+        const res = await api.post('/login', { email, password });
+        if (res.data && res.data.token) {
+          const token = res.data.token;
+          const user = res.data.user;
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(user));
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setUser(user);
           setSessionExpired(false);
           setLoading(false);
-          return me.data;
+          return user;
         }
-        throw new Error('Impossibile ottenere i dati utente');
+        throw new Error('Login fallito');
       } else {
         // Flow token-based in sviluppo
         const res = await api.post('/login', { email, password });
