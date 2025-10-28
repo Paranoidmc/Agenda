@@ -96,10 +96,8 @@ export const AuthProvider = ({ children }) => {
       const isProduction = window.location.origin.includes('edilcipriano.peels.it');
       
       if (isProduction) {
-        // Produzione: chiama direttamente il backend (evita proxy)
-        const res = await api.post('/login', { email, password }, {
-          baseURL: 'https://api.edilcipriano.peels.it/api'
-        });
+        // Produzione: chiama direttamente il backend
+        const res = await api.post('/login', { email, password });
         if (res.data && res.data.token) {
           const token = res.data.token;
           const user = res.data.user;
