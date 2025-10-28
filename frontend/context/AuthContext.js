@@ -92,7 +92,10 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      if (process.env.NODE_ENV === 'production') {
+      // Usa sempre session-based in produzione (controlla l'URL invece di NODE_ENV che non funziona nel build)
+      const isProduction = window.location.origin.includes('edilcipriano.peels.it');
+      
+      if (isProduction) {
         // Flow session-based via Sanctum + proxy (cookie-based)
         await api.get('/sanctum/csrf-cookie', { withCredentials: true });
         const res = await api.post('/session-login-controller', { email, password }, { withCredentials: true });
