@@ -64,10 +64,18 @@ export default function DataTableServer({
     return () => clearTimeout(timer);
   }, [searchTerm]);
   
-  // Reset della pagina quando cambiano i filtri o la ricerca
+  // Reset della pagina quando cambiano ricerca, filtri o ordinamento
+  // Nota: itemsPerPage è gestito separatamente perché imposta la pagina a 1 manualmente
+  useEffect(() => {
+    if (debouncedSearchTerm || Object.keys(filters).length > 0) {
+      setCurrentPage(1);
+    }
+  }, [debouncedSearchTerm, filters]);
+  
+  // Reset quando cambia l'ordinamento
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, filters, itemsPerPage, sortConfig]);
+  }, [sortConfig.key, sortConfig.direction]);
   
   // Funzione per caricare i dati dal server
   const loadData = useCallback(async () => {
@@ -196,6 +204,7 @@ export default function DataTableServer({
   // Funzione per cambiare il numero di elementi per pagina
   const handleItemsPerPageChange = (e) => {
     setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1); // Reset alla prima pagina
   };
   
   // Funzione per aggiornare manualmente i dati
