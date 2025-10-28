@@ -37,7 +37,6 @@ class VehicleController extends Controller
                           ->orWhere('color', 'like', "%$search%")
                           ->orWhere('fuel_type', 'like', "%$search%")
                           ->orWhere('chassis_number', 'like', "%$search%")
-                          ->orWhere('vin_code', 'like', "%$search%")
                           ->orWhere('notes', 'like', "%$search%");
                     });
                 }
