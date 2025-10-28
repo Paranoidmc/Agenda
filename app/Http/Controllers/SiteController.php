@@ -346,8 +346,8 @@ class SiteController extends Controller
             // Imposta il tempo massimo di esecuzione a 10 minuti
             set_time_limit(600);
             
-            // Esegue solo la sincronizzazione cantieri del comando arca:sync
-            \Artisan::call('arca:sync');
+            // Esegue solo la sincronizzazione cantieri (destinazioni)
+            \Artisan::call('arca:sync', ['--only' => 'destinazioni']);
             $output = \Artisan::output();
             
             // Estrai il numero di cantieri sincronizzati dall'output

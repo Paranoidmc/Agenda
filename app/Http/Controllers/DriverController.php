@@ -350,8 +350,8 @@ class DriverController extends Controller
             // Imposta il tempo massimo di esecuzione a 10 minuti
             set_time_limit(600);
             
-            // Esegue solo la sincronizzazione autisti del comando arca:sync
-            \Artisan::call('arca:sync');
+            // Esegue solo la sincronizzazione autisti (agenti)
+            \Artisan::call('arca:sync', ['--only' => 'agenti']);
             $output = \Artisan::output();
             
             // Estrai il numero di autisti sincronizzati dall'output

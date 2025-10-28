@@ -15,6 +15,9 @@ class ArcaSyncDocumenti extends Command
 
     public function handle()
     {
+        // Imposta il tempo massimo di esecuzione a 10 minuti
+        set_time_limit(600);
+        
         $giorni = $this->option('giorni');
         $retry = $this->option('retry');
         

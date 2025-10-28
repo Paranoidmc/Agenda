@@ -295,8 +295,8 @@ class ClientController extends Controller
             // Imposta il tempo massimo di esecuzione a 10 minuti
             set_time_limit(600);
             
-            // Esegue solo la sincronizzazione clienti del comando arca:sync
-            \Artisan::call('arca:sync');
+            // Esegue solo la sincronizzazione clienti
+            \Artisan::call('arca:sync', ['--only' => 'clienti']);
             $output = \Artisan::output();
             
             // Estrai il numero di clienti sincronizzati dall'output

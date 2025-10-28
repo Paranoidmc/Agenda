@@ -10,7 +10,7 @@ use GuzzleHttp\Client;
 
 class ArcaSync extends Command
 {
-    protected $signature = 'arca:sync';
+    protected $signature = 'arca:sync {--only= : Sincronizza solo un\'entità specifica (clienti|destinazioni|agenti|documenti)}';
     protected $description = 'Sincronizza dati da API Arca (clienti, destinazioni, agenti, documenti)';
 
     public function handle()
@@ -49,11 +49,26 @@ class ArcaSync extends Command
             return 1;
         }
         $headers = [ 'Authorization' => 'Bearer ' . $token ];
-        // 3. Sincronizza ogni entità
-        $this->syncClienti($client, $headers);
-        $this->syncDestinazioni($client, $headers);
-        $this->syncAgenti($client, $headers);
-        $this->syncDocumenti($client, $headers, $token);
+        
+        // 3. Sincronizza solo l'entità specificata o tutte se non specificato
+        $only = $this->option('only');
+        
+        if ($only === 'clienti') {
+            $this->syncClienti($client, $headers);
+        } elseif ($only === 'destinazioni') {
+            $this->syncDestinazioni($client, $headers);
+        } elseif ($only === 'agenti') {
+            $this->syncAgenti($client, $headers);
+        } elseif ($only === 'documenti') {
+            $this->syncDocumenti($client, $headers, $token);
+        } else {
+            // Se non specificato, sincronizza tutto
+            $this->syncClienti($client, $headers);
+            $this->syncDestinazioni($client, $headers);
+            $this->syncAgenti($client, $headers);
+            $this->syncDocumenti($client, $headers, $token);
+        }
+        
         $this->info('Sincronizzazione ARCA completata!');
         return 0;
     }
