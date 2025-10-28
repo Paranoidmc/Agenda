@@ -20,6 +20,7 @@ use App\Http\Controllers\VehicleDeadlineController;
 use App\Http\Controllers\VehicleTrackingController;
 use App\Http\Controllers\ProfessionalDriverLicenseController;
 use App\Http\Controllers\RentalVehicleController;
+use App\Http\Controllers\ProxyController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 
 /*
@@ -67,6 +68,11 @@ Route::get('download-document/{documentId}', [\App\Http\Controllers\Api\DriverAc
 // Rotte alternative per compatibilità con PWA frontend
 Route::post('activities/{id}/start', [\App\Http\Controllers\Api\DriverActivityController::class, 'startActivity']);
 Route::post('activities/{id}/end', [\App\Http\Controllers\Api\DriverActivityController::class, 'endActivity']);
+
+// API Proxy route - forwards requests to internal API routes
+// This is used in production to avoid CORS issues
+// Route must be defined before auth middleware to handle authentication internally
+Route::any('/proxy/{path}', [ProxyController::class, 'handle'])->where('path', '.*');
 
 // =========================================================================
 // PROTECTED ROUTES
