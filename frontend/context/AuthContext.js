@@ -92,34 +92,44 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      // Login tramite API token
-      const res = await api.post("/login", { email, password });
-      if (res.data && res.data.token) {
-        const token = res.data.token;
-        const user = res.data.user;
-        
-        // Salva token e utente
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        // Imposta il token nell'header delle richieste future
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        setUser(user);
-        setSessionExpired(false);
-        setLoading(false);
-        return user;
+      if (process.env.NODE_ENV === 'production') {
+        // Flow session-based via Sanctum + proxy (cookie-based)
+        await api.get('/sanctum/csrf-cookie', { withCredentials: true });
+        const res = await api.post('/session-login-controller', { email, password }, { withCredentials: true });
+        if (!res || res.status >= 400) throw new Error('Login fallito');
+        // Recupera dati utente autenticato tramite cookie di sessione
+        const me = await api.get('/user', { withCredentials: true, useCache: false, skipLoadingState: false });
+        if (me?.data) {
+          setUser(me.data);
+          localStorage.setItem('user', JSON.stringify(me.data));
+          // Rimuovi eventuale token precedente
+          localStorage.removeItem('token');
+          delete api.defaults.headers.common['Authorization'];
+          setSessionExpired(false);
+          setLoading(false);
+          return me.data;
+        }
+        throw new Error('Impossibile ottenere i dati utente');
       } else {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        setUser(null);
-        setSessionExpired(true);
-        setLoading(false);
-        throw new Error("Login fallito: impossibile ottenere i dati utente");
+        // Flow token-based in sviluppo
+        const res = await api.post('/login', { email, password });
+        if (res.data && res.data.token) {
+          const token = res.data.token;
+          const user = res.data.user;
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(user));
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setUser(user);
+          setSessionExpired(false);
+          setLoading(false);
+          return user;
+        }
+        throw new Error('Login fallito');
       }
     } catch (err) {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+      delete api.defaults.headers.common['Authorization'];
       setUser(null);
       setSessionExpired(true);
       setLoading(false);
