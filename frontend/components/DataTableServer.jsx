@@ -180,6 +180,7 @@ export default function DataTableServer({
   // Funzione per gestire la ricerca
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset alla prima pagina quando si fa una nuova ricerca
   };
   
   // Funzione per gestire i filtri
@@ -188,6 +189,7 @@ export default function DataTableServer({
       ...prev,
       [key]: value
     }));
+    setCurrentPage(1); // Reset alla prima pagina quando si cambiano i filtri
   };
   
   // Funzione per gestire l'ordinamento
@@ -197,6 +199,7 @@ export default function DataTableServer({
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1); // Reset alla prima pagina quando si cambia l'ordinamento
   };
   
   // Funzione per gestire la selezione delle colonne
@@ -485,6 +488,7 @@ export default function DataTableServer({
     const handleApplyFilters = () => {
       setFilters(localFilters);
       setActiveFilter(null);
+      setCurrentPage(1); // Reset alla prima pagina quando si applicano i filtri
     };
     
     const handleClearFilters = () => {
