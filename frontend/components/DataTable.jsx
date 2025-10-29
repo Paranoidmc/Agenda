@@ -54,7 +54,7 @@ export default function DataTable({
   // Reset della pagina quando cambiano i dati o i filtri (solo per client-side)
   // Per server-side, il reset è gestito dal componente padre tramite handleSearchChange
   useEffect(() => {
-    if (!isServerSide) {
+    if (!isServerSide && (actualSearchTerm || Object.keys(filters).length > 0)) {
       setInternalCurrentPage(1);
     }
   }, [actualSearchTerm, filters, isServerSide]);
