@@ -64,32 +64,8 @@ export default function DataTableServer({
     return () => clearTimeout(timer);
   }, [searchTerm]);
   
-  // Reset della pagina SOLO quando cambia effettivamente la ricerca (non alla prima load)
-  const prevDebouncedSearch = useRef('');
-  useEffect(() => {
-    if (prevDebouncedSearch.current !== debouncedSearchTerm && prevDebouncedSearch.current !== '') {
-      setCurrentPage(1);
-    }
-    prevDebouncedSearch.current = debouncedSearchTerm;
-  }, [debouncedSearchTerm]);
-  
-  // Reset quando cambiano i filtri
-  const prevFilters = useRef({});
-  useEffect(() => {
-    if (JSON.stringify(prevFilters.current) !== JSON.stringify(filters) && Object.keys(prevFilters.current).length > 0) {
-      setCurrentPage(1);
-    }
-    prevFilters.current = filters;
-  }, [filters]);
-  
-  // Reset quando cambia l'ordinamento
-  const prevSortKey = useRef(null);
-  useEffect(() => {
-    if (prevSortKey.current !== null && prevSortKey.current !== sortConfig.key) {
-      setCurrentPage(1);
-    }
-    prevSortKey.current = sortConfig.key;
-  }, [sortConfig.key]);
+  // RIMOSSO: useEffect che causavano reset indesiderati della pagina
+  // Il reset alla pagina 1 viene gestito solo esplicitamente nelle funzioni
   
   // Funzione per caricare i dati dal server
   const loadData = useCallback(async () => {
