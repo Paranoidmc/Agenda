@@ -156,8 +156,16 @@ export default function DataTableServer({
   // Funzione per gestire la ricerca
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // Reset alla prima pagina quando si fa una nuova ricerca
   };
+  
+  // Reset alla prima pagina SOLO quando il debounce della ricerca è completato
+  const prevDebouncedSearch = useRef('');
+  useEffect(() => {
+    if (prevDebouncedSearch.current !== debouncedSearchTerm && prevDebouncedSearch.current !== '') {
+      setCurrentPage(1);
+    }
+    prevDebouncedSearch.current = debouncedSearchTerm;
+  }, [debouncedSearchTerm]);
   
   // Funzione per gestire i filtri
   const handleFilterChange = (key, value) => {
@@ -165,8 +173,16 @@ export default function DataTableServer({
       ...prev,
       [key]: value
     }));
-    setCurrentPage(1); // Reset alla prima pagina quando si cambiano i filtri
   };
+  
+  // Reset alla prima pagina quando cambiano i filtri
+  const prevFilters = useRef({});
+  useEffect(() => {
+    if (JSON.stringify(prevFilters.current) !== JSON.stringify(filters) && Object.keys(prevFilters.current).length > 0) {
+      setCurrentPage(1);
+    }
+    prevFilters.current = filters;
+  }, [filters]);
   
   // Funzione per gestire l'ordinamento
   const handleSort = (key) => {
@@ -175,8 +191,16 @@ export default function DataTableServer({
       direction = 'desc';
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Reset alla prima pagina quando si cambia l'ordinamento
   };
+  
+  // Reset alla prima pagina quando cambia l'ordinamento
+  const prevSortKey = useRef(null);
+  useEffect(() => {
+    if (prevSortKey.current !== null && prevSortKey.current !== sortConfig.key) {
+      setCurrentPage(1);
+    }
+    prevSortKey.current = sortConfig.key;
+  }, [sortConfig.key]);
   
   // Funzione per gestire la selezione delle colonne
   const handleColumnToggle = (key) => {
@@ -464,7 +488,6 @@ export default function DataTableServer({
     const handleApplyFilters = () => {
       setFilters(localFilters);
       setActiveFilter(null);
-      setCurrentPage(1); // Reset alla prima pagina quando si applicano i filtri
     };
     
     const handleClearFilters = () => {
