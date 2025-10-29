@@ -59,6 +59,9 @@ class VehicleController extends Controller
                 'data' => $vehicles
             ]);
         } catch (\Exception $e) {
+            \Log::error('VehicleController error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'error' => 'Errore nel caricamento dei veicoli: ' . $e->getMessage()
             ], 500);
