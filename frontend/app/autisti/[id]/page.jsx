@@ -32,6 +32,7 @@ export default function AutistaDetailPage() {
 
   // Campi del form autista - informazioni personali
   const autistaFields = [
+    { name: "codice_arca", label: "Codice Arca" },
     { name: "nome", label: "Nome", required: true },
     { name: "cognome", label: "Cognome", required: true },
     { name: "telefono", label: "Telefono" },
