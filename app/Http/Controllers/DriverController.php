@@ -144,6 +144,9 @@ class DriverController extends Controller
         // Map Italian field names to English field names
         $data = [];
         
+        // Codice Arca
+        if (isset($validated['codice_arca'])) $data['codice_arca'] = $validated['codice_arca'];
+        
         // Prioritize English fields, but use Italian if English is not provided
         $data['name'] = $validated['name'] ?? $validated['nome'] ?? null;
         $data['surname'] = $validated['surname'] ?? $validated['cognome'] ?? null;
@@ -218,6 +221,7 @@ class DriverController extends Controller
         $this->authorize('manage-anagrafiche');
 
         $validated = $request->validate([
+            'codice_arca' => 'nullable|string|max:50',
             'name' => 'sometimes|required|string|max:255',
             'surname' => 'sometimes|required|string|max:255',
             'email' => 'nullable|email|max:255',
@@ -255,6 +259,11 @@ class DriverController extends Controller
 
         // Map Italian field names to English field names
         $data = [];
+        
+        // Codice Arca
+        if (isset($validated['codice_arca'])) {
+            $data['codice_arca'] = $validated['codice_arca'];
+        }
         
         // Prioritize English fields, but use Italian if English is not provided
         if (isset($validated['name']) || isset($validated['nome'])) {
