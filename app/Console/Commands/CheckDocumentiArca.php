@@ -9,12 +9,15 @@ use GuzzleHttp\Client;
 
 class CheckDocumentiArca extends Command
 {
-    protected $signature = 'documenti:check-arca-oggi';
-    protected $description = 'Controlla quanti documenti ci sono di oggi dall\'API Arca';
+    protected $signature = 'documenti:check-arca {--giorni=1 : Numero di giorni da controllare}';
+    protected $description = 'Controlla quanti documenti ci sono nell\'API Arca per oggi';
 
     public function handle()
     {
-        $this->info("🔍 Controllo documenti di oggi dall'API Arca...");
+        $giorni = $this->option('giorni');
+        $oggi = now()->format('Ymd'); // Formato YYYYMMDD per API Arca
+        
+        $this->info("🔍 Controllo documenti nell'API Arca per oggi ({$oggi})...");
         
         // 1. Recupera credenziali
         $row = DB::table('settings')->where('key', 'arca_credentials')->first();
@@ -36,6 +39,7 @@ class CheckDocumentiArca extends Command
         $client = new Client([
             'base_uri' => 'http://ws.grsis.it:8082/api-arca/cgf/',
             'timeout' => 60,
+            'connect_timeout' => 30,
         ]);
         
         try {
@@ -56,59 +60,72 @@ class CheckDocumentiArca extends Command
             return 1;
         }
         
-        // 3. Chiedi documenti di oggi
         $headers = ['Authorization' => 'Bearer ' . $token];
-        $oggi = date('Ymd'); // Formato YYYYMMDD
         
-        try {
-            $this->info("📅 Richiesta documenti di oggi ({$oggi})...");
-            $res = $client->get('documenti/date', [
-                'headers' => $headers,
-                'query' => [
-                    'dataInizio' => $oggi,
-                    'dataFine' => $oggi
-                ],
-                'timeout' => 60
-            ]);
+        // 3. Interroga l'API per i documenti di oggi
+        $documentiTotali = 0;
+        
+        for ($giorno = 0; $giorno < $giorni; $giorno++) {
+            $data = date('Ymd', strtotime("-{$giorno} days")); // Formato YYYYMMDD
+            $dataFormatted = date('Y-m-d', strtotime("-{$giorno} days"));
             
-            $list = json_decode($res->getBody(), true);
-            
-            if (!is_array($list)) {
-                $this->error('❌ Risposta API non valida');
-                return 1;
-            }
-            
-            $count = count($list);
-            $this->info("✅ Trovati {$count} documenti di oggi dall'API Arca");
-            
-            if ($count > 0) {
-                $this->info("\n📋 Primi 10 documenti:");
-                foreach (array_slice($list, 0, 10) as $doc) {
-                    $this->line("  - {$doc['codiceDoc']}/{$doc['numeroDoc']} - Data: {$doc['dataDoc']} - Cliente: {$doc['codiceCliente']}");
+            try {
+                $this->info("📅 Controllo documenti per {$dataFormatted} ({$data})...");
+                
+                $res = $client->get('documenti/date', [
+                    'headers' => $headers,
+                    'query' => [
+                        'dataInizio' => $data,
+                        'dataFine' => $data
+                    ],
+                    'timeout' => 60
+                ]);
+                
+                $list = json_decode($res->getBody(), true);
+                
+                if (!is_array($list)) {
+                    $this->warn("⚠️ Risposta non valida per {$dataFormatted}");
+                    continue;
                 }
+                
+                $count = count($list);
+                $documentiTotali += $count;
+                
+                $this->info("✅ {$dataFormatted}: {$count} documenti trovati");
+                
+                // Mostra dettagli dei primi 5 documenti
+                if ($count > 0 && $giorno == 0) {
+                    $this->info("\n📋 Primi documenti trovati:");
+                    foreach (array_slice($list, 0, 5) as $doc) {
+                        $this->line("  - {$doc['codiceDoc']}/{$doc['numeroDoc']} - Cliente: " . ($doc['codiceCliente'] ?? 'N/A') . " - Totale: " . ($doc['totaleDoc'] ?? '0'));
+                    }
+                    if ($count > 5) {
+                        $this->line("  ... e altri " . ($count - 5) . " documenti");
+                    }
+                }
+                
+            } catch (\Exception $e) {
+                $this->error("❌ Errore per {$dataFormatted}: " . $e->getMessage());
             }
-            
-            // Confronta con database locale
-            $dbCount = DB::table('documenti')
-                ->whereDate('data_doc', date('Y-m-d'))
-                ->count();
-            
-            $this->info("\n📊 Confronto:");
-            $this->info("  - API Arca: {$count} documenti");
-            $this->info("  - Database locale: {$dbCount} documenti");
-            
-            if ($count != $dbCount) {
-                $this->warn("⚠️ Discrepanza rilevata! Mancano " . ($count - $dbCount) . " documenti nel database locale.");
-            } else {
-                $this->info("✅ Database locale sincronizzato!");
-            }
-            
-            return 0;
-            
-        } catch (\Exception $e) {
-            $this->error('❌ Errore nella richiesta API: ' . $e->getMessage());
-            return 1;
         }
+        
+        $this->info("\n🎯 TOTALE documenti trovati nell'API Arca: {$documentiTotali}");
+        
+        // Confronta con il database locale
+        $documentiDB = DB::table('documenti')
+            ->whereDate('data_doc', '>=', now()->subDays($giorni - 1)->format('Y-m-d'))
+            ->count();
+            
+        $this->info("💾 Documenti nel database locale (ultimi {$giorni} giorni): {$documentiDB}");
+        
+        if ($documentiTotali > $documentiDB) {
+            $this->warn("⚠️ Differenza: ci sono " . ($documentiTotali - $documentiDB) . " documenti nell'API che non sono nel database!");
+        } elseif ($documentiTotali == $documentiDB) {
+            $this->info("✅ Database sincronizzato!");
+        } else {
+            $this->warn("⚠️ Database locale ha più documenti dell'API (potrebbero essere documenti vecchi)");
+        }
+        
+        return 0;
     }
 }
-
