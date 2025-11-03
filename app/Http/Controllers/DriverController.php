@@ -44,6 +44,8 @@ class DriverController extends Controller
                 $driver->patente = $driver->license_number;
                 $driver->scadenza_patente = $driver->license_expiry;
                 $driver->note = $driver->notes;
+                // Assicura che codice_arca sia sempre presente (anche se null)
+                $driver->codice_arca = $driver->codice_arca ?? null;
                 
                 return $driver;
             });
@@ -88,6 +90,8 @@ class DriverController extends Controller
             $driver->patente = $driver->license_number;
             $driver->scadenza_patente = $driver->license_expiry;
             $driver->note = $driver->notes;
+            // Assicura che codice_arca sia sempre presente (anche se null)
+            $driver->codice_arca = $driver->codice_arca ?? null;
             return $driver;
         });
 
