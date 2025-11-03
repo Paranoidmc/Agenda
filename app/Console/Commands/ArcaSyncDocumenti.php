@@ -258,25 +258,42 @@ class ArcaSyncDocumenti extends Command
                         continue;
                     }
                     
-                    DB::table('righe_documento')->updateOrInsert(
-                        [
-                            'documento_id' => $documento_id,
-                            'codice_articolo' => $riga['articolo'],
-                        ],
-                        [
-                            'riga' => $riga['riga'] ?? null,
-                            'descrizione' => $riga['descrizione'] ?? null,
-                            'unita' => $riga['unita'] ?? null,
-                            'quantita' => $riga['quantita'] ?? null,
-                            'prezzo_unitario' => $riga['prezzo'] ?? null,
-                            'sconto' => $riga['sconto'] ?? null,
-                            'prezzo_scontato' => $riga['prezzoScontato'] ?? null,
-                            'codice_iva' => $riga['codiceIva'] ?? null,
-                            'totale_riga' => $riga['totaleRiga'] ?? null,
-                            'data_consegna' => $riga['dataConsegna'] ?? null,
-                            'updated_at' => now()
-                        ]
-                    );
+                    // Verifica se la riga esiste già
+                    $rigaEsistente = DB::table('righe_documento')
+                        ->where('documento_id', $documento_id)
+                        ->where('codice_articolo', $riga['articolo'])
+                        ->first();
+                    
+                    $dataRigaUpdate = [
+                        'riga' => $riga['riga'] ?? null,
+                        'descrizione' => $riga['descrizione'] ?? null,
+                        'unita' => $riga['unita'] ?? null,
+                        'quantita' => $riga['quantita'] ?? null,
+                        'prezzo_unitario' => $riga['prezzo'] ?? null,
+                        'sconto' => $riga['sconto'] ?? null,
+                        'prezzo_scontato' => $riga['prezzoScontato'] ?? null,
+                        'codice_iva' => $riga['codiceIva'] ?? null,
+                        'totale_riga' => $riga['totaleRiga'] ?? null,
+                        'data_consegna' => $riga['dataConsegna'] ?? null,
+                        'updated_at' => now()
+                    ];
+                    
+                    if ($rigaEsistente) {
+                        // Aggiorna la riga esistente
+                        DB::table('righe_documento')
+                            ->where('id', $rigaEsistente->id)
+                            ->update($dataRigaUpdate);
+                    } else {
+                        // Inserisci nuova riga con created_at
+                        $dataRigaUpdate['created_at'] = now();
+                        DB::table('righe_documento')->insert(array_merge(
+                            [
+                                'documento_id' => $documento_id,
+                                'codice_articolo' => $riga['articolo']
+                            ],
+                            $dataRigaUpdate
+                        ));
+                    }
                     
                     $righeSincronizzate++;
                 }
