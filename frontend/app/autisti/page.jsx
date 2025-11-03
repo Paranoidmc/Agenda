@@ -181,6 +181,7 @@ export default function AutistiPage() {
       <DataTable
         data={autisti}
         columns={[
+          { key: "codice_arca", label: "Codice Arca" },
           { key: "nome", label: "Nome" },
           { key: "cognome", label: "Cognome" },
           { key: "telefono", label: "Telefono" },
@@ -223,7 +224,7 @@ export default function AutistiPage() {
         selectedRow={null}
         searchPlaceholder="Cerca autisti..."
         emptyMessage={fetching ? "Caricamento..." : "Nessun autista trovato"}
-        defaultVisibleColumns={["nome", "cognome", "telefono", "patente", "actions"]}
+        defaultVisibleColumns={["codice_arca", "nome", "cognome", "telefono", "patente", "actions"]}
         defaultSortKey="nome"
         defaultSortDirection="asc"
       />
