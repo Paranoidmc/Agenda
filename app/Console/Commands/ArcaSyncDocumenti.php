@@ -197,26 +197,45 @@ class ArcaSyncDocumenti extends Command
             $siteRow = DB::table('sites')->where('codice_arca', $doc['codiceDestinazione'] ?? '')->first();
             $driverRow = DB::table('drivers')->where('codice_arca', $doc['agente1'] ?? '')->first();
             
-            // Inserisci/aggiorna documento con tutti i campi della specifica API Arca
-            DB::table('documenti')->updateOrInsert(
-                ['codice_doc' => $doc['codiceDoc'], 'numero_doc' => $doc['numeroDoc']],
-                [
-                    'data_doc' => $doc['dataDoc'] ?? null,
-                    'numero_doc_rif' => $doc['numeroDocRif'] ?? null,
-                    'data_doc_rif' => $doc['dataDocRif'] ?? null,
-                    'data_consegna' => $doc['dataConsegna'] ?? null,
-                    'agente1' => $doc['agente1'] ?? null,
-                    'agente2' => $doc['agente2'] ?? null,
-                    'totale_imponibile_doc' => $doc['totaleImponibileDoc'] ?? null,
-                    'totale_imposta_doc' => $doc['totaleImpostaDoc'] ?? null,
-                    'totale_sconto_doc' => $doc['totaleScontoDoc'] ?? null,
-                    'totale_doc' => $doc['totaleDoc'] ?? null,
-                    'client_id' => $clientRow ? $clientRow->id : null,
-                    'site_id' => $siteRow ? $siteRow->id : null,
-                    'driver_id' => $driverRow ? $driverRow->id : null,
-                    'updated_at' => now()
-                ]
-            );
+            // Verifica se il documento esiste già
+            $documentoEsistente = DB::table('documenti')
+                ->where('codice_doc', $doc['codiceDoc'])
+                ->where('numero_doc', $doc['numeroDoc'])
+                ->first();
+            
+            $dataUpdate = [
+                'data_doc' => $doc['dataDoc'] ?? null,
+                'numero_doc_rif' => $doc['numeroDocRif'] ?? null,
+                'data_doc_rif' => $doc['dataDocRif'] ?? null,
+                'data_consegna' => $doc['dataConsegna'] ?? null,
+                'agente1' => $doc['agente1'] ?? null,
+                'agente2' => $doc['agente2'] ?? null,
+                'totale_imponibile_doc' => $doc['totaleImponibileDoc'] ?? null,
+                'totale_imposta_doc' => $doc['totaleImpostaDoc'] ?? null,
+                'totale_sconto_doc' => $doc['totaleScontoDoc'] ?? null,
+                'totale_doc' => $doc['totaleDoc'] ?? null,
+                'client_id' => $clientRow ? $clientRow->id : null,
+                'site_id' => $siteRow ? $siteRow->id : null,
+                'driver_id' => $driverRow ? $driverRow->id : null,
+                'updated_at' => now()
+            ];
+            
+            if ($documentoEsistente) {
+                // Aggiorna il documento esistente
+                DB::table('documenti')
+                    ->where('id', $documentoEsistente->id)
+                    ->update($dataUpdate);
+            } else {
+                // Inserisci nuovo documento con created_at
+                $dataUpdate['created_at'] = now();
+                DB::table('documenti')->insert(array_merge(
+                    [
+                        'codice_doc' => $doc['codiceDoc'],
+                        'numero_doc' => $doc['numeroDoc']
+                    ],
+                    $dataUpdate
+                ));
+            }
             
             // Recupera l'ID del documento appena inserito/aggiornato
             $documento = DB::table('documenti')
