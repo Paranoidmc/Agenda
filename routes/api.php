@@ -214,6 +214,7 @@ Route::middleware(['web'])->group(function () {
     Route::get('/documenti', [DocumentiController::class, 'index']);
     Route::get('/documenti/{id}', [DocumentiController::class, 'show']);
     Route::get('/documenti/{id}/pdf', [DocumentiController::class, 'generatePdf']);
+    Route::get('/documenti/check-oggi-arca', [DocumentiController::class, 'checkOggiArca']);
     Route::post('/documenti/sincronizza-oggi', [DocumentiController::class, 'sincronizzaOggi']);
     Route::post('/documenti/sync', [DocumentiController::class, 'syncDocumenti']);
     Route::get('/documenti/suggerisci', [DocumentiController::class, 'suggerisciPerAttivita']);

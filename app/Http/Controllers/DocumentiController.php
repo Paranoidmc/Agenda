@@ -249,6 +249,96 @@ class DocumentiController extends Controller
     }
 
     /**
+     * Controlla quanti documenti ci sono di oggi dall'API Arca
+     */
+    public function checkOggiArca()
+    {
+        try {
+            // Recupera credenziali
+            $row = DB::table('settings')->where('key', 'arca_credentials')->first();
+            if (!$row) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Credenziali Arca non trovate'
+                ], 404);
+            }
+            
+            $creds = json_decode(\Crypt::decryptString($row->value), true);
+            $username = $creds['username'] ?? '';
+            $password = $creds['password'] ?? '';
+            
+            if (!$username || !$password) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Credenziali Arca incomplete'
+                ], 400);
+            }
+            
+            // Login
+            $client = new \GuzzleHttp\Client([
+                'base_uri' => 'http://ws.grsis.it:8082/api-arca/cgf/',
+                'timeout' => 60,
+            ]);
+            
+            $res = $client->post('auth/login', [
+                'json' => ['username' => $username, 'password' => $password]
+            ]);
+            $body = json_decode($res->getBody(), true);
+            $token = $body['token'] ?? null;
+            
+            if (!$token) {
+                throw new \Exception('Token JWT non ricevuto');
+            }
+            
+            // Chiedi documenti di oggi
+            $headers = ['Authorization' => 'Bearer ' . $token];
+            $oggi = date('Ymd'); // Formato YYYYMMDD
+            
+            $res = $client->get('documenti/date', [
+                'headers' => $headers,
+                'query' => [
+                    'dataInizio' => $oggi,
+                    'dataFine' => $oggi
+                ],
+                'timeout' => 60
+            ]);
+            
+            $list = json_decode($res->getBody(), true);
+            
+            if (!is_array($list)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Risposta API non valida'
+                ], 500);
+            }
+            
+            $count = count($list);
+            
+            // Controlla nel database locale
+            $dbCount = \App\Models\Documento::whereDate('data_doc', date('Y-m-d'))->count();
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'oggi' => date('Y-m-d'),
+                    'api_arca' => $count,
+                    'database_locale' => $dbCount,
+                    'mancanti' => max(0, $count - $dbCount),
+                    'documenti' => array_slice($list, 0, 10) // Primi 10 per preview
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Errore check documenti oggi Arca: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Sincronizza manualmente i documenti del giorno corrente
      */
     public function sincronizzaOggi()
