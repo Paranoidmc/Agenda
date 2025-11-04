@@ -23,18 +23,29 @@ class VehicleDeadlineController extends Controller
         $deadlines = VehicleDeadline::with('vehicle')->get();
         
         // Carica le scadenze dai documenti veicolo con data_scadenza
+        // IMPORTANTE: senzaTrashed() per includere anche i documenti eliminati logicamente
+        // se necessario, ma normalmente vogliamo solo quelli attivi
         $documentScadenze = DocumentoVeicolo::with('veicolo')
             ->whereNotNull('data_scadenza')
             ->get();
         
+        // Verifica anche se ci sono documenti soft-deleted con scadenza
+        $trashedCount = DocumentoVeicolo::onlyTrashed()
+            ->whereNotNull('data_scadenza')
+            ->count();
+        
         Log::info('VehicleDeadlineController allWithVehicles: Documenti con scadenza trovati', [
             'count' => $documentScadenze->count(),
-            'documenti' => $documentScadenze->map(function($d) {
+            'trashed_count' => $trashedCount,
+            'documenti' => $documentScadenze->take(10)->map(function($d) {
                 return [
                     'id' => $d->id,
                     'veicolo_id' => $d->veicolo_id,
                     'categoria' => $d->categoria,
                     'data_scadenza' => $d->data_scadenza ? $d->data_scadenza->format('Y-m-d') : null,
+                    'has_vehicle' => $d->veicolo ? true : false,
+                    'vehicle_plate' => $d->veicolo ? ($d->veicolo->plate ?? 'N/A') : 'N/A',
+                    'deleted_at' => $d->deleted_at ? $d->deleted_at->format('Y-m-d H:i:s') : null,
                 ];
             })
         ]);
@@ -171,14 +182,23 @@ class VehicleDeadlineController extends Controller
             ->whereNotNull('data_scadenza')
             ->get();
         
+        // Verifica anche se ci sono documenti soft-deleted con scadenza
+        $trashedCount = DocumentoVeicolo::onlyTrashed()
+            ->whereNotNull('data_scadenza')
+            ->count();
+        
         Log::info('VehicleDeadlineController: Documenti con scadenza trovati', [
             'count' => $documentScadenze->count(),
-            'documenti' => $documentScadenze->map(function($d) {
+            'trashed_count' => $trashedCount,
+            'documenti' => $documentScadenze->take(10)->map(function($d) {
                 return [
                     'id' => $d->id,
                     'veicolo_id' => $d->veicolo_id,
                     'categoria' => $d->categoria,
                     'data_scadenza' => $d->data_scadenza ? $d->data_scadenza->format('Y-m-d') : null,
+                    'has_vehicle' => $d->veicolo ? true : false,
+                    'vehicle_plate' => $d->veicolo ? ($d->veicolo->plate ?? 'N/A') : 'N/A',
+                    'deleted_at' => $d->deleted_at ? $d->deleted_at->format('Y-m-d H:i:s') : null,
                 ];
             })
         ]);
