@@ -108,7 +108,7 @@ class DocumentoVeicoloService
             
             if ($inline) {
                 // Per visualizzazione inline nel browser
-                $mimeType = $mimeType ?: (function_exists('mime_content_type') ? mime_content_type($filePath) : null);
+                $mimeType = $mimeType ?: (function_exists('mime_content_type') ? @mime_content_type($filePath) : null);
                 
                 // Fallback per determinare il MIME type dall'estensione
                 if (!$mimeType) {
@@ -124,12 +124,36 @@ class DocumentoVeicoloService
                 }
                 
                 // Per visualizzazione inline, leggi il file e restituiscilo con gli header corretti
-                $fileContent = file_get_contents($filePath);
-                
-                return response($fileContent, 200)
-                    ->header('Content-Type', $mimeType)
-                    ->header('Content-Disposition', 'inline; filename="' . addslashes($fileName) . '"')
-                    ->header('Content-Length', strlen($fileContent));
+                try {
+                    $fileContent = @file_get_contents($filePath);
+                    if ($fileContent === false) {
+                        Log::error('Impossibile leggere il contenuto del file', [
+                            'documento_id' => $documento->id,
+                            'file_path' => $filePath,
+                        ]);
+                        return null;
+                    }
+                    
+                    $fileSize = strlen($fileContent);
+                    Log::info('File caricato per visualizzazione', [
+                        'documento_id' => $documento->id,
+                        'file_size' => $fileSize,
+                        'mime_type' => $mimeType,
+                        'file_name' => $fileName,
+                    ]);
+                    
+                    return response($fileContent, 200)
+                        ->header('Content-Type', $mimeType)
+                        ->header('Content-Disposition', 'inline; filename="' . addslashes($fileName) . '"')
+                        ->header('Content-Length', $fileSize);
+                } catch (\Exception $readException) {
+                    Log::error('Errore durante la lettura del file', [
+                        'documento_id' => $documento->id,
+                        'file_path' => $filePath,
+                        'error' => $readException->getMessage(),
+                    ]);
+                    return null;
+                }
             } else {
                 // Per download
                 return Storage::disk('local')->download($documento->file_path, $fileName);
