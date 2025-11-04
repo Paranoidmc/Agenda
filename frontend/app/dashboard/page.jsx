@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
   const [deadlines, setDeadlines] = useState({ paid: [], unpaid: [] });
+  const [rentals, setRentals] = useState([]);
   const [activities, setActivities] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
@@ -42,7 +43,8 @@ export default function DashboardPage() {
   const [currentDateRange, setCurrentDateRange] = useState(() => {
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(endDate.getDate() - 29); // Copre 30 giorni incluso oggi
+    startDate.setDate(endDate.getDate() - 20); // 20 giorni prima
+    endDate.setDate(endDate.getDate() + 30); // 30 giorni nel futuro
     return { startDate, endDate };
   });
   
@@ -105,13 +107,14 @@ export default function DashboardPage() {
         effectiveStartDate = new Date(currentDateRange.startDate).toISOString().split('T')[0];
         effectiveEndDate = new Date(currentDateRange.endDate).toISOString().split('T')[0];
       } else {
-        // Fallback se currentDateRange non è completamente definito
-        console.warn("[DASHBOARD] currentDateRange non definito o incompleto, usando default 30 giorni da oggi.");
+        // Fallback: mostra scadenze da 20 giorni fa fino a 30 giorni nel futuro
         const today = new Date();
-        const thirtyDaysLater = new Date();
-        thirtyDaysLater.setDate(today.getDate() + 30);
-        effectiveStartDate = today.toISOString().split('T')[0];
-        effectiveEndDate = thirtyDaysLater.toISOString().split('T')[0];
+        const startDate = new Date();
+        startDate.setDate(today.getDate() - 20); // 20 giorni prima
+        const endDate = new Date();
+        endDate.setDate(today.getDate() + 30); // 30 giorni nel futuro
+        effectiveStartDate = startDate.toISOString().split('T')[0];
+        effectiveEndDate = endDate.toISOString().split('T')[0];
       }
       
       console.log("[DASHBOARD] Parametri caricamento:", { effectiveStartDate, effectiveEndDate });
@@ -138,6 +141,7 @@ export default function DashboardPage() {
         let allDeadlines = deadlinesResponse.data || [];
         
         // Filtra le scadenze per il periodo specificato
+        // Mostra tutte le scadenze nel range, anche quelle passate fino a 20 giorni fa
         const { paidDeadlines, unpaidDeadlines } = allDeadlines.reduce((acc, deadline) => {
           const dateStringToParse = deadline.expiry_date || deadline.data_scadenza;
           if (!dateStringToParse) return acc;
@@ -209,6 +213,31 @@ export default function DashboardPage() {
       } catch (activitiesError) {
         console.error("[DASHBOARD] Errore nel caricamento delle attività:", activitiesError);
         setError((prev) => prev + " Errore nel caricamento delle attività: " + (activitiesError.response?.data?.message || activitiesError.message));
+      }
+
+      // Carica i noleggi attivi
+      try {
+        console.log("[DASHBOARD] Caricamento noleggi attivi...");
+        const rentalsResponse = await api.get('/rental-vehicles', {
+          params: {
+            active: '1'
+          },
+          useCache: false
+        });
+        
+        console.log("[DASHBOARD] Risposta noleggi:", {
+          status: rentalsResponse.status,
+          hasData: !!rentalsResponse.data,
+          dataType: Array.isArray(rentalsResponse.data) ? 'array' : typeof rentalsResponse.data,
+          rentalsCount: Array.isArray(rentalsResponse.data) ? rentalsResponse.data.length : 0
+        });
+        
+        const rentalsData = rentalsResponse.data || [];
+        console.log("[DASHBOARD] Noleggi impostati:", rentalsData.length);
+        setRentals(Array.isArray(rentalsData) ? rentalsData : []);
+      } catch (rentalsError) {
+        console.error("[DASHBOARD] Errore nel caricamento dei noleggi:", rentalsError);
+        setError((prev) => prev + " Errore nel caricamento dei noleggi: " + (rentalsError.response?.data?.message || rentalsError.message));
       }
 
     } catch (err) {
@@ -433,11 +462,11 @@ export default function DashboardPage() {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
           textAlign: 'center' 
         }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>Scadenze Pagate</h3>
-          <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#34c759' }}>
-            {Array.isArray(deadlines.paid) ? deadlines.paid.length : 0}
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>Noleggi Attivi</h3>
+          <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#007aff' }}>
+            {Array.isArray(rentals) ? rentals.length : 0}
           </p>
-          <p style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>già saldate (nel periodo)</p>
+          <p style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>contratti attivi</p>
         </div>
         
         <div style={{ 
@@ -544,11 +573,11 @@ export default function DashboardPage() {
             </div>
           )}
           
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '24px 0 16px 0' }}>Scadenze Pagate</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '24px 0 16px 0' }}>Noleggi Attivi</h2>
           
-          {!Array.isArray(deadlines.paid) || deadlines.paid.length === 0 ? (
+          {!Array.isArray(rentals) || rentals.length === 0 ? (
             <p style={{ color: '#666', padding: '16px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-              Nessuna scadenza pagata nel periodo selezionato.
+              Nessun noleggio attivo trovato.
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -556,62 +585,83 @@ export default function DashboardPage() {
                 <thead>
                   <tr style={{ backgroundColor: '#f5f5f7' }}>
                     <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Veicolo</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Tipo</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Scadenza</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'right', borderBottom: '1px solid #ddd' }}>Importo</th>
-                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Pagato il</th>
+                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Intestatario</th>
+                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Dal</th>
+                    <th style={{ padding: '8px 16px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Al</th>
+                    <th style={{ padding: '8px 16px', textAlign: 'right', borderBottom: '1px solid #ddd' }}>Canone Mensile</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {deadlines.paid.map((deadline) => (
-                    <tr 
-                      key={`paid-${deadline.id}`} 
-                      style={{ 
-                        borderBottom: '1px solid #eee', 
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s',
-                        backgroundColor: '#f8fff8'
-                      }}
-                      onClick={() => router.push(`/scadenze/${deadline.id}`)}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0fdf0'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f8fff8'}
-                    >
-                      <td style={{ padding: '12px 16px' }}>
-                        {(() => {
-                          if (deadline.vehicle?.targa) {
-                            return `${deadline.vehicle.targa}${deadline.vehicle.nome ? ` (${deadline.vehicle.nome})` : ''}`;
-                          } else if (deadline.targa) {
-                            return `${deadline.targa}${deadline.veicolo_nome ? ` (${deadline.veicolo_nome})` : ''}`;
-                          } else if (deadline.vehicle?.nome) {
-                            return deadline.vehicle.nome;
-                          } else if (deadline.veicolo_nome) {
-                            return deadline.veicolo_nome;
-                          } else if (deadline.vehicle_name) {
-                            return deadline.vehicle_name;
-                          } else if (deadline.vehicle_id) {
-                            return `ID: ${deadline.vehicle_id}`;
-                          }
-                          return 'N/D';
-                        })()}
-                      </td>
-                      <td style={{ padding: '12px 16px' }}>{deadline.tipo || 'N/D'}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        {formatDate(deadline.expiry_date || deadline.data_scadenza)}
-                      </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '500' }}>
-                        {typeof deadline.importo === 'number' 
-                          ? `${deadline.importo.toFixed(2)} €` 
-                          : (deadline.importo ? `${deadline.importo} €` : 'N/D')}
-                      </td>
-                      <td style={{ padding: '12px 16px', color: '#34c759', fontWeight: '500' }}>
-                        {deadline.data_pagamento ? formatDate(deadline.data_pagamento) : 'N/D'}
-                      </td>
-                    </tr>
-                  ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  {rentals.map((rental) => {
+                    const plate = rental.plate || rental.targa || '';
+                    const brand = rental.brand || rental.marca || '';
+                    const model = rental.model || rental.modello || '';
+                    const vehicleName = `${plate} ${brand} ${model}`.trim() || 'N/D';
+                    
+                    const startDate = rental.contract_start_date;
+                    const endDate = rental.contract_end_date;
+                    const today = new Date();
+                    const endDateObj = endDate ? new Date(endDate) : null;
+                    const daysToExpiry = endDateObj ? Math.ceil((endDateObj - today) / (1000 * 60 * 60 * 24)) : null;
+                    
+                    let rowColor = '#f8fff8';
+                    if (endDateObj && endDateObj < today) {
+                      rowColor = '#ffeaea'; // Rosso per scaduti
+                    } else if (daysToExpiry !== null && daysToExpiry <= 30) {
+                      rowColor = '#fff4e6'; // Arancione per in scadenza
+                    }
+                    
+                    return (
+                      <tr 
+                        key={rental.id || rental.rental_id}
+                        style={{ 
+                          borderBottom: '1px solid #eee', 
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s',
+                          backgroundColor: rowColor
+                        }}
+                        onClick={() => router.push(`/veicoli/${rental.id}`)}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f7ff'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = rowColor}
+                      >
+                        <td style={{ padding: '12px 16px', fontWeight: '500' }}>
+                          {vehicleName}
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          {rental.contract_holder || 'N/D'}
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          {startDate ? formatDate(startDate) : 'N/D'}
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: endDateObj && endDateObj < today ? '#ff3b30' : 
+                                           (daysToExpiry !== null && daysToExpiry <= 30 ? '#ff9500' : '#34c759'),
+                            color: 'white',
+                            fontWeight: 'bold',
+                            fontSize: '14px'
+                          }}>
+                            {endDate ? formatDate(endDate) : 'N/D'}
+                            {daysToExpiry !== null && daysToExpiry <= 30 && daysToExpiry >= 0 && (
+                              <span style={{ marginLeft: '8px', fontSize: '12px' }}>
+                                ({daysToExpiry} gg)
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '500' }}>
+                          {rental.monthly_fee ? `€ ${parseFloat(rental.monthly_fee).toFixed(2)}` : 'N/D'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         
         {/* Sezione attività recenti */}
