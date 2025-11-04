@@ -71,16 +71,42 @@ class VehicleDocumentController extends Controller
      */
     public function download(string $documentoId)
     {
-        $documento = $this->repository->findById($documentoId);
-        if (!$documento) {
-            return response(['error' => 'Documento non trovato'], 404);
+        try {
+            $documento = $this->repository->findById($documentoId);
+            if (!$documento) {
+                \Log::warning('Documento non trovato per download', ['documento_id' => $documentoId]);
+                return response(['error' => 'Documento non trovato'], 404);
+            }
+            $this->authorize('view', $documento);
+            
+            // Controlla se è una richiesta di visualizzazione (query param 'view')
+            $inline = request()->query('view') === 'true';
+            
+            \Log::info('Download documento richiesto', [
+                'documento_id' => $documentoId,
+                'inline' => $inline,
+                'file_path' => $documento->file_path,
+            ]);
+            
+            $response = $this->service->downloadDocumento($documento, $inline);
+            
+            if (!$response) {
+                \Log::error('Errore nella generazione della risposta download', [
+                    'documento_id' => $documentoId,
+                    'file_path' => $documento->file_path,
+                ]);
+                return response(['error' => 'File non trovato'], 404);
+            }
+            
+            return $response;
+        } catch (\Exception $e) {
+            \Log::error('Eccezione durante download documento', [
+                'documento_id' => $documentoId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response(['error' => 'Errore interno del server: ' . $e->getMessage()], 500);
         }
-        $this->authorize('view', $documento);
-        
-        // Controlla se è una richiesta di visualizzazione (query param 'view')
-        $inline = request()->query('view') === 'true';
-        
-        return $this->service->downloadDocumento($documento, $inline) ?: response(['error' => 'File non trovato'], 404);
     }
 
     /**
