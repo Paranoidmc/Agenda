@@ -211,12 +211,34 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
   // Salva attività (creazione o update)
   const handleSaveActivity = async (activityData) => {
     try {
+      let activityId;
       // Se esiste un id, aggiorna, altrimenti crea
       if (activityData.id) {
-        await api.put(`/activities/${activityData.id}`, activityData, { withCredentials: true });
+        const response = await api.put(`/activities/${activityData.id}`, activityData, { withCredentials: true });
+        activityId = activityData.id;
+        
+        // Emetti evento per notificare altre pagine
+        const activityEvent = new CustomEvent('activityUpdated', {
+          detail: { activity_id: activityId, type: 'update' }
+        });
+        window.dispatchEvent(activityEvent);
       } else {
-        await api.post('/activities', activityData, { withCredentials: true });
+        const response = await api.post('/activities', activityData, { withCredentials: true });
+        activityId = response?.data?.id || response?.data?.data?.id;
+        
+        // Emetti evento per notificare altre pagine
+        const activityEvent = new CustomEvent('activityCreated', {
+          detail: { activity_id: activityId, type: 'create' }
+        });
+        window.dispatchEvent(activityEvent);
       }
+      
+      // Emetti anche un evento generico per compatibilità
+      const genericEvent = new CustomEvent('activitySaved', {
+        detail: { activity_id: activityId, type: activityData.id ? 'update' : 'create' }
+      });
+      window.dispatchEvent(genericEvent);
+      
       // Refresca eventi dopo salvataggio
       setFetching(true);
     } catch (e) {
@@ -253,6 +275,25 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
   useEffect(() => {
     setFetching(true);
   }, [currentDate]);
+
+  // Listener per eventi di attività create/modificate
+  useEffect(() => {
+    const handleActivityEvent = (event) => {
+      console.log('🔄 Ricevuto evento attività in agenda giornaliera:', event.detail);
+      // Forza il refetch delle attività
+      setFetching(true);
+    };
+
+    window.addEventListener('activityCreated', handleActivityEvent);
+    window.addEventListener('activityUpdated', handleActivityEvent);
+    window.addEventListener('activitySaved', handleActivityEvent);
+
+    return () => {
+      window.removeEventListener('activityCreated', handleActivityEvent);
+      window.removeEventListener('activityUpdated', handleActivityEvent);
+      window.removeEventListener('activitySaved', handleActivityEvent);
+    };
+  }, []);
 
   // Funzione per andare al giorno precedente
   function goToPreviousDay() {

@@ -1029,6 +1029,12 @@ export default function AttivitaDetailPage() {
         }
         // Naviga alla pagina dettaglio della nuova attività
         router.push(`/attivita/${createdActivityId}`);
+        
+        // Emetti evento per notificare altre pagine
+        const activityEvent = new CustomEvent('activityCreated', {
+          detail: { activity_id: createdActivityId, type: 'create' }
+        });
+        window.dispatchEvent(activityEvent);
       } else {
         response = await api.put(`/activities/${attivitaId}`, dataToSend);
         // Auto-allega eventuali documenti pre-selezionati anche in update
@@ -1044,7 +1050,19 @@ export default function AttivitaDetailPage() {
         // Ricarica i dati aggiornati
         await loadAttivita();
         if (attivitaId) fetchAttachedDocuments(attivitaId);
+        
+        // Emetti evento per notificare altre pagine
+        const activityEvent = new CustomEvent('activityUpdated', {
+          detail: { activity_id: attivitaId, type: 'update' }
+        });
+        window.dispatchEvent(activityEvent);
       }
+      
+      // Emetti anche un evento generico per compatibilità
+      const genericEvent = new CustomEvent('activitySaved', {
+        detail: { activity_id: isNew ? createdActivityId : attivitaId, type: isNew ? 'create' : 'update' }
+      });
+      window.dispatchEvent(genericEvent);
       
       setIsEditing(false);
       setPreSelectedDocuments([]);

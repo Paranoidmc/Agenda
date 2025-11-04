@@ -48,21 +48,34 @@ function PianificazioneInner() {
       fetchActivities();
     };
 
+    const handleActivityEvent = (event) => {
+      console.log('🔄 Ricevuto evento attività creata/modificata:', event.detail);
+      // Ricarica le attività quando ne viene creata/modificata una
+      fetchActivities();
+    };
+
     window.addEventListener('documentsSync', handleSyncEvent);
     window.addEventListener('clientsSync', handleSyncEvent);
     window.addEventListener('driversSync', handleSyncEvent);
     window.addEventListener('sitesSync', handleSyncEvent);
+    window.addEventListener('activityCreated', handleActivityEvent);
+    window.addEventListener('activityUpdated', handleActivityEvent);
+    window.addEventListener('activitySaved', handleActivityEvent);
 
     return () => {
       window.removeEventListener('documentsSync', handleSyncEvent);
       window.removeEventListener('clientsSync', handleSyncEvent);
       window.removeEventListener('driversSync', handleSyncEvent);
       window.removeEventListener('sitesSync', handleSyncEvent);
+      window.removeEventListener('activityCreated', handleActivityEvent);
+      window.removeEventListener('activityUpdated', handleActivityEvent);
+      window.removeEventListener('activitySaved', handleActivityEvent);
     };
-  }, []);
+  }, [fetchActivities]);
 
-  const fetchActivities = () => {
+  const fetchActivities = React.useCallback(() => {
     setLoading(true);
+    setError("");
     const start = currentWeek[0].toISOString().split("T")[0];
     const end = currentWeek[6].toISOString().split("T")[0];
     api.get('/activities', {
@@ -76,14 +89,16 @@ function PianificazioneInner() {
     })
       .then(res => {
         const list = Array.isArray(res.data.data) ? res.data.data : [];
+        console.log('📅 Attività caricate:', list.length, 'per settimana', start, '-', end);
         setEvents(list.map(normalizeEvent));
         loadRows(viewMode, list);
       })
       .catch(err => {
+        console.error('❌ Errore caricamento attività:', err);
         setError("Errore nel caricamento attività");
       })
       .finally(() => setLoading(false));
-  };
+  }, [currentWeek, viewMode]);
 
   // Calcola array settimana (lun-dom)
   function getWeekArray(date) {
@@ -175,11 +190,10 @@ function PianificazioneInner() {
     }
   }, [calendarMode]);
 
-  // Fetch dati reali
+  // Fetch dati reali quando cambiano settimana o viewMode
   useEffect(() => {
     fetchActivities();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentWeek, viewMode]);
+  }, [fetchActivities]);
 
   // Handler per click su evento attività
   const handleEventClick = (event) => {
@@ -272,37 +286,64 @@ function PianificazioneInner() {
     // Usa sempre gli eventi già normalizzati
     // Trova la lista normalizzata
     const normalizedEvents = activities.map(normalizeEvent);
-console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
-  id: e.id,
-  driverName: e.driverName,
-  vehicleName: e.vehicleName,
-  rawDriver: e.data.driver,
-  rawVehicle: e.data.vehicle
-})));
+    console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
+      id: e.id,
+      driverName: e.driverName,
+      vehicleName: e.vehicleName,
+      rawDriver: e.data.driver,
+      rawVehicle: e.data.vehicle,
+      hasResources: !!e.data.resources,
+      resourcesCount: e.data.resources?.length || 0
+    })));
 
     if (mode === 'Cantiere') {
       const sitesMap = {};
       normalizedEvents.forEach(ev => {
         const site = ev.data.site || ev.data.cantiere;
-        if (!site) return;
+        if (!site) {
+          console.warn('⚠️ Evento senza sito:', ev.id);
+          return;
+        }
         if (!sitesMap[site.id]) sitesMap[site.id] = { id: site.id, name: site.nome || site.name, events: [] };
         sitesMap[site.id].events.push(ev);
       });
+      console.log('📊 Righe Cantiere:', Object.keys(sitesMap).length);
       setRows(Object.values(sitesMap));
     } else if (mode === 'Driver') {
       const driversMap = {};
       normalizedEvents.forEach(ev => {
-        // Supporta più autisti per evento
+        // Supporta più autisti per evento - controlla resources prima
         let list = [];
-        if (Array.isArray(ev.data?.drivers) && ev.data.drivers.length > 0) {
-          list = ev.data.drivers;
-        } else if (Array.isArray(ev.data?.assigned_drivers) && ev.data.assigned_drivers.length > 0) {
-          list = ev.data.assigned_drivers;
-        } else if (Array.isArray(ev.data?.assignees) && ev.data.assignees.length > 0) {
-          list = ev.data.assignees;
-        } else if (ev.data?.driver || ev.data?.autista) {
-          list = [ev.data.driver || ev.data.autista];
+        
+        // Prima controlla resources (nuovo formato)
+        if (Array.isArray(ev.data?.resources) && ev.data.resources.length > 0) {
+          list = ev.data.resources
+            .map(r => r.driver)
+            .filter(Boolean);
         }
+        
+        // Fallback ai formati vecchi
+        if (list.length === 0) {
+          if (Array.isArray(ev.data?.drivers) && ev.data.drivers.length > 0) {
+            list = ev.data.drivers;
+          } else if (Array.isArray(ev.data?.assigned_drivers) && ev.data.assigned_drivers.length > 0) {
+            list = ev.data.assigned_drivers;
+          } else if (Array.isArray(ev.data?.assignees) && ev.data.assignees.length > 0) {
+            list = ev.data.assignees;
+          } else if (ev.data?.driver || ev.data?.autista) {
+            list = [ev.data.driver || ev.data.autista];
+          }
+        }
+        
+        if (list.length === 0) {
+          console.warn('⚠️ Evento senza autisti:', ev.id);
+          // Aggiungi una riga per "Nessun autista" se necessario
+          const key = 'no-driver';
+          if (!driversMap[key]) driversMap[key] = { id: key, name: 'Nessun autista', events: [] };
+          driversMap[key].events.push(ev);
+          return;
+        }
+        
         list.forEach(driver => {
           const id = driver?.id || driver?.driver_id || (typeof driver === 'string' ? driver : undefined);
           const name = (driver && (driver.nome || driver.name) ? `${driver.nome || driver.name} ${driver.cognome || driver.surname || ''}`.trim() : (typeof driver === 'string' ? driver : 'Senza nome'));
@@ -312,15 +353,35 @@ console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
           driversMap[key].events.push(ev);
         });
       });
+      console.log('📊 Righe Driver:', Object.keys(driversMap).length);
       setRows(Object.values(driversMap));
     } else if (mode === 'Vehicle') {
       const vehiclesMap = {};
       normalizedEvents.forEach(ev => {
-        const vehicle = ev.data.vehicle || ev.data.veicolo;
-        if (!vehicle) return;
-        if (!vehiclesMap[vehicle.id]) vehiclesMap[vehicle.id] = { id: vehicle.id, name: (vehicle.targa || vehicle.plate || '') + ' ' + (vehicle.modello || vehicle.model || ''), events: [] };
-        vehiclesMap[vehicle.id].events.push(ev);
+        // Controlla resources prima (nuovo formato)
+        let vehicle = null;
+        if (Array.isArray(ev.data?.resources) && ev.data.resources.length > 0) {
+          vehicle = ev.data.resources
+            .map(r => r.vehicle)
+            .filter(Boolean)[0]; // Prendi il primo veicolo
+        }
+        
+        // Fallback al formato vecchio
+        if (!vehicle) {
+          vehicle = ev.data.vehicle || ev.data.veicolo;
+        }
+        
+        if (!vehicle) {
+          console.warn('⚠️ Evento senza veicolo:', ev.id);
+          return;
+        }
+        
+        const vehicleId = vehicle.id;
+        const vehicleName = (vehicle.targa || vehicle.plate || '') + ' ' + (vehicle.modello || vehicle.model || vehicle.name || '');
+        if (!vehiclesMap[vehicleId]) vehiclesMap[vehicleId] = { id: vehicleId, name: vehicleName.trim(), events: [] };
+        vehiclesMap[vehicleId].events.push(ev);
       });
+      console.log('📊 Righe Vehicle:', Object.keys(vehiclesMap).length);
       setRows(Object.values(vehiclesMap));
     }
   }
