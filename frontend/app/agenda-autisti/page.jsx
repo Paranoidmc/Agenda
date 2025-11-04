@@ -413,12 +413,19 @@ export default function AgendaAutistiPage() {
       // Verifica che lo slot si sovrapponga all'attività
       // Lo slot copre 30 minuti, quindi controlliamo se lo slot si sovrappone all'attività
       const startTime = s.getTime();
-      const endTime = e ? e.getTime() : startTime + 60 * 60 * 1000;
+      // Se data_fine è uguale a data_inizio o mancante, considera l'attività come durata 1 ora
+      let endTime = e ? e.getTime() : startTime + 60 * 60 * 1000;
+      if (endTime <= startTime) {
+        endTime = startTime + 60 * 60 * 1000; // Default 1 ora se fine <= inizio
+      }
+      
       const slotStartTime = slotDate.getTime();
       const slotEndTime = slotStartTime + (30 * 60 * 1000); // 30 minuti
       
       // Lo slot si sovrappone se: slotStartTime < endTime && slotEndTime > startTime
-      const overlaps = slotStartTime < endTime && slotEndTime > startTime;
+      // Oppure se lo slot contiene completamente l'attività (per attività istantanee)
+      const overlaps = (slotStartTime < endTime && slotEndTime > startTime) || 
+                       (slotStartTime <= startTime && slotEndTime >= endTime);
       
       if (isFirstCheck) {
         console.log(`🔍 Verifica slot ${slotDate.toLocaleTimeString()} (${slotStartTime} - ${slotEndTime}) vs attività ${s.toLocaleTimeString()} (${startTime}) - ${e ? e.toLocaleTimeString() : 'N/A'} (${endTime})`);
