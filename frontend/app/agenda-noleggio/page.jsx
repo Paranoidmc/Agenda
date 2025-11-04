@@ -16,29 +16,45 @@ export default function AgendaNoleggioPage() {
 
   useEffect(() => {
     setLoading(true);
-    import('../../lib/api').then(({ default: api }) => {
-      // Carica veicoli noleggiati
-      api.get('/rental-vehicles')
-        .then(res => {
-          let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-          setVeicoli(arr);
-        })
-        .catch(() => {
-          setVeicoli([]);
-        });
+    
+    const loadData = async () => {
+      const { default: api } = await import('../../lib/api');
+      
+      try {
+        // Carica veicoli noleggiati
+        const vehiclesRes = await api.get('/rental-vehicles', { useCache: false });
+        let arr = Array.isArray(vehiclesRes.data) ? vehiclesRes.data : (Array.isArray(vehiclesRes.data?.data) ? vehiclesRes.data.data : []);
+        setVeicoli(arr);
 
-      // Carica statistiche
-      api.get('/rental-vehicles/statistics')
-        .then(res => {
-          setStatistics(res.data);
-        })
-        .catch(() => {
-          setStatistics(null);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    });
+        // Carica statistiche
+        const statsRes = await api.get('/rental-vehicles/statistics', { useCache: false });
+        setStatistics(statsRes.data);
+      } catch (error) {
+        console.error('Errore caricamento dati:', error);
+        setVeicoli([]);
+        setStatistics(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+    
+    // Listener per eventi di creazione/modifica/cancellazione contratti
+    const handleRentalEvent = () => {
+      console.log('🔄 Evento contratto ricevuto, ricarico dati...');
+      setTimeout(() => loadData(), 300);
+    };
+    
+    window.addEventListener('vehicleRentalCreated', handleRentalEvent);
+    window.addEventListener('vehicleRentalUpdated', handleRentalEvent);
+    window.addEventListener('vehicleRentalDeleted', handleRentalEvent);
+    
+    return () => {
+      window.removeEventListener('vehicleRentalCreated', handleRentalEvent);
+      window.removeEventListener('vehicleRentalUpdated', handleRentalEvent);
+      window.removeEventListener('vehicleRentalDeleted', handleRentalEvent);
+    };
   }, []);
 
   // Helper per normalizzare date: se formato YYYY-MM-DD, aggiungi T00:00:00
