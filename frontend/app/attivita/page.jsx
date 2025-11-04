@@ -172,19 +172,36 @@ function AttivitaContent() {
     try {
       const params = new URLSearchParams({ page: String(page), perPage: String(take) });
       if (searchTerm && searchTerm.trim()) params.append("search", searchTerm.trim());
-      const { data } = await api.get(`/activities?${params.toString()}`);
+      const url = `/activities?${params.toString()}`;
+      console.log('🔍 [ATTIVITA PAGE] Richiesta API:', url);
+      const { data } = await api.get(url);
+      console.log('📥 [ATTIVITA PAGE] Risposta API:', {
+        isArray: Array.isArray(data),
+        hasData: !!data?.data,
+        dataType: typeof data,
+        keys: data ? Object.keys(data) : [],
+        total: data?.total,
+        count: data?.data?.length || (Array.isArray(data) ? data.length : 0),
+        firstItem: data?.data?.[0] || (Array.isArray(data) ? data[0] : null),
+        fullResponse: data
+      });
+      
       if (Array.isArray(data)) {
+        console.log('✅ [ATTIVITA PAGE] Dati come array, count:', data.length);
         setAttivita(data);
         setTotal(data.length);
       } else if (data && Array.isArray(data.data)) {
+        console.log('✅ [ATTIVITA PAGE] Dati in data.data, count:', data.data.length, 'total:', data.total);
         setAttivita(data.data);
         setTotal(data.total || data.data.length);
       } else {
+        console.warn('⚠️ [ATTIVITA PAGE] Formato dati non riconosciuto, imposto array vuoto');
         setAttivita([]);
         setTotal(0);
       }
     } catch (e) {
-      setError("Errore nel caricamento delle attività");
+      console.error('❌ [ATTIVITA PAGE] Errore caricamento:', e);
+      setError("Errore nel caricamento delle attività: " + (e?.message || e));
     } finally {
       setFetching(false);
     }
