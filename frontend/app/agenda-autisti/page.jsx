@@ -280,31 +280,18 @@ export default function AgendaAutistiPage() {
   const getActivityForSlot = useCallback((driverId, slotDate) => {
     // Cerca l'attività nel giorno corrente (date)
     const list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
-    if (!list.length) {
-      // DEBUG: log solo una volta per evitare spam
-      if (driverId && !getActivityForSlot._logged) {
-        console.log(`📋 Driver ${driverId} non ha attività per ${date}`, {
-          driverId,
-          date,
-          hasGroupedDriver: !!groupedByDriver[String(driverId)],
-          perDayKeys: groupedByDriver[String(driverId)]?.perDay ? Object.keys(groupedByDriver[String(driverId)].perDay) : []
-        });
-        getActivityForSlot._logged = true;
-        setTimeout(() => { getActivityForSlot._logged = false; }, 5000);
-      }
-      return null;
-    }
+    if (!list.length) return null;
     
     const t = slotDate.getTime();
     const slotDateOnly = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
     const slotHour = slotDate.getHours();
     const slotMinute = slotDate.getMinutes();
     
-    // DEBUG per il primo slot del primo driver
-    if (driverList.length > 0 && driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+    // DEBUG solo per il primo slot del primo driver (per evitare spam)
+    const isFirstSlot = slotHour === 6 && slotMinute === 0;
+    if (isFirstSlot && !getActivityForSlot._debugLogged) {
       console.log('🔍 DEBUG getActivityForSlot:', {
         driverId,
-        driverName: driverList[0]?.nome || driverList[0]?.name,
         slotDate: slotDate.toISOString(),
         slotDateOnly,
         date,
@@ -318,21 +305,24 @@ export default function AgendaAutistiPage() {
           startDate: toDate(a.start)?.toISOString().slice(0, 10)
         }))
       });
+      getActivityForSlot._debugLogged = true;
+      setTimeout(() => { getActivityForSlot._debugLogged = false; }, 2000);
     }
     
     for (const a of list) {
       const s = toDate(a.start);
       const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000)); // default 1h se end mancante
       if (!s) {
-        console.warn(`⚠️ Attività ${a.id} ha data_inizio non valida:`, a.start);
+        if (isFirstSlot && !getActivityForSlot._debugLogged) {
+          console.warn(`⚠️ Attività ${a.id} ha data_inizio non valida:`, a.start);
+        }
         continue;
       }
       
       // Verifica che l'attività sia nello stesso giorno dello slot
       const activityDateOnly = s.toISOString().slice(0, 10);
       if (activityDateOnly !== slotDateOnly) {
-        // DEBUG
-        if (driverList.length > 0 && driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+        if (isFirstSlot && !getActivityForSlot._debugLogged) {
           console.log(`⚠️ Data attività (${activityDateOnly}) non corrisponde allo slot (${slotDateOnly})`);
         }
         continue;
@@ -342,8 +332,7 @@ export default function AgendaAutistiPage() {
       const startTime = s.getTime();
       const endTime = e.getTime();
       
-      // DEBUG per il primo slot
-      if (driverList.length > 0 && driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+      if (isFirstSlot && !getActivityForSlot._debugLogged) {
         console.log(`🔍 Verifica slot ${t} (${slotDate.toLocaleTimeString()}) vs attività ${startTime}-${endTime} (${s.toLocaleTimeString()}-${e.toLocaleTimeString()})`);
         console.log(`   Slot timestamp: ${t}, Start: ${startTime}, End: ${endTime}, Match: ${t >= startTime && t < endTime}`);
       }
@@ -360,7 +349,7 @@ export default function AgendaAutistiPage() {
       }
     }
     return null;
-  }, [groupedByDriver, date, driverList]);
+  }, [groupedByDriver, date]);
 
   const driverList = useMemo(() => {
     const q = driverQuery.trim().toLowerCase();
