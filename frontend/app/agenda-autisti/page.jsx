@@ -287,12 +287,13 @@ export default function AgendaAutistiPage() {
       list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
     }
     
-    // DEBUG: log solo per il primo driver al primo slot
+    // DEBUG: log solo per il primo slot (evita spam)
     const isFirstCheck = slotDate.getHours() === 6 && slotDate.getMinutes() === 0;
-    if (isFirstCheck && driverList.length > 0 && String(driverId) === String(driverList[0]?.id)) {
+    if (isFirstCheck && !getActivityForSlot._logged) {
+      const driverData = groupedByDriver[String(driverId)]?.driver;
       console.log('🔍 DEBUG getActivityForSlot chiamata:', {
         driverId,
-        driverName: driverList[0]?.nome || driverList[0]?.name,
+        driverName: driverData ? `${driverData.nome || driverData.name || ''} ${driverData.cognome || driverData.surname || ''}`.trim() : 'N/A',
         slotDate: slotDate.toISOString(),
         slotDateStr,
         date,
@@ -310,6 +311,8 @@ export default function AgendaAutistiPage() {
       } else {
         console.log('⚠️ Nessuna attività trovata per questo driver in questa data');
       }
+      getActivityForSlot._logged = true;
+      setTimeout(() => { getActivityForSlot._logged = false; }, 2000);
     }
     
     if (!list.length) return null;
@@ -358,7 +361,7 @@ export default function AgendaAutistiPage() {
       }
     }
     return null;
-  }, [groupedByDriver, date, driverList]);
+  }, [groupedByDriver, date]);
 
   const driverList = useMemo(() => {
     const q = driverQuery.trim().toLowerCase();
