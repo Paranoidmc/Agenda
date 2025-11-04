@@ -468,20 +468,6 @@ export default function DashboardPage() {
           </p>
           <p style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>contratti attivi</p>
         </div>
-        
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '8px', 
-          padding: '16px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-          textAlign: 'center' 
-        }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>Totale Da Pagare</h3>
-          <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#007aff' }}>
-            {Array.isArray(deadlines.unpaid) ? deadlines.unpaid.length : 0}
-          </p>
-          <p style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>non pagate (nel periodo)</p>
-        </div>
       </div>
       
       <div style={{ 
