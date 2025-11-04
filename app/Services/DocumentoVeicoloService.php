@@ -123,12 +123,13 @@ class DocumentoVeicoloService
                     $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
                 }
                 
-                // Usa response()->download() con Content-Disposition: inline invece di response()->file()
-                // Questo è più affidabile con Laravel
-                return response()->download($filePath, $fileName, [
-                    'Content-Type' => $mimeType,
-                    'Content-Disposition' => 'inline; filename="' . addslashes($fileName) . '"',
-                ]);
+                // Per visualizzazione inline, leggi il file e restituiscilo con gli header corretti
+                $fileContent = file_get_contents($filePath);
+                
+                return response($fileContent, 200)
+                    ->header('Content-Type', $mimeType)
+                    ->header('Content-Disposition', 'inline; filename="' . addslashes($fileName) . '"')
+                    ->header('Content-Length', strlen($fileContent));
             } else {
                 // Per download
                 return Storage::disk('local')->download($documento->file_path, $fileName);
