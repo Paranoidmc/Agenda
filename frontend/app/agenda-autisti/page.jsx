@@ -31,6 +31,15 @@ export default function AgendaAutistiPage() {
   const [includeAllStatuses, setIncludeAllStatuses] = useState(false);
   const [driverQuery, setDriverQuery] = useState("");
   const [onlyWithActivities, setOnlyWithActivities] = useState(true);
+  const [sortBy, setSortBy] = useState("nome"); // 'nome' | 'cognome' | 'attivita' | 'none'
+  const [hiddenDrivers, setHiddenDrivers] = useState(() => {
+    // Carica autisti nascosti da localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agendaAutistiHidden');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    }
+    return new Set();
+  });
 
   // Carica anagrafica autisti
   useEffect(() => {
@@ -363,6 +372,29 @@ export default function AgendaAutistiPage() {
     return null;
   }, [groupedByDriver, date]);
 
+  // Funzione per nascondere/mostrare un autista
+  const toggleDriverVisibility = (driverId) => {
+    const newHidden = new Set(hiddenDrivers);
+    if (newHidden.has(String(driverId))) {
+      newHidden.delete(String(driverId));
+    } else {
+      newHidden.add(String(driverId));
+    }
+    setHiddenDrivers(newHidden);
+    // Salva in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('agendaAutistiHidden', JSON.stringify(Array.from(newHidden)));
+    }
+  };
+
+  // Funzione per ripristinare tutti gli autisti nascosti
+  const restoreAllHiddenDrivers = () => {
+    setHiddenDrivers(new Set());
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('agendaAutistiHidden');
+    }
+  };
+
   const driverList = useMemo(() => {
     const q = driverQuery.trim().toLowerCase();
     
@@ -424,10 +456,11 @@ export default function AgendaAutistiPage() {
       }
     }
     
-    // Se c'è un filtro di ricerca, mostra anche gli autisti senza attività (per permettere la ricerca)
+    // Filtra per attività (se richiesto)
+    let list = [];
     if (q && filteredDrivers.length > 0) {
       // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività se onlyWithActivities è false)
-      return filteredDrivers.filter(d => {
+      list = filteredDrivers.filter(d => {
         const hasInGrouped = hasAssignments.has(String(d.id));
         const hasInActivities = withActs.has(String(d.id));
         const hasActivity = hasInGrouped || hasInActivities;
@@ -436,23 +469,40 @@ export default function AgendaAutistiPage() {
         }
         return hasActivity || q; // Se c'è ricerca, mostra anche senza attività
       });
-    }
-    
-    // Se non c'è ricerca e onlyWithActivities è true, mostra solo autisti con impegni
-    if (onlyWithActivities) {
-      let list = filteredDrivers.filter(d => hasAssignments.has(String(d.id)));
-      
-      // Fallback: verifica direttamente nelle attività
+    } else if (onlyWithActivities) {
+      list = filteredDrivers.filter(d => hasAssignments.has(String(d.id)));
       if (list.length === 0) {
         list = filteredDrivers.filter(d => withActs.has(String(d.id)));
       }
-      
-      return list;
+    } else {
+      list = filteredDrivers;
     }
     
-    // Se onlyWithActivities è false, mostra tutti gli autisti
-    return filteredDrivers;
-  }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses, onlyWithActivities]);
+    // Filtra autisti nascosti
+    list = list.filter(d => !hiddenDrivers.has(String(d.id)));
+    
+    // Applica ordinamento
+    if (sortBy !== 'none') {
+      list = [...list].sort((a, b) => {
+        if (sortBy === 'nome') {
+          const nomeA = (a.nome || a.name || a.first_name || '').toLowerCase();
+          const nomeB = (b.nome || b.name || b.first_name || '').toLowerCase();
+          return nomeA.localeCompare(nomeB, 'it');
+        } else if (sortBy === 'cognome') {
+          const cognomeA = (a.cognome || a.surname || a.last_name || '').toLowerCase();
+          const cognomeB = (b.cognome || b.surname || b.last_name || '').toLowerCase();
+          return cognomeA.localeCompare(cognomeB, 'it');
+        } else if (sortBy === 'attivita') {
+          const countA = Object.values(groupedByDriver[String(a.id)]?.perDay || {}).reduce((sum, acts) => sum + acts.length, 0);
+          const countB = Object.values(groupedByDriver[String(b.id)]?.perDay || {}).reduce((sum, acts) => sum + acts.length, 0);
+          return countB - countA; // Più attività prima
+        }
+        return 0;
+      });
+    }
+    
+    return list;
+  }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses, onlyWithActivities, sortBy, hiddenDrivers]);
 
   const goPrev = () => {
     const base = toDate(date);
@@ -498,6 +548,25 @@ export default function AgendaAutistiPage() {
           <input type="checkbox" checked={onlyWithActivities} onChange={e => setOnlyWithActivities(e.target.checked)} />
           Solo autisti con attività
         </label>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          style={{ ...dateInputStyle, minWidth: 150 }}
+        >
+          <option value="none">Nessun ordinamento</option>
+          <option value="nome">Ordina per nome</option>
+          <option value="cognome">Ordina per cognome</option>
+          <option value="attivita">Più attività prima</option>
+        </select>
+        {hiddenDrivers.size > 0 && (
+          <button
+            onClick={restoreAllHiddenDrivers}
+            style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
+            title={`Ripristina ${hiddenDrivers.size} autista/i nascosto/i`}
+          >
+            Ripristina nascosti ({hiddenDrivers.size})
+          </button>
+        )}
         <input
           type="text"
           placeholder="Cerca autista..."
@@ -518,8 +587,24 @@ export default function AgendaAutistiPage() {
           ) : (
             driverList.map(d => (
               <div key={d.id} style={cardStyle}>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                  {(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}
+                <div style={{ fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
+                  <button
+                    onClick={() => toggleDriverVisibility(d.id)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      fontSize: '14px',
+                      color: '#666',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    title="Nascondi autista"
+                  >
+                    ✕
+                  </button>
                 </div>
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {(groupedByDriver[String(d.id)]?.perDay?.[date] || []).map(a => (
@@ -543,7 +628,25 @@ export default function AgendaAutistiPage() {
                 <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
                 {driverList.map(d => (
                   <th key={d.id} style={{ ...thStyle, minWidth: 180, textAlign: 'center' }} title={String(d.id)}>
-                    {(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
+                      <button
+                        onClick={() => toggleDriverVisibility(d.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 4px',
+                          fontSize: '14px',
+                          color: '#666',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        title="Nascondi autista"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -595,7 +698,11 @@ export default function AgendaAutistiPage() {
           <table style={tableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>Autista</th>
+                <th style={thStyle}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Autista
+                  </div>
+                </th>
                 {weekDays.map(d => (
                   <th key={d} style={thStyle}>{new Date(d).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}</th>
                 ))}
@@ -608,7 +715,25 @@ export default function AgendaAutistiPage() {
                 driverList.map(d => (
                   <tr key={d.id}>
                     <td style={tdStyle}>
-                      {(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
+                        <button
+                          onClick={() => toggleDriverVisibility(d.id)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px 4px',
+                            fontSize: '14px',
+                            color: '#666',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Nascondi autista"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </td>
                     {weekDays.map(day => {
                       const list = (groupedByDriver[String(d.id)]?.perDay?.[day] || []);
