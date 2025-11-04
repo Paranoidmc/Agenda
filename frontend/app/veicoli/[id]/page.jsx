@@ -406,6 +406,9 @@ export default function VeicoloDetailPage() {
               <VehicleDocumentSection veicoloId={veicoloId} categoria="assicurazione" />
               <VehicleDocumentSection veicoloId={veicoloId} categoria="bollo" />
               <VehicleDocumentSection veicoloId={veicoloId} categoria="manutenzione" />
+              <VehicleDocumentSection veicoloId={veicoloId} categoria="libretto_circolazione" />
+              <VehicleDocumentSection veicoloId={veicoloId} categoria="autorizzazione_albo" />
+              <VehicleDocumentSection veicoloId={veicoloId} categoria="altri_documenti" />
             </div>
           ) : isEditing ? (
             // Modalità modifica

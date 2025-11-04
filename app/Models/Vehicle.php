@@ -87,6 +87,30 @@ class Vehicle extends Model
     }
 
     /**
+     * Documenti categoria "Libretto di Circolazione"
+     */
+    public function librettiCircolazione(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->documentiVeicolo()->where('categoria', 'libretto_circolazione');
+    }
+
+    /**
+     * Documenti categoria "Autorizzazione Albo"
+     */
+    public function autorizzazioniAlbo(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->documentiVeicolo()->where('categoria', 'autorizzazione_albo');
+    }
+
+    /**
+     * Documenti categoria "Altri Documenti"
+     */
+    public function altriDocumenti(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->documentiVeicolo()->where('categoria', 'altri_documenti');
+    }
+
+    /**
      * Verifica se l'assicurazione è scaduta
      */
     public function isInsuranceExpired(): bool

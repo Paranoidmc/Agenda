@@ -85,9 +85,18 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
     }
   };
 
+  const categoriaLabels = {
+    'bollo': 'Bollo',
+    'assicurazione': 'Assicurazione',
+    'manutenzione': 'Manutenzione',
+    'libretto_circolazione': 'Libretto di Circolazione',
+    'autorizzazione_albo': 'Autorizzazione Albo',
+    'altri_documenti': 'Altri Documenti'
+  };
+
   return (
     <div style={{ marginBottom: 32, background: '#fff', borderRadius: 12, boxShadow: '0 1px 6px #0001', padding: 24, maxWidth: 700 }}>
-      <h4 style={{ marginBottom: 16, fontWeight: 600, fontSize: 20, color: '#2A3A4A' }}>{categoria.charAt(0).toUpperCase() + categoria.slice(1)}</h4>
+      <h4 style={{ marginBottom: 16, fontWeight: 600, fontSize: 20, color: '#2A3A4A' }}>{categoriaLabels[categoria] || categoria.charAt(0).toUpperCase() + categoria.slice(1)}</h4>
       <form onSubmit={handleUpload} style={{ display: "flex", gap: 12, marginBottom: 18, alignItems: 'center', flexWrap: 'wrap' }}>
         <input type="file" accept=".pdf,image/*" ref={fileInput} onChange={e => setFile(e.target.files[0])} style={{ padding: 6, border: '1px solid #e0e0e0', borderRadius: 6, background: '#f9f9f9', fontSize: 14 }} />
         <input type="text" placeholder="Descrizione" value={descrizione} onChange={e => setDescrizione(e.target.value)} style={{ padding: 6, border: '1px solid #e0e0e0', borderRadius: 6, minWidth: 120, fontSize: 14 }} />
@@ -158,5 +167,5 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
 
 VehicleDocumentSection.propTypes = {
   veicoloId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  categoria: PropTypes.oneOf(["bollo", "assicurazione", "manutenzione"]).isRequired,
+  categoria: PropTypes.oneOf(["bollo", "assicurazione", "manutenzione", "libretto_circolazione", "autorizzazione_albo", "altri_documenti"]).isRequired,
 };

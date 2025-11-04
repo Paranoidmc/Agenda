@@ -45,7 +45,7 @@ class VehicleDocumentController extends Controller
     {
         $this->authorize('create', DocumentoVeicolo::class);
         $validator = Validator::make($request->all(), [
-            'categoria' => 'required|in:bollo,assicurazione,manutenzione',
+            'categoria' => 'required|in:bollo,assicurazione,manutenzione,libretto_circolazione,autorizzazione_albo,altri_documenti',
             'file' => 'required|file|mimes:pdf,jpeg,png,jpg,gif|max:8192',
             'descrizione' => 'nullable|string|max:255',
             'data_scadenza' => 'nullable|date',
