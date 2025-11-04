@@ -294,15 +294,17 @@ export default function AgendaAutistiPage() {
         for (const drv of driverIds) {
           const key = String(drv.id);
           if (!acc[key]) acc[key] = { driver: drv, perDay: {} };
-          if (!acc[key].perDay[d]) acc[key].perDay[d] = [];
-          acc[key].perDay[d].push({
+          // Usa sempre la data formattata come YYYY-MM-DD per la chiave
+          const dayKey = d; // d è già in formato YYYY-MM-DD da weekDays
+          if (!acc[key].perDay[dayKey]) acc[key].perDay[dayKey] = [];
+          acc[key].perDay[dayKey].push({
             id: act.id,
             descrizione: act.descrizione || act.titolo || "",
             start,
             end,
           });
-          console.log(`✅ Attività ${act.id} aggiunta a driver ${key} per giorno ${d} (start: ${start}, end: ${end})`);
-          console.log(`   Contenuto perDay[${d}]:`, acc[key].perDay[d]);
+          console.log(`✅ Attività ${act.id} aggiunta a driver ${key} per giorno ${dayKey} (start: ${start}, end: ${end})`);
+          console.log(`   Chiavi perDay disponibili dopo aggiunta:`, Object.keys(acc[key].perDay));
         }
         
         if (driverIds.length === 0) {
