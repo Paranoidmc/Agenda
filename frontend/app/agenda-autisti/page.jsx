@@ -278,8 +278,14 @@ export default function AgendaAutistiPage() {
 
   // Helper: trova l'attività del driver che copre lo slot specifico
   const getActivityForSlot = useCallback((driverId, slotDate) => {
-    // Cerca l'attività nel giorno corrente (date)
-    const list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
+    // Determina il giorno da cercare: per la vista grid usa il giorno dello slot, per week cerca in tutti i giorni
+    const slotDateStr = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
+    
+    // Cerca prima nel giorno dello slot, poi nel giorno corrente se diverso
+    let list = groupedByDriver[String(driverId)]?.perDay?.[slotDateStr] || [];
+    if (!list.length && slotDateStr !== date) {
+      list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
+    }
     
     // DEBUG: log solo per il primo driver al primo slot
     const isFirstCheck = slotDate.getHours() === 6 && slotDate.getMinutes() === 0;
@@ -288,6 +294,7 @@ export default function AgendaAutistiPage() {
         driverId,
         driverName: driverList[0]?.nome || driverList[0]?.name,
         slotDate: slotDate.toISOString(),
+        slotDateStr,
         date,
         listLength: list.length,
         hasGroupedDriver: !!groupedByDriver[String(driverId)],
@@ -300,6 +307,8 @@ export default function AgendaAutistiPage() {
           end: a.end,
           descrizione: a.descrizione
         })));
+      } else {
+        console.log('⚠️ Nessuna attività trovata per questo driver in questa data');
       }
     }
     
