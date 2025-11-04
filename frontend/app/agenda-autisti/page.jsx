@@ -31,6 +31,7 @@ export default function AgendaAutistiPage() {
   const [includeAllStatuses, setIncludeAllStatuses] = useState(false);
   const [driverQuery, setDriverQuery] = useState("");
   const [onlyWithActivities, setOnlyWithActivities] = useState(false); // Cambiato a false per vedere tutti gli autisti di default
+  const [loadAllActivities, setLoadAllActivities] = useState(false); // Flag per caricare tutte le attività senza filtro data
   const [driverOrder, setDriverOrder] = useState(() => {
     // Carica ordinamento custom da localStorage
     if (typeof window !== 'undefined') {
@@ -93,10 +94,14 @@ export default function AgendaAutistiPage() {
       try {
         const results = await Promise.all(days.map(async (d) => {
           try {
-            const params = new URLSearchParams({ perPage: "500", date: String(d) });
+            const params = new URLSearchParams({ perPage: "500" });
+            // Se loadAllActivities è false, aggiungi il filtro per data
+            if (!loadAllActivities) {
+              params.append("date", String(d));
+            }
             params.append("include", "resources");
             const url = `/activities?${params.toString()}`;
-            console.log(`🔍 Richiesta attività per ${d}:`, url);
+            console.log(`🔍 Richiesta attività per ${d}:`, url, loadAllActivities ? '(senza filtro data)' : '(con filtro data)');
             const response = await api.get(url, { 
               useCache: false, 
               skipLoadingState: false,
@@ -169,7 +174,7 @@ export default function AgendaAutistiPage() {
     };
     fetchForDays(weekDays);
     return () => { mounted = false; };
-  }, [weekDays]);
+  }, [weekDays, loadAllActivities]);
 
   const groupedByDriver = useMemo(() => {
     // Restituisce { driverId: { driver, perDay: { date: [acts] } } }
@@ -678,6 +683,10 @@ export default function AgendaAutistiPage() {
         <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
           <input type="checkbox" checked={onlyWithActivities} onChange={e => setOnlyWithActivities(e.target.checked)} />
           Solo autisti con attività
+        </label>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
+          <input type="checkbox" checked={loadAllActivities} onChange={e => setLoadAllActivities(e.target.checked)} />
+          Carica tutte le attività (senza filtro data)
         </label>
         {driverOrder.length > 0 && (
           <button
