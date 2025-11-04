@@ -81,15 +81,19 @@ class DocumentoVeicoloService
                 'file_path' => $documento->file_path,
             ]);
             
-            if (!$documento->file_path || !Storage::disk('local')->exists($documento->file_path)) {
+            // Normalizza il percorso rimuovendo doppi slash
+            $normalizedPath = preg_replace('#/+#', '/', trim($documento->file_path ?? '', '/'));
+            
+            if (!$normalizedPath || !Storage::disk('local')->exists($normalizedPath)) {
                 Log::warning('File documento non trovato in Storage', [
                     'documento_id' => $documento->id,
-                    'file_path' => $documento->file_path,
+                    'file_path_original' => $documento->file_path,
+                    'file_path_normalized' => $normalizedPath,
                 ]);
                 return null;
             }
             
-            $filePath = Storage::disk('local')->path($documento->file_path);
+            $filePath = Storage::disk('local')->path($normalizedPath);
             Log::info('Percorso file calcolato', [
                 'documento_id' => $documento->id,
                 'file_path' => $documento->file_path,
@@ -117,8 +121,8 @@ class DocumentoVeicoloService
                 return null;
             }
             
-            $mimeType = Storage::disk('local')->mimeType($documento->file_path);
-            $fileName = basename($documento->file_path);
+            $mimeType = Storage::disk('local')->mimeType($normalizedPath);
+            $fileName = basename($normalizedPath);
             
             // Rimuovi il prefisso UUID dal nome file se presente
             if (strpos($fileName, '_') !== false) {
@@ -184,7 +188,7 @@ class DocumentoVeicoloService
                 }
             } else {
                 // Per download
-                return Storage::disk('local')->download($documento->file_path, $fileName);
+                return Storage::disk('local')->download($normalizedPath, $fileName);
             }
         } catch (Exception $e) {
             Log::error('Errore download documento veicolo', [
