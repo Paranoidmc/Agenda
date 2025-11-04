@@ -95,29 +95,67 @@ export default function AgendaAutistiPage() {
           try {
             const params = new URLSearchParams({ perPage: "500", date: String(d) });
             params.append("include", "resources");
-            const response = await api.get(`/activities?${params.toString()}`, { 
+            const url = `/activities?${params.toString()}`;
+            console.log(`🔍 Richiesta attività per ${d}:`, url);
+            const response = await api.get(url, { 
               useCache: false, 
               skipLoadingState: false,
               timeout: 30000 
             });
-            const items = Array.isArray(response.data) 
-              ? response.data 
-              : (Array.isArray(response.data?.data) 
-                ? response.data.data 
-                : []);
-            console.log(`📅 Caricate ${items.length} attività per ${d}`);
+            console.log(`📥 Risposta API per ${d}:`, {
+              status: response.status,
+              hasData: !!response.data,
+              dataType: typeof response.data,
+              isArray: Array.isArray(response.data),
+              dataKeys: response.data ? Object.keys(response.data) : [],
+              fullResponse: response.data
+            });
+            
+            // Gestisci risposta paginata Laravel
+            let items = [];
+            if (Array.isArray(response.data)) {
+              items = response.data;
+            } else if (response.data?.data && Array.isArray(response.data.data)) {
+              items = response.data.data;
+            } else if (response.data?.items && Array.isArray(response.data.items)) {
+              items = response.data.items;
+            } else if (response.data?.results && Array.isArray(response.data.results)) {
+              items = response.data.results;
+            }
+            
+            console.log(`📅 Caricate ${items.length} attività per ${d}`, items.length > 0 ? items[0] : 'nessuna attività');
+            if (items.length > 0) {
+              console.log(`📋 Prima attività per ${d}:`, {
+                id: items[0].id,
+                descrizione: items[0].descrizione,
+                data_inizio: items[0].data_inizio,
+                data_fine: items[0].data_fine,
+                status: items[0].status,
+                hasResources: !!items[0].resources,
+                resourcesCount: items[0].resources ? items[0].resources.length : 0
+              });
+            }
             return [d, items];
           } catch (err) {
             console.error(`❌ Errore caricamento attività per ${d}:`, err);
+            console.error(`❌ Dettagli errore:`, {
+              message: err.message,
+              response: err.response?.data,
+              status: err.response?.status
+            });
             return [d, []]; // Ritorna array vuoto invece di fallire tutto
           }
         }));
         if (!mounted) return;
         const map = {};
+        let totalActivities = 0;
         for (const [d, items] of results) {
           map[d] = items;
+          totalActivities += items.length;
           console.log(`📊 Giorno ${d}: ${items.length} attività caricate`);
         }
+        console.log(`📊 TOTALE attività caricate da API: ${totalActivities}`);
+        console.log(`📊 Mappa attività per giorno:`, map);
         setActivitiesByDay(map);
       } catch (e) {
         console.error("Errore generale caricamento attività:", e);
