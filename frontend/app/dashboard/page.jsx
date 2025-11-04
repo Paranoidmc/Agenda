@@ -114,43 +114,28 @@ export default function DashboardPage() {
         effectiveEndDate = thirtyDaysLater.toISOString().split('T')[0];
       }
       
+      console.log("[DASHBOARD] Parametri caricamento:", { effectiveStartDate, effectiveEndDate });
       
-      // Carica i veicoli e poi le scadenze per ogni veicolo
+      // Carica le scadenze
       try {
-        // Ottieni il token da localStorage se disponibile
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        
-        // Carica tutti i veicoli
-        const vehiclesResponse = await api.get('/vehicles', {
-          withCredentials: true,
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        });
-        
-        
-        // Array per raccogliere tutte le scadenze
-        
-        
-        // Per ogni veicolo, carica le scadenze
-        // Carica tutte le scadenze in un'unica chiamata ottimizzata
+        console.log("[DASHBOARD] Caricamento scadenze...");
         const deadlinesResponse = await api.get('/vehicle-deadlines/all', {
-          withCredentials: true,
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
           params: {
             start_date: effectiveStartDate,
             end_date: effectiveEndDate
           },
           useCache: false
         });
-        let allDeadlines = deadlinesResponse.data || [];
-if (allDeadlines.length > 0) {
-}
         
+        console.log("[DASHBOARD] Risposta scadenze:", {
+          status: deadlinesResponse.status,
+          hasData: !!deadlinesResponse.data,
+          dataType: Array.isArray(deadlinesResponse.data) ? 'array' : typeof deadlinesResponse.data,
+          dataLength: Array.isArray(deadlinesResponse.data) ? deadlinesResponse.data.length : 'N/A',
+          firstItem: Array.isArray(deadlinesResponse.data) && deadlinesResponse.data.length > 0 ? deadlinesResponse.data[0] : null
+        });
+        
+        let allDeadlines = deadlinesResponse.data || [];
         
         // Filtra le scadenze per il periodo specificato
         const { paidDeadlines, unpaidDeadlines } = allDeadlines.reduce((acc, deadline) => {
@@ -183,34 +168,52 @@ if (allDeadlines.length > 0) {
         paidDeadlines.sort(sortByDate);
         unpaidDeadlines.sort(sortByDate);
 
+        console.log("[DASHBOARD] Scadenze processate:", {
+          paid: paidDeadlines.length,
+          unpaid: unpaidDeadlines.length
+        });
+
         setDeadlines({ paid: paidDeadlines, unpaid: unpaidDeadlines });
 
       } catch (deadlinesError) {
         console.error("[DASHBOARD] Errore nel caricamento delle scadenze:", deadlinesError);
-        setError("Errore nel caricamento delle scadenze.");
+        setError("Errore nel caricamento delle scadenze: " + (deadlinesError.response?.data?.message || deadlinesError.message));
       }
 
+      // Carica le attività
       try {
+        console.log("[DASHBOARD] Caricamento attività...");
         const activitiesResponse = await api.get('/activities', {
           params: {
             start_date: effectiveStartDate,
             end_date: effectiveEndDate,
-            per_page: 5,
+            perPage: 5,
             sort: 'data_inizio',
             order: 'desc'
           }
         });
+        
+        console.log("[DASHBOARD] Risposta attività:", {
+          status: activitiesResponse.status,
+          hasData: !!activitiesResponse.data,
+          dataType: typeof activitiesResponse.data,
+          hasDataField: !!activitiesResponse.data?.data,
+          activitiesCount: Array.isArray(activitiesResponse.data?.data) ? activitiesResponse.data.data.length : 0
+        });
+        
         // Le attività recenti sono le ultime 5 attività ordinate per data_inizio decrescente
         // nel range di date selezionato (default: ultimi 30 giorni)
-        setActivities(activitiesResponse.data.data || []);
+        const activitiesData = activitiesResponse.data?.data || activitiesResponse.data || [];
+        console.log("[DASHBOARD] Attività impostate:", activitiesData.length);
+        setActivities(Array.isArray(activitiesData) ? activitiesData : []);
       } catch (activitiesError) {
         console.error("[DASHBOARD] Errore nel caricamento delle attività:", activitiesError);
-        setError("Errore nel caricamento delle attività.");
+        setError((prev) => prev + " Errore nel caricamento delle attività: " + (activitiesError.response?.data?.message || activitiesError.message));
       }
 
     } catch (err) {
       console.error("[DASHBOARD] Errore generale nel caricamento dei dati:", err);
-      setError("Si è verificato un errore generale.");
+      setError("Si è verificato un errore generale: " + err.message);
     } finally {
       setFetching(false);
       console.groupEnd();
@@ -338,8 +341,7 @@ if (allDeadlines.length > 0) {
           />
           <button 
             onClick={() => {
-              fetchDashboardData(currentDateRange.startDate, currentDateRange.endDate);
-              fetchRecentActivities();
+              loadData();
             }}
             style={{
               padding: '8px 16px',
