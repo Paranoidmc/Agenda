@@ -108,7 +108,20 @@ class DocumentoVeicoloService
             
             if ($inline) {
                 // Per visualizzazione inline nel browser
-                $mimeType = $mimeType ?: mime_content_type($filePath) ?: 'application/octet-stream';
+                $mimeType = $mimeType ?: (function_exists('mime_content_type') ? mime_content_type($filePath) : null);
+                
+                // Fallback per determinare il MIME type dall'estensione
+                if (!$mimeType) {
+                    $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                    $mimeTypes = [
+                        'pdf' => 'application/pdf',
+                        'jpg' => 'image/jpeg',
+                        'jpeg' => 'image/jpeg',
+                        'png' => 'image/png',
+                        'gif' => 'image/gif',
+                    ];
+                    $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
+                }
                 
                 return response()->file($filePath, [
                     'Content-Type' => $mimeType,
