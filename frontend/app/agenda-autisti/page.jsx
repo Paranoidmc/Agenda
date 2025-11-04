@@ -287,7 +287,7 @@ export default function AgendaAutistiPage() {
     
     for (const a of list) {
       const s = toDate(a.start);
-      const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000)); // default 1h se end mancante
+      const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null); // default 1h se end mancante
       if (!s) continue;
       
       // Verifica che l'attività sia nello stesso giorno dello slot
