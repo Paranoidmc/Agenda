@@ -111,6 +111,24 @@ class Vehicle extends Model
     }
 
     /**
+     * Relazione: storico contratti di noleggio
+     */
+    public function rentals(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VehicleRental::class);
+    }
+
+    /**
+     * Contratto di noleggio attivo
+     */
+    public function activeRental(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(VehicleRental::class)->where('is_active', true)
+            ->where('contract_start_date', '<=', now())
+            ->where('contract_end_date', '>=', now());
+    }
+
+    /**
      * Verifica se l'assicurazione è scaduta
      */
     public function isInsuranceExpired(): bool

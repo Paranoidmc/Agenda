@@ -18,6 +18,7 @@ use App\Http\Controllers\DocumentiController;
 
 use App\Http\Controllers\VehicleDeadlineController;
 use App\Http\Controllers\VehicleTrackingController;
+use App\Http\Controllers\VehicleRentalController;
 use App\Http\Controllers\ProfessionalDriverLicenseController;
 use App\Http\Controllers\RentalVehicleController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
@@ -175,6 +176,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Vehicle-related routes
     Route::get('/vehicles/{vehicle}/activities', [ActivityController::class, 'getVehicleActivities']);
     Route::get('/vehicles/{vehicle}/deadlines', [VehicleDeadlineController::class, 'getVehicleDeadlines']);
+    
+    // Vehicle Rentals Routes
+    Route::get('/vehicles/{vehicle}/rentals', [VehicleRentalController::class, 'index']);
+    Route::post('/vehicles/{vehicle}/rentals', [VehicleRentalController::class, 'store']);
+    Route::get('/vehicles/{vehicle}/rentals/{rental}', [VehicleRentalController::class, 'show']);
+    Route::put('/vehicles/{vehicle}/rentals/{rental}', [VehicleRentalController::class, 'update']);
+    Route::delete('/vehicles/{vehicle}/rentals/{rental}', [VehicleRentalController::class, 'destroy']);
 
     // GPS Tracking Routes
     Route::get('/vehicles/{vehicle}/position', [VehicleTrackingController::class, 'getVehiclePosition']);

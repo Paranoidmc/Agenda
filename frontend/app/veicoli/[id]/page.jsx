@@ -6,6 +6,7 @@ import api from "../../../lib/api";
 import { useAuth } from "../../../context/AuthContext";
 import PageHeader from "../../../components/PageHeader";
 import VehicleDocumentSection from "../../../components/VehicleDocumentSection";
+import VehicleRentalsSection from "../../../components/VehicleRentalsSection";
 
 export default function VeicoloDetailPage() {
   const router = useRouter();
@@ -120,9 +121,8 @@ export default function VeicoloDetailPage() {
     },
     {
       label: 'Contratto/Noleggio',
-      fields: veicoloFields.filter(f => [
-        'contract_holder','ownership_type','rental_type','advance_paid','final_installment','monthly_fee','contract_start_date','contract_end_date','contract_duration_months','contract_kilometers','invoice_amount_excl_vat','invoice_amount_incl_vat','contract_equipment','returned_or_redeemed'
-      ].includes(f.name))
+      fields: [], // Tab speciale per storico contratti
+      isRentals: true
     },
     {
       label: 'Documenti',
@@ -397,10 +397,15 @@ export default function VeicoloDetailPage() {
           border: '1px solid #e5e7eb'
         }}>
           <h3 style={{ marginTop: 0, marginBottom: 25, color: '#1f2937' }}>
-            {tabGroups[activeTab]?.isDocuments ? '📄' : '🚗'} {tabGroups[activeTab]?.label}
+            {tabGroups[activeTab]?.isDocuments ? '📄' : tabGroups[activeTab]?.isRentals ? '📋' : '🚗'} {tabGroups[activeTab]?.label}
           </h3>
           
-          {tabGroups[activeTab]?.isDocuments ? (
+          {tabGroups[activeTab]?.isRentals ? (
+            // Tab Storico Contratti
+            <div>
+              <VehicleRentalsSection veicoloId={veicoloId} canEdit={canEdit} />
+            </div>
+          ) : tabGroups[activeTab]?.isDocuments ? (
             // Tab Documenti
             <div>
               <VehicleDocumentSection veicoloId={veicoloId} categoria="assicurazione" />
