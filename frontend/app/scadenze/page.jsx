@@ -36,7 +36,7 @@ function ScadenzeContent() {
   const { user, loading } = useAuth();
   const searchParams = useSearchParams();
   const [scadenze, setScadenze] = useState([]);
-const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState("");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [selectedScadenza, setSelectedScadenza] = useState(null);

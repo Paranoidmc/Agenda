@@ -521,7 +521,7 @@ export default function DashboardPage() {
                         borderBottom: '1px solid #eee', 
                         cursor: 'pointer',
                         transition: 'background-color 0.2s',
-                        backgroundColor: getDeadlineColor(deadline, 0.1)
+                        backgroundColor: 'transparent'
                       }}
                       onClick={() => {
                         // Se è una scadenza documento, naviga al veicolo invece della pagina scadenze
@@ -535,7 +535,7 @@ export default function DashboardPage() {
                         }
                       }}
                       onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f7ff'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = getDeadlineColor(deadline, 0.1)}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <td style={{ padding: '12px 16px' }}>
                         {(() => {
