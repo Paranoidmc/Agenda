@@ -30,6 +30,7 @@ export default function AgendaAutistiPage() {
   const [activitiesByDay, setActivitiesByDay] = useState({}); // { 'YYYY-MM-DD': activities[] }
   const [includeAllStatuses, setIncludeAllStatuses] = useState(false);
   const [driverQuery, setDriverQuery] = useState("");
+  const [onlyWithActivities, setOnlyWithActivities] = useState(true);
 
   // Carica anagrafica autisti
   useEffect(() => {
@@ -253,87 +254,84 @@ export default function AgendaAutistiPage() {
       });
     }
     
-    // Se c'è un filtro di ricerca, mostra anche gli autisti senza attività (per permettere la ricerca)
-    if (q && filteredDrivers.length > 0) {
-      // Verifica quali di questi autisti hanno attività
-      const hasAssignments = new Set(Object.keys(groupedByDriver));
-      const withActs = new Set();
-      
-      // Verifica anche direttamente nelle attività per sicurezza
-      for (const day of weekDays) {
-        const items = activitiesByDay[day] || [];
-        const dayStart = toDate(day);
-        const dayEnd = toDate(day);
-        if (dayStart && dayEnd) {
-          dayStart.setHours(0, 0, 0, 0);
-          dayEnd.setHours(23, 59, 59, 999);
-        }
-        for (const act of items) {
-          const start = act.data_inizio || act.start_date || act.start;
-          const end = act.data_fine || act.end_date || act.end;
-          const s = toDate(start);
-          const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
-          if (!s || !dayStart || !dayEnd) continue;
-          const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
-          if (!overlaps) continue;
-          const status = String(act.status || act.stato || '').toLowerCase();
-          const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
-          if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
-          const resources = Array.isArray(act.resources) ? act.resources : [];
-          for (const r of resources) {
+    // Verifica quali autisti hanno attività
+    const hasAssignments = new Set(Object.keys(groupedByDriver));
+    const withActs = new Set();
+    
+    // Verifica anche direttamente nelle attività per sicurezza
+    for (const day of weekDays) {
+      const items = activitiesByDay[day] || [];
+      const dayStart = toDate(day);
+      const dayEnd = toDate(day);
+      if (dayStart && dayEnd) {
+        dayStart.setHours(0, 0, 0, 0);
+        dayEnd.setHours(23, 59, 59, 999);
+      }
+      for (const act of items) {
+        const start = act.data_inizio || act.start_date || act.start;
+        const end = act.data_fine || act.end_date || act.end;
+        const s = toDate(start);
+        const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
+        if (!s || !dayStart || !dayEnd) continue;
+        const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
+        if (!overlaps) continue;
+        const status = String(act.status || act.stato || '').toLowerCase();
+        const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
+        if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
+        
+        // Estrai tutti i driver dalle attività (supporta tutti i formati)
+        let driverIds = [];
+        if (Array.isArray(act.resources) && act.resources.length > 0) {
+          for (const r of act.resources) {
             const drvId = r.driver?.id || r.driver_id;
-            if (drvId != null) withActs.add(String(drvId));
+            if (drvId != null) driverIds.push(String(drvId));
           }
         }
+        if (driverIds.length === 0 && Array.isArray(act.drivers) && act.drivers.length > 0) {
+          driverIds = act.drivers.map(drv => String(drv?.id || drv)).filter(Boolean);
+        }
+        if (driverIds.length === 0 && act.driver_id) {
+          driverIds.push(String(act.driver_id));
+        }
+        if (driverIds.length === 0 && act.driver?.id) {
+          driverIds.push(String(act.driver.id));
+        }
+        
+        for (const drvId of driverIds) {
+          withActs.add(drvId);
+        }
       }
-      
-      // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività)
-      // altrimenti mostra solo quelli con attività
+    }
+    
+    // Se c'è un filtro di ricerca, mostra anche gli autisti senza attività (per permettere la ricerca)
+    if (q && filteredDrivers.length > 0) {
+      // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività se onlyWithActivities è false)
       return filteredDrivers.filter(d => {
         const hasInGrouped = hasAssignments.has(String(d.id));
         const hasInActivities = withActs.has(String(d.id));
-        return hasInGrouped || hasInActivities || q; // Se c'è ricerca, mostra anche senza attività
+        const hasActivity = hasInGrouped || hasInActivities;
+        if (onlyWithActivities && !q) {
+          return hasActivity; // Se solo con attività e senza ricerca, mostra solo quelli con attività
+        }
+        return hasActivity || q; // Se c'è ricerca, mostra anche senza attività
       });
     }
     
-    // Se non c'è ricerca, mostra solo autisti con impegni
-    const hasAssignments = new Set(Object.keys(groupedByDriver));
-    let list = drivers.filter(d => hasAssignments.has(String(d.id)));
-    
-    // Fallback: verifica direttamente nelle attività
-    if (list.length === 0) {
-      const withActs = new Set();
-      for (const day of weekDays) {
-        const items = activitiesByDay[day] || [];
-        const dayStart = toDate(day);
-        const dayEnd = toDate(day);
-        if (dayStart && dayEnd) {
-          dayStart.setHours(0, 0, 0, 0);
-          dayEnd.setHours(23, 59, 59, 999);
-        }
-        for (const act of items) {
-          const start = act.data_inizio || act.start_date || act.start;
-          const end = act.data_fine || act.end_date || act.end;
-          const s = toDate(start);
-          const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
-          if (!s || !dayStart || !dayEnd) continue;
-          const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
-          if (!overlaps) continue;
-          const status = String(act.status || act.stato || '').toLowerCase();
-          const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
-          if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
-          const resources = Array.isArray(act.resources) ? act.resources : [];
-          for (const r of resources) {
-            const drvId = r.driver?.id || r.driver_id;
-            if (drvId != null) withActs.add(String(drvId));
-          }
-        }
+    // Se non c'è ricerca e onlyWithActivities è true, mostra solo autisti con impegni
+    if (onlyWithActivities) {
+      let list = filteredDrivers.filter(d => hasAssignments.has(String(d.id)));
+      
+      // Fallback: verifica direttamente nelle attività
+      if (list.length === 0) {
+        list = filteredDrivers.filter(d => withActs.has(String(d.id)));
       }
-      list = drivers.filter(d => withActs.has(String(d.id)));
+      
+      return list;
     }
     
-    return list;
-  }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses]);
+    // Se onlyWithActivities è false, mostra tutti gli autisti
+    return filteredDrivers;
+  }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses, onlyWithActivities]);
 
   const goPrev = () => {
     const base = toDate(date);
@@ -374,6 +372,10 @@ export default function AgendaAutistiPage() {
         <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
           <input type="checkbox" checked={includeAllStatuses} onChange={e => setIncludeAllStatuses(e.target.checked)} />
           Includi completate/annullate
+        </label>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
+          <input type="checkbox" checked={onlyWithActivities} onChange={e => setOnlyWithActivities(e.target.checked)} />
+          Solo autisti con attività
         </label>
         <input
           type="text"
@@ -418,14 +420,7 @@ export default function AgendaAutistiPage() {
             <thead>
               <tr>
                 <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
-                {drivers
-                  .filter(d => {
-                    const q = driverQuery.trim().toLowerCase();
-                    if (!q) return true;
-                    const full = ((d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')).toLowerCase();
-                    return full.includes(q);
-                  })
-                  .map(d => (
+                {driverList.map(d => (
                   <th key={d.id} style={{ ...thStyle, minWidth: 180, textAlign: 'center' }} title={String(d.id)}>
                     {(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}
                   </th>
@@ -434,23 +429,16 @@ export default function AgendaAutistiPage() {
             </thead>
             <tbody>
               {loadingActs ? (
-                <tr><td style={tdStyle} colSpan={1 + drivers.length}>Caricamento impegni...</td></tr>
+                <tr><td style={tdStyle} colSpan={1 + driverList.length}>Caricamento impegni...</td></tr>
               ) : timeSlots.length === 0 ? (
-                <tr><td style={tdStyle} colSpan={1 + drivers.length}>Nessuno slot disponibile</td></tr>
+                <tr><td style={tdStyle} colSpan={1 + driverList.length}>Nessuno slot disponibile</td></tr>
               ) : (
                 timeSlots.map((slot, idx) => (
                   <tr key={idx}>
                     <td style={{ ...tdStyle, position: 'sticky', left: 0, zIndex: 1, background: '#fff', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       {slot.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                     </td>
-                    {drivers
-                      .filter(d => {
-                        const q = driverQuery.trim().toLowerCase();
-                        if (!q) return true;
-                        const full = ((d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')).toLowerCase();
-                        return full.includes(q);
-                      })
-                      .map(d => {
+                    {driverList.map(d => {
                         const act = getActivityForSlot(d.id, slot);
                         return (
                           <td key={d.id} style={{ ...tdStyle, minWidth: 180, textAlign: 'center' }}>

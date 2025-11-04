@@ -199,6 +199,8 @@ if (allDeadlines.length > 0) {
             order: 'desc'
           }
         });
+        // Le attività recenti sono le ultime 5 attività ordinate per data_inizio decrescente
+        // nel range di date selezionato (default: ultimi 30 giorni)
         setActivities(activitiesResponse.data.data || []);
       } catch (activitiesError) {
         console.error("[DASHBOARD] Errore nel caricamento delle attività:", activitiesError);
