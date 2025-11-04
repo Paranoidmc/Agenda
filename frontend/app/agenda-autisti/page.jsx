@@ -548,8 +548,11 @@ export default function AgendaAutistiPage() {
         const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
         if (!overlaps) continue;
         const status = String(act.status || act.stato || '').toLowerCase();
-        const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
-        if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
+        const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned','non assegnato']);
+        if (allowedStatuses && status && !allowedStatuses.has(status)) {
+          console.log(`⚠️ Attività ${act.id} esclusa per stato: "${status}"`);
+          continue;
+        }
         
         // Estrai tutti i driver dalle attività (supporta tutti i formati)
         let driverIds = [];
