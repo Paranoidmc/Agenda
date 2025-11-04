@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\VehicleDeadline;
 use App\Models\Vehicle;
+use App\Models\DocumentoVeicolo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -14,12 +15,91 @@ class VehicleDeadlineController extends Controller
     use AuthorizesRequests;
     /**
      * Restituisce tutte le scadenze con dati veicolo inclusi (API ottimizzata per dashboard)
+     * Include sia le scadenze dalla tabella vehicle_deadlines che quelle dai documenti veicolo
      */
     public function allWithVehicles(Request $request)
     {
-        // L'autorizzazione è gestita automaticamente dalla VehicleDeadlinePolicy
-        $query = VehicleDeadline::with('vehicle');
-        return response()->json($query->get());
+        // Carica le scadenze dalla tabella vehicle_deadlines
+        $deadlines = VehicleDeadline::with('vehicle')->get();
+        
+        // Carica le scadenze dai documenti veicolo con data_scadenza
+        $documentScadenze = DocumentoVeicolo::with('veicolo')
+            ->whereNotNull('data_scadenza')
+            ->get();
+        
+        // Trasforma i documenti in formato compatibile con le scadenze
+        $documentDeadlines = $documentScadenze->map(function ($doc) {
+            $vehicle = $doc->veicolo;
+            
+            // Mappa categoria documento a tipo scadenza
+            $tipoMap = [
+                'assicurazione' => 'insurance',
+                'bollo' => 'tax',
+                'manutenzione' => 'maintenance',
+                'libretto_circolazione' => 'other',
+                'autorizzazione_albo' => 'other',
+                'altri_documenti' => 'other',
+            ];
+            
+            $tipo = $tipoMap[$doc->categoria] ?? 'other';
+            
+            return (object) [
+                'id' => 'doc_' . $doc->id,
+                'vehicle_id' => $doc->veicolo_id,
+                'type' => $tipo,
+                'tipo' => $doc->categoria,
+                'expiry_date' => $doc->data_scadenza,
+                'data_scadenza' => $doc->data_scadenza,
+                'notes' => $doc->descrizione,
+                'note' => $doc->descrizione,
+                'status' => $doc->data_scadenza && $doc->data_scadenza->isPast() ? 'expired' : 'active',
+                'stato' => $doc->data_scadenza && $doc->data_scadenza->isPast() ? 'scaduto' : 'attivo',
+                'pagato' => false,
+                'importo' => null,
+                'data_pagamento' => null,
+                'source' => 'documento_veicolo',
+                'documento_id' => $doc->id,
+                'categoria' => $doc->categoria,
+                'vehicle' => $vehicle ? (object) [
+                    'id' => $vehicle->id,
+                    'plate' => $vehicle->plate,
+                    'brand' => $vehicle->brand,
+                    'model' => $vehicle->model,
+                    'targa' => $vehicle->plate,
+                    'marca' => $vehicle->brand,
+                    'modello' => $vehicle->model,
+                    'nome' => $vehicle->nome,
+                ] : null,
+            ];
+        });
+        
+        // Combina le scadenze
+        $allDeadlines = $deadlines->map(function ($deadline) {
+            // Aggiungi campi in italiano se non presenti
+            if (!isset($deadline->tipo)) $deadline->tipo = $deadline->type;
+            if (!isset($deadline->data_scadenza)) $deadline->data_scadenza = $deadline->expiry_date;
+            if (!isset($deadline->stato)) $deadline->stato = $deadline->status;
+            if (!isset($deadline->note)) $deadline->note = $deadline->notes;
+            $deadline->source = 'vehicle_deadline';
+            return $deadline;
+        })->concat($documentDeadlines);
+        
+        // Filtra per date se specificate
+        if ($request->has('start_date')) {
+            $allDeadlines = $allDeadlines->filter(function ($dl) use ($request) {
+                $expiry = $dl->expiry_date ?? $dl->data_scadenza;
+                return $expiry && $expiry >= $request->start_date;
+            });
+        }
+        
+        if ($request->has('end_date')) {
+            $allDeadlines = $allDeadlines->filter(function ($dl) use ($request) {
+                $expiry = $dl->expiry_date ?? $dl->data_scadenza;
+                return $expiry && $expiry <= $request->end_date;
+            });
+        }
+        
+        return response()->json($allDeadlines->values());
     }
 
     /**
@@ -54,6 +134,70 @@ class VehicleDeadlineController extends Controller
         ]);
         
         $query = VehicleDeadline::with('vehicle');
+        
+        // Aggiungi anche le scadenze dai documenti veicolo
+        $documentScadenze = DocumentoVeicolo::with('veicolo')
+            ->whereNotNull('data_scadenza')
+            ->get();
+        
+        // Trasforma i documenti in formato compatibile
+        $documentDeadlines = $documentScadenze->map(function ($doc) {
+            $vehicle = $doc->veicolo;
+            
+            $tipoMap = [
+                'assicurazione' => 'insurance',
+                'bollo' => 'tax',
+                'manutenzione' => 'maintenance',
+                'libretto_circolazione' => 'other',
+                'autorizzazione_albo' => 'other',
+                'altri_documenti' => 'other',
+            ];
+            
+            $tipo = $tipoMap[$doc->categoria] ?? 'other';
+            
+            return (object) [
+                'id' => 'doc_' . $doc->id,
+                'vehicle_id' => $doc->veicolo_id,
+                'type' => $tipo,
+                'tipo' => $doc->categoria,
+                'expiry_date' => $doc->data_scadenza,
+                'data_scadenza' => $doc->data_scadenza,
+                'notes' => $doc->descrizione,
+                'note' => $doc->descrizione,
+                'status' => $doc->data_scadenza && $doc->data_scadenza->isPast() ? 'expired' : 'active',
+                'stato' => $doc->data_scadenza && $doc->data_scadenza->isPast() ? 'scaduto' : 'attivo',
+                'pagato' => false,
+                'importo' => null,
+                'source' => 'documento_veicolo',
+                'documento_id' => $doc->id,
+                'categoria' => $doc->categoria,
+                'vehicle' => $vehicle ? (object) [
+                    'id' => $vehicle->id,
+                    'plate' => $vehicle->plate,
+                    'brand' => $vehicle->brand,
+                    'model' => $vehicle->model,
+                    'targa' => $vehicle->plate,
+                    'marca' => $vehicle->brand,
+                    'modello' => $vehicle->model,
+                    'nome' => $vehicle->nome,
+                ] : null,
+            ];
+        });
+        
+        // Filtra le scadenze documenti per data se specificata
+        if ($request->has('start_date')) {
+            $documentDeadlines = $documentDeadlines->filter(function ($dl) use ($request) {
+                $expiry = $dl->expiry_date ?? $dl->data_scadenza;
+                return $expiry && $expiry >= $request->start_date;
+            });
+        }
+        
+        if ($request->has('end_date')) {
+            $documentDeadlines = $documentDeadlines->filter(function ($dl) use ($request) {
+                $expiry = $dl->expiry_date ?? $dl->data_scadenza;
+                return $expiry && $expiry <= $request->end_date;
+            });
+        }
         
         // Filtraggio per data di scadenza
         if ($request->has('start_date')) {

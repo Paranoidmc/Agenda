@@ -14,20 +14,46 @@ export default function CalendarioScadenzePage() {
 
   useEffect(() => {
     setLoading(true);
-    import('../../lib/api').then(({ default: api }) => {
-      // Carica scadenze
-      api.get('/vehicle-deadlines')
-        .then(res => {
-          let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-          setScadenze(arr);
-        })
-        .catch(() => {
-          setScadenze([]);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    });
+    
+    const loadData = async () => {
+      const { default: api } = await import('../../lib/api');
+      
+      try {
+        // Carica scadenze (include sia vehicle_deadlines che documenti veicolo)
+        const res = await api.get('/vehicle-deadlines', { useCache: false });
+        let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        setScadenze(arr);
+      } catch (error) {
+        console.error('Errore caricamento scadenze:', error);
+        setScadenze([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+    
+    // Listener per eventi di creazione/modifica/cancellazione scadenze
+    const handleDeadlineEvent = () => {
+      console.log('🔄 Evento scadenza ricevuto, ricarico dati...');
+      setTimeout(() => loadData(), 300);
+    };
+    
+    window.addEventListener('vehicleDeadlineCreated', handleDeadlineEvent);
+    window.addEventListener('vehicleDeadlineUpdated', handleDeadlineEvent);
+    window.addEventListener('vehicleDeadlineDeleted', handleDeadlineEvent);
+    window.addEventListener('vehicleDocumentCreated', handleDeadlineEvent);
+    window.addEventListener('vehicleDocumentUpdated', handleDeadlineEvent);
+    window.addEventListener('vehicleDocumentDeleted', handleDeadlineEvent);
+    
+    return () => {
+      window.removeEventListener('vehicleDeadlineCreated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDeadlineUpdated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDeadlineDeleted', handleDeadlineEvent);
+      window.removeEventListener('vehicleDocumentCreated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDocumentUpdated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDocumentDeleted', handleDeadlineEvent);
+    };
   }, []);
 
   // Genera eventi scadenze con titolo completo
@@ -46,12 +72,18 @@ export default function CalendarioScadenzePage() {
         return 'Revisione';
       case 'tagliando':
       case 'service':
-        return 'Tagliando';
+      case 'manutenzione':
+        return 'Manutenzione';
+      case 'libretto_circolazione':
+        return 'Libretto di Circolazione';
+      case 'autorizzazione_albo':
+        return 'Autorizzazione Albo';
       case 'altro':
       case 'other':
+      case 'altri_documenti':
         return 'Altro';
       default:
-        return tipo;
+        return tipo || 'Scadenza';
     }
   }
   const tipoToColor = {
@@ -59,6 +91,9 @@ export default function CalendarioScadenzePage() {
     'Bollo': '#22c55e', // verde
     'Revisione': '#f59e42', // arancione
     'Tagliando': '#a21caf', // viola
+    'Manutenzione': '#a21caf', // viola
+    'Libretto di Circolazione': '#8b5cf6', // viola chiaro
+    'Autorizzazione Albo': '#ec4899', // rosa
     'Altro': '#64748b', // grigio
   };
   // Eventi scadenze
