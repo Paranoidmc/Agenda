@@ -74,20 +74,37 @@ export default function AgendaAutistiPage() {
       setError("");
       try {
         const results = await Promise.all(days.map(async (d) => {
-          const params = new URLSearchParams({ perPage: "500", date: String(d) });
-          params.append("include", "resources");
-          const { data } = await api.get(`/activities?${params.toString()}`, { useCache: false, skipLoadingState: false });
-          const items = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-          return [d, items];
+          try {
+            const params = new URLSearchParams({ perPage: "500", date: String(d) });
+            params.append("include", "resources");
+            const response = await api.get(`/activities?${params.toString()}`, { 
+              useCache: false, 
+              skipLoadingState: false,
+              timeout: 30000 
+            });
+            const items = Array.isArray(response.data) 
+              ? response.data 
+              : (Array.isArray(response.data?.data) 
+                ? response.data.data 
+                : []);
+            console.log(`📅 Caricate ${items.length} attività per ${d}`);
+            return [d, items];
+          } catch (err) {
+            console.error(`❌ Errore caricamento attività per ${d}:`, err);
+            return [d, []]; // Ritorna array vuoto invece di fallire tutto
+          }
         }));
         if (!mounted) return;
         const map = {};
-        for (const [d, items] of results) map[d] = items;
+        for (const [d, items] of results) {
+          map[d] = items;
+          console.log(`📊 Giorno ${d}: ${items.length} attività caricate`);
+        }
         setActivitiesByDay(map);
       } catch (e) {
-        console.error("Errore caricamento attività:", e);
+        console.error("Errore generale caricamento attività:", e);
         if (mounted) {
-          setError("Impossibile caricare le attività");
+          setError("Impossibile caricare le attività: " + (e?.message || e));
           setActivitiesByDay({});
         }
       } finally {
@@ -102,6 +119,9 @@ export default function AgendaAutistiPage() {
     // Restituisce { driverId: { driver, perDay: { date: [acts] } } }
     const acc = {};
     const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
+    console.log('🔄 Elaborazione attività per autisti, giorni:', weekDays);
+    console.log('📊 Attività per giorno:', Object.keys(activitiesByDay).map(d => `${d}: ${activitiesByDay[d]?.length || 0}`));
+    
     for (const d of weekDays) {
       const items = activitiesByDay[d] || [];
       const dayStart = toDate(d);
@@ -110,6 +130,7 @@ export default function AgendaAutistiPage() {
         dayStart.setHours(0, 0, 0, 0);
         dayEnd.setHours(23, 59, 59, 999);
       }
+      
       for (const act of items) {
         const start = act.data_inizio || act.start_date || act.start;
         const end = act.data_fine || act.end_date || act.end;
@@ -122,10 +143,36 @@ export default function AgendaAutistiPage() {
         // Filtra per stato se richiesto
         const status = String(act.status || act.stato || '').toLowerCase();
         if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
-        const resources = Array.isArray(act.resources) ? act.resources : [];
-        for (const r of resources) {
-          const drv = r.driver || (r.driver_id && drivers.find(x => String(x.id) === String(r.driver_id)));
-          if (!drv) continue;
+        
+        // Supporta multiple fonti di dati driver
+        let driverIds = [];
+        
+        // 1. Prima controlla resources (formato nuovo)
+        if (Array.isArray(act.resources) && act.resources.length > 0) {
+          for (const r of act.resources) {
+            const drv = r.driver || (r.driver_id && drivers.find(x => String(x.id) === String(r.driver_id)));
+            if (drv) driverIds.push(drv);
+          }
+        }
+        
+        // 2. Fallback: controlla drivers array (formato alternativo)
+        if (driverIds.length === 0 && Array.isArray(act.drivers) && act.drivers.length > 0) {
+          driverIds = act.drivers.filter(drv => drv && drv.id);
+        }
+        
+        // 3. Fallback: controlla driver_id diretto
+        if (driverIds.length === 0 && act.driver_id) {
+          const drv = drivers.find(x => String(x.id) === String(act.driver_id));
+          if (drv) driverIds.push(drv);
+        }
+        
+        // 4. Fallback: controlla driver object diretto
+        if (driverIds.length === 0 && act.driver && act.driver.id) {
+          driverIds.push(act.driver);
+        }
+        
+        // Aggiungi attività a tutti i driver trovati
+        for (const drv of driverIds) {
           const key = String(drv.id);
           if (!acc[key]) acc[key] = { driver: drv, perDay: {} };
           if (!acc[key].perDay[d]) acc[key].perDay[d] = [];
@@ -136,8 +183,20 @@ export default function AgendaAutistiPage() {
             end,
           });
         }
+        
+        if (driverIds.length === 0) {
+          console.warn('⚠️ Attività senza driver assegnato:', act.id, act.descrizione);
+        }
       }
     }
+    
+    console.log('👥 Autisti con attività:', Object.keys(acc).length);
+    console.log('📋 Riepilogo:', Object.entries(acc).map(([id, data]) => {
+      const name = `${data.driver.nome || data.driver.name || ''} ${data.driver.cognome || data.driver.surname || ''}`.trim();
+      const totalActs = Object.values(data.perDay).reduce((sum, acts) => sum + acts.length, 0);
+      return `${name}: ${totalActs} attività`;
+    }));
+    
     return acc;
   }, [activitiesByDay, weekDays, drivers, includeAllStatuses]);
 
