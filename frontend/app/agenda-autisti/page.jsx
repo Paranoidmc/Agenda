@@ -183,53 +183,97 @@ export default function AgendaAutistiPage() {
   };
 
   const driverList = useMemo(() => {
-    // Mostra solo autisti con impegni in periodo selezionato (giorno o settimana)
-    const hasAssignments = new Set(Object.keys(groupedByDriver));
-    let list = drivers.filter(d => hasAssignments.has(String(d.id)));
-    // Applica filtro ricerca autista se presente
     const q = driverQuery.trim().toLowerCase();
+    
+    // PRIMA applica il filtro di ricerca a tutti gli autisti (se presente)
+    let filteredDrivers = drivers;
     if (q) {
-      list = list.filter(d => (
-        ((d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')).toLowerCase().includes(q)
-      ));
+      filteredDrivers = drivers.filter(d => {
+        const fullName = ((d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')).trim().toLowerCase();
+        return fullName.includes(q);
+      });
     }
-    if (list.length > 0) return list;
-    // Fallback robusto: verifica direttamente nelle attività per sicurezza
-    const withActs = new Set();
-    for (const day of weekDays) {
-      const items = activitiesByDay[day] || [];
-      const dayStart = toDate(day);
-      const dayEnd = toDate(day);
-      if (dayStart && dayEnd) {
-        dayStart.setHours(0, 0, 0, 0);
-        dayEnd.setHours(23, 59, 59, 999);
-      }
-      for (const act of items) {
-        // Sovrapposizione al giorno e stato
-        const start = act.data_inizio || act.start_date || act.start;
-        const end = act.data_fine || act.end_date || act.end;
-        const s = toDate(start);
-        const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
-        if (!s || !dayStart || !dayEnd) continue;
-        const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
-        if (!overlaps) continue;
-        const status = String(act.status || act.stato || '').toLowerCase();
-        const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
-        if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
-        const resources = Array.isArray(act.resources) ? act.resources : [];
-        for (const r of resources) {
-          const drvId = r.driver?.id || r.driver_id;
-          if (drvId != null) withActs.add(String(drvId));
+    
+    // Se c'è un filtro di ricerca, mostra anche gli autisti senza attività (per permettere la ricerca)
+    if (q && filteredDrivers.length > 0) {
+      // Verifica quali di questi autisti hanno attività
+      const hasAssignments = new Set(Object.keys(groupedByDriver));
+      const withActs = new Set();
+      
+      // Verifica anche direttamente nelle attività per sicurezza
+      for (const day of weekDays) {
+        const items = activitiesByDay[day] || [];
+        const dayStart = toDate(day);
+        const dayEnd = toDate(day);
+        if (dayStart && dayEnd) {
+          dayStart.setHours(0, 0, 0, 0);
+          dayEnd.setHours(23, 59, 59, 999);
+        }
+        for (const act of items) {
+          const start = act.data_inizio || act.start_date || act.start;
+          const end = act.data_fine || act.end_date || act.end;
+          const s = toDate(start);
+          const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
+          if (!s || !dayStart || !dayEnd) continue;
+          const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
+          if (!overlaps) continue;
+          const status = String(act.status || act.stato || '').toLowerCase();
+          const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
+          if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
+          const resources = Array.isArray(act.resources) ? act.resources : [];
+          for (const r of resources) {
+            const drvId = r.driver?.id || r.driver_id;
+            if (drvId != null) withActs.add(String(drvId));
+          }
         }
       }
+      
+      // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività)
+      // altrimenti mostra solo quelli con attività
+      return filteredDrivers.filter(d => {
+        const hasInGrouped = hasAssignments.has(String(d.id));
+        const hasInActivities = withActs.has(String(d.id));
+        return hasInGrouped || hasInActivities || q; // Se c'è ricerca, mostra anche senza attività
+      });
     }
-    let res = drivers.filter(d => withActs.has(String(d.id)));
-    if (q) {
-      res = res.filter(d => (
-        ((d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')).toLowerCase().includes(q)
-      ));
+    
+    // Se non c'è ricerca, mostra solo autisti con impegni
+    const hasAssignments = new Set(Object.keys(groupedByDriver));
+    let list = drivers.filter(d => hasAssignments.has(String(d.id)));
+    
+    // Fallback: verifica direttamente nelle attività
+    if (list.length === 0) {
+      const withActs = new Set();
+      for (const day of weekDays) {
+        const items = activitiesByDay[day] || [];
+        const dayStart = toDate(day);
+        const dayEnd = toDate(day);
+        if (dayStart && dayEnd) {
+          dayStart.setHours(0, 0, 0, 0);
+          dayEnd.setHours(23, 59, 59, 999);
+        }
+        for (const act of items) {
+          const start = act.data_inizio || act.start_date || act.start;
+          const end = act.data_fine || act.end_date || act.end;
+          const s = toDate(start);
+          const e = toDate(end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null);
+          if (!s || !dayStart || !dayEnd) continue;
+          const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
+          if (!overlaps) continue;
+          const status = String(act.status || act.stato || '').toLowerCase();
+          const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
+          if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
+          const resources = Array.isArray(act.resources) ? act.resources : [];
+          for (const r of resources) {
+            const drvId = r.driver?.id || r.driver_id;
+            if (drvId != null) withActs.add(String(drvId));
+          }
+        }
+      }
+      list = drivers.filter(d => withActs.has(String(d.id)));
     }
-    return res;
+    
+    return list;
   }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses]);
 
   const goPrev = () => {

@@ -817,17 +817,6 @@ const activityEvents = activitiesRaw.map(activity => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="calendar-header calendar-navigation mb-2" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <button className="nav-button" onClick={goToPreviousDay} title="Giorno precedente">&#8592;</button>
-        <button className="nav-button" onClick={goToCurrentDay}>Oggi</button>
-        <span className="current-date" style={{ margin: '0 10px', fontWeight: 600 }}>
-          {currentDate.toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </span>
-        <button className="nav-button" onClick={goToNextDay} title="Giorno successivo">&#8594;</button>
-        <button className="ml-4 export-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded" onClick={handleExportClick}>
-          Esporta
-        </button>
-      </div>
       <div className="page-header">
         <h1 className="page-title">Agenda Giornaliera</h1>
         
