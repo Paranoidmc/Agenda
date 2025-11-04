@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
 import AgendaGiornalieraPage from "../agenda-giornaliera/page";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -40,6 +40,235 @@ function PianificazioneInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Normalizza evento per WeeklyCalendar - definita prima di loadRows
+  // Mappa stato inglese → italiano
+  const statoMap = {
+    'planned': 'Programmato',
+    'in_progress': 'In corso',
+    'completed': 'Completato',
+    'cancelled': 'Annullato',
+    'assigned': 'Assegnato',
+    'not_assigned': 'Non assegnato',
+    'doc_issued': 'Doc emesso',
+    'pending': 'In attesa',
+    'overdue': 'Scaduta',
+    'done': 'Completato',
+  };
+
+  const normalizeEvent = useCallback((ev) => {
+    // Gestione date solo YYYY-MM-DD
+    function parseDateSafe(val) {
+      if (!val) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return new Date(val + 'T00:00:00');
+      return new Date(val);
+    }
+    // Autista: supporta molteplici shape (singolo o multiplo)
+    let driverName = 'N/D';
+    const toFullName = (p) => {
+      if (!p) return '';
+      const first = p.nome || p.name || '';
+      const last = p.cognome || p.surname || '';
+      return `${first} ${last}`.trim() || (p.full_name || p.fullName || p.display_name || p.displayName || p.name || '');
+    };
+    
+    // Prima controlla resources (nuovo formato dall'API)
+    let driversArray = null;
+    if (Array.isArray(ev.resources) && ev.resources.length > 0) {
+      driversArray = ev.resources
+        .map(r => r.driver)
+        .filter(Boolean);
+    }
+    
+    // Se non trovato in resources, controlla i formati vecchi
+    if (!driversArray || driversArray.length === 0) {
+      driversArray = (
+        (Array.isArray(ev.drivers) && ev.drivers)
+        || (Array.isArray(ev.assigned_drivers) && ev.assigned_drivers)
+        || (Array.isArray(ev.driverList) && ev.driverList)
+        || (Array.isArray(ev.assignees) && ev.assignees)
+      );
+    }
+    
+    if (Array.isArray(driversArray) && driversArray.length > 0) {
+      const names = driversArray.map(d => typeof d === 'string' ? d : toFullName(d)).filter(Boolean);
+      if (names.length > 0) driverName = names.join(', ');
+    } else {
+      // Fallback singolo
+      const d = ev.driver || ev.autista || ev.assigned_driver || ev.primary_driver;
+      const name = typeof d === 'string' ? d : toFullName(d);
+      if (name) driverName = name;
+    }
+    
+    // Veicolo: prima controlla resources
+    let v = null;
+    if (Array.isArray(ev.resources) && ev.resources.length > 0) {
+      v = ev.resources
+        .map(r => r.vehicle)
+        .filter(Boolean)[0]; // Prendi il primo veicolo
+    }
+    
+    // Fallback ai formati vecchi
+    if (!v) {
+      v = ev.vehicle || ev.veicolo;
+      if (!v && Array.isArray(ev.vehicles) && ev.vehicles.length > 0) v = ev.vehicles[0];
+    }
+    
+    let vehicleName = 'N/D';
+    if (v && (v.targa || v.plate || v.modello || v.model || v.name)) {
+      vehicleName = `${v.targa || v.plate || ''} ${v.modello || v.model || ''}`.trim() || v.name || 'N/D';
+    }
+    // Stato
+    let stato = ev.stato || ev.status || '';
+    if (stato && statoMap[stato]) stato = statoMap[stato];
+    else if (!stato) stato = 'N/D';
+    // status normalizzato per la mappa colori
+    let status = (stato || '').toLowerCase().trim();
+    return {
+      id: ev.id,
+      start: parseDateSafe(ev.data_inizio),
+      end: parseDateSafe(ev.data_fine),
+      type: 'activity',
+      data: ev,
+      driverName,
+      vehicleName,
+      stato,
+      status
+    };
+  }, []);
+
+  // Carica righe per la vista corrente - definita prima di fetchActivities
+  const loadRows = useCallback((mode, activities) => {
+    // Usa sempre gli eventi già normalizzati
+    // Trova la lista normalizzata
+    const normalizedEvents = activities.map(normalizeEvent);
+    console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
+      id: e.id,
+      driverName: e.driverName,
+      vehicleName: e.vehicleName,
+      rawDriver: e.data.driver,
+      rawVehicle: e.data.vehicle,
+      hasResources: !!e.data.resources,
+      resourcesCount: e.data.resources?.length || 0
+    })));
+
+    if (mode === 'Cantiere') {
+      const sitesMap = {};
+      normalizedEvents.forEach(ev => {
+        const site = ev.data.site || ev.data.cantiere;
+        if (!site) {
+          console.warn('⚠️ Evento senza sito:', ev.id);
+          return;
+        }
+        if (!sitesMap[site.id]) sitesMap[site.id] = { id: site.id, name: site.nome || site.name, events: [] };
+        sitesMap[site.id].events.push(ev);
+      });
+      console.log('📊 Righe Cantiere:', Object.keys(sitesMap).length);
+      setRows(Object.values(sitesMap));
+    } else if (mode === 'Driver') {
+      const driversMap = {};
+      normalizedEvents.forEach(ev => {
+        // Supporta più autisti per evento - controlla resources prima
+        let list = [];
+        
+        // Prima controlla resources (nuovo formato)
+        if (Array.isArray(ev.data?.resources) && ev.data.resources.length > 0) {
+          list = ev.data.resources
+            .map(r => r.driver)
+            .filter(Boolean);
+        }
+        
+        // Fallback ai formati vecchi
+        if (list.length === 0) {
+          if (Array.isArray(ev.data?.drivers) && ev.data.drivers.length > 0) {
+            list = ev.data.drivers;
+          } else if (Array.isArray(ev.data?.assigned_drivers) && ev.data.assigned_drivers.length > 0) {
+            list = ev.data.assigned_drivers;
+          } else if (Array.isArray(ev.data?.assignees) && ev.data.assignees.length > 0) {
+            list = ev.data.assignees;
+          } else if (ev.data?.driver || ev.data?.autista) {
+            list = [ev.data.driver || ev.data.autista];
+          }
+        }
+        
+        if (list.length === 0) {
+          console.warn('⚠️ Evento senza autisti:', ev.id);
+          // Aggiungi una riga per "Nessun autista" se necessario
+          const key = 'no-driver';
+          if (!driversMap[key]) driversMap[key] = { id: key, name: 'Nessun autista', events: [] };
+          driversMap[key].events.push(ev);
+          return;
+        }
+        
+        list.forEach(driver => {
+          const id = driver?.id || driver?.driver_id || (typeof driver === 'string' ? driver : undefined);
+          const name = (driver && (driver.nome || driver.name) ? `${driver.nome || driver.name} ${driver.cognome || driver.surname || ''}`.trim() : (typeof driver === 'string' ? driver : 'Senza nome'));
+          if (!id && typeof driver !== 'string') return; // evita righe senza id quando non stringa
+          const key = id || name;
+          if (!driversMap[key]) driversMap[key] = { id: key, name, events: [] };
+          driversMap[key].events.push(ev);
+        });
+      });
+      console.log('📊 Righe Driver:', Object.keys(driversMap).length);
+      setRows(Object.values(driversMap));
+    } else if (mode === 'Vehicle') {
+      const vehiclesMap = {};
+      normalizedEvents.forEach(ev => {
+        // Controlla resources prima (nuovo formato)
+        let vehicle = null;
+        if (Array.isArray(ev.data?.resources) && ev.data.resources.length > 0) {
+          vehicle = ev.data.resources
+            .map(r => r.vehicle)
+            .filter(Boolean)[0]; // Prendi il primo veicolo
+        }
+        
+        // Fallback al formato vecchio
+        if (!vehicle) {
+          vehicle = ev.data.vehicle || ev.data.veicolo;
+        }
+        
+        if (!vehicle) {
+          console.warn('⚠️ Evento senza veicolo:', ev.id);
+          return;
+        }
+        
+        const vehicleId = vehicle.id;
+        const vehicleName = (vehicle.targa || vehicle.plate || '') + ' ' + (vehicle.modello || vehicle.model || vehicle.name || '');
+        if (!vehiclesMap[vehicleId]) vehiclesMap[vehicleId] = { id: vehicleId, name: vehicleName.trim(), events: [] };
+        vehiclesMap[vehicleId].events.push(ev);
+      });
+      console.log('📊 Righe Vehicle:', Object.keys(vehiclesMap).length);
+      setRows(Object.values(vehiclesMap));
+    }
+  }, []);
+
+  // Fetch attività - definito prima degli useEffect che lo usano
+  const fetchActivities = useCallback(() => {
+    setLoading(true);
+    setError("");
+    const start = currentWeek[0].toISOString().split("T")[0];
+    const end = currentWeek[6].toISOString().split("T")[0];
+    api.get('/activities', {
+      params: {
+        start_date: start,
+        end_date: end,
+        per_page: 2000,
+        sort: 'data_inizio',
+        order: 'asc',
+      }
+    })
+      .then(res => {
+        const list = Array.isArray(res.data.data) ? res.data.data : [];
+        console.log('📅 Attività caricate:', list.length, 'per settimana', start, '-', end);
+        setEvents(list.map(normalizeEvent));
+        loadRows(viewMode, list);
+      })
+      .catch(err => {
+        console.error('❌ Errore caricamento attività:', err);
+        setError("Errore nel caricamento attività");
+      })
+      .finally(() => setLoading(false));
+  }, [currentWeek, viewMode, loadRows, normalizeEvent]);
+
   // Listener per eventi di sincronizzazione real-time
   useEffect(() => {
     const handleSyncEvent = (event) => {
@@ -72,33 +301,6 @@ function PianificazioneInner() {
       window.removeEventListener('activitySaved', handleActivityEvent);
     };
   }, [fetchActivities]);
-
-  const fetchActivities = React.useCallback(() => {
-    setLoading(true);
-    setError("");
-    const start = currentWeek[0].toISOString().split("T")[0];
-    const end = currentWeek[6].toISOString().split("T")[0];
-    api.get('/activities', {
-      params: {
-        start_date: start,
-        end_date: end,
-        per_page: 2000,
-        sort: 'data_inizio',
-        order: 'asc',
-      }
-    })
-      .then(res => {
-        const list = Array.isArray(res.data.data) ? res.data.data : [];
-        console.log('📅 Attività caricate:', list.length, 'per settimana', start, '-', end);
-        setEvents(list.map(normalizeEvent));
-        loadRows(viewMode, list);
-      })
-      .catch(err => {
-        console.error('❌ Errore caricamento attività:', err);
-        setError("Errore nel caricamento attività");
-      })
-      .finally(() => setLoading(false));
-  }, [currentWeek, viewMode]);
 
   // Calcola array settimana (lun-dom)
   function getWeekArray(date) {
@@ -207,208 +409,6 @@ function PianificazioneInner() {
   const handleAddActivity = () => {
     router.push('/attivita/new');
   };
-
-  // Normalizza evento per WeeklyCalendar
-  // Mappa stato inglese → italiano
-  const statoMap = {
-    'planned': 'Programmato',
-    'in_progress': 'In corso',
-    'completed': 'Completato',
-    'cancelled': 'Annullato',
-    'assigned': 'Assegnato',
-    'not_assigned': 'Non assegnato',
-    'doc_issued': 'Doc emesso',
-    'pending': 'In attesa',
-    'overdue': 'Scaduta',
-    'done': 'Completato',
-    // aggiungi altri mapping se necessario
-  };
-
-  function normalizeEvent(ev) {
-    // Gestione date solo YYYY-MM-DD
-    function parseDateSafe(val) {
-      if (!val) return null;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return new Date(val + 'T00:00:00');
-      return new Date(val);
-    }
-    // Autista: supporta molteplici shape (singolo o multiplo)
-    let driverName = 'N/D';
-    const toFullName = (p) => {
-      if (!p) return '';
-      const first = p.nome || p.name || '';
-      const last = p.cognome || p.surname || '';
-      return `${first} ${last}`.trim() || (p.full_name || p.fullName || p.display_name || p.displayName || p.name || '');
-    };
-    
-    // Prima controlla resources (nuovo formato dall'API)
-    let driversArray = null;
-    if (Array.isArray(ev.resources) && ev.resources.length > 0) {
-      driversArray = ev.resources
-        .map(r => r.driver)
-        .filter(Boolean);
-    }
-    
-    // Se non trovato in resources, controlla i formati vecchi
-    if (!driversArray || driversArray.length === 0) {
-      driversArray = (
-        (Array.isArray(ev.drivers) && ev.drivers)
-        || (Array.isArray(ev.assigned_drivers) && ev.assigned_drivers)
-        || (Array.isArray(ev.driverList) && ev.driverList)
-        || (Array.isArray(ev.assignees) && ev.assignees)
-      );
-    }
-    
-    if (Array.isArray(driversArray) && driversArray.length > 0) {
-      const names = driversArray.map(d => typeof d === 'string' ? d : toFullName(d)).filter(Boolean);
-      if (names.length > 0) driverName = names.join(', ');
-    } else {
-      // Fallback singolo
-      const d = ev.driver || ev.autista || ev.assigned_driver || ev.primary_driver;
-      const name = typeof d === 'string' ? d : toFullName(d);
-      if (name) driverName = name;
-    }
-    
-    // Veicolo: prima controlla resources
-    let v = null;
-    if (Array.isArray(ev.resources) && ev.resources.length > 0) {
-      v = ev.resources
-        .map(r => r.vehicle)
-        .filter(Boolean)[0]; // Prendi il primo veicolo
-    }
-    
-    // Fallback ai formati vecchi
-    if (!v) {
-      v = ev.vehicle || ev.veicolo;
-      if (!v && Array.isArray(ev.vehicles) && ev.vehicles.length > 0) v = ev.vehicles[0];
-    }
-    
-    let vehicleName = 'N/D';
-    if (v && (v.targa || v.plate || v.modello || v.model || v.name)) {
-      vehicleName = `${v.targa || v.plate || ''} ${v.modello || v.model || ''}`.trim() || v.name || 'N/D';
-    }
-    // Stato
-    let stato = ev.stato || ev.status || '';
-    if (stato && statoMap[stato]) stato = statoMap[stato];
-    else if (!stato) stato = 'N/D';
-    // status normalizzato per la mappa colori
-    let status = (stato || '').toLowerCase().trim();
-    return {
-      id: ev.id,
-      start: parseDateSafe(ev.data_inizio),
-      end: parseDateSafe(ev.data_fine),
-      type: 'activity',
-      data: ev,
-      driverName,
-      vehicleName,
-      stato,
-      status
-    };
-  }
-
-  // Carica righe per la vista corrente
-  function loadRows(mode, activities) {
-    // Usa sempre gli eventi già normalizzati
-    // Trova la lista normalizzata
-    const normalizedEvents = activities.map(normalizeEvent);
-    console.log("DEBUG eventi normalizzati:", normalizedEvents.map(e => ({
-      id: e.id,
-      driverName: e.driverName,
-      vehicleName: e.vehicleName,
-      rawDriver: e.data.driver,
-      rawVehicle: e.data.vehicle,
-      hasResources: !!e.data.resources,
-      resourcesCount: e.data.resources?.length || 0
-    })));
-
-    if (mode === 'Cantiere') {
-      const sitesMap = {};
-      normalizedEvents.forEach(ev => {
-        const site = ev.data.site || ev.data.cantiere;
-        if (!site) {
-          console.warn('⚠️ Evento senza sito:', ev.id);
-          return;
-        }
-        if (!sitesMap[site.id]) sitesMap[site.id] = { id: site.id, name: site.nome || site.name, events: [] };
-        sitesMap[site.id].events.push(ev);
-      });
-      console.log('📊 Righe Cantiere:', Object.keys(sitesMap).length);
-      setRows(Object.values(sitesMap));
-    } else if (mode === 'Driver') {
-      const driversMap = {};
-      normalizedEvents.forEach(ev => {
-        // Supporta più autisti per evento - controlla resources prima
-        let list = [];
-        
-        // Prima controlla resources (nuovo formato)
-        if (Array.isArray(ev.data?.resources) && ev.data.resources.length > 0) {
-          list = ev.data.resources
-            .map(r => r.driver)
-            .filter(Boolean);
-        }
-        
-        // Fallback ai formati vecchi
-        if (list.length === 0) {
-          if (Array.isArray(ev.data?.drivers) && ev.data.drivers.length > 0) {
-            list = ev.data.drivers;
-          } else if (Array.isArray(ev.data?.assigned_drivers) && ev.data.assigned_drivers.length > 0) {
-            list = ev.data.assigned_drivers;
-          } else if (Array.isArray(ev.data?.assignees) && ev.data.assignees.length > 0) {
-            list = ev.data.assignees;
-          } else if (ev.data?.driver || ev.data?.autista) {
-            list = [ev.data.driver || ev.data.autista];
-          }
-        }
-        
-        if (list.length === 0) {
-          console.warn('⚠️ Evento senza autisti:', ev.id);
-          // Aggiungi una riga per "Nessun autista" se necessario
-          const key = 'no-driver';
-          if (!driversMap[key]) driversMap[key] = { id: key, name: 'Nessun autista', events: [] };
-          driversMap[key].events.push(ev);
-          return;
-        }
-        
-        list.forEach(driver => {
-          const id = driver?.id || driver?.driver_id || (typeof driver === 'string' ? driver : undefined);
-          const name = (driver && (driver.nome || driver.name) ? `${driver.nome || driver.name} ${driver.cognome || driver.surname || ''}`.trim() : (typeof driver === 'string' ? driver : 'Senza nome'));
-          if (!id && typeof driver !== 'string') return; // evita righe senza id quando non stringa
-          const key = id || name;
-          if (!driversMap[key]) driversMap[key] = { id: key, name, events: [] };
-          driversMap[key].events.push(ev);
-        });
-      });
-      console.log('📊 Righe Driver:', Object.keys(driversMap).length);
-      setRows(Object.values(driversMap));
-    } else if (mode === 'Vehicle') {
-      const vehiclesMap = {};
-      normalizedEvents.forEach(ev => {
-        // Controlla resources prima (nuovo formato)
-        let vehicle = null;
-        if (Array.isArray(ev.data?.resources) && ev.data.resources.length > 0) {
-          vehicle = ev.data.resources
-            .map(r => r.vehicle)
-            .filter(Boolean)[0]; // Prendi il primo veicolo
-        }
-        
-        // Fallback al formato vecchio
-        if (!vehicle) {
-          vehicle = ev.data.vehicle || ev.data.veicolo;
-        }
-        
-        if (!vehicle) {
-          console.warn('⚠️ Evento senza veicolo:', ev.id);
-          return;
-        }
-        
-        const vehicleId = vehicle.id;
-        const vehicleName = (vehicle.targa || vehicle.plate || '') + ' ' + (vehicle.modello || vehicle.model || vehicle.name || '');
-        if (!vehiclesMap[vehicleId]) vehiclesMap[vehicleId] = { id: vehicleId, name: vehicleName.trim(), events: [] };
-        vehiclesMap[vehicleId].events.push(ev);
-      });
-      console.log('📊 Righe Vehicle:', Object.keys(vehiclesMap).length);
-      setRows(Object.values(vehiclesMap));
-    }
-  }
 
   // Format range settimana per header
   function formatWeekRange(weekArr) {
