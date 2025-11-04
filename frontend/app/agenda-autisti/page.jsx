@@ -371,13 +371,26 @@ export default function AgendaAutistiPage() {
       list = driverData.perDay[date] || [];
     }
     
-    // Se ancora non trova nulla, prova con tutte le chiavi disponibili (per debug)
+    // Se ancora non trova nulla, prova con tutte le chiavi disponibili
     if (!list.length) {
       const availableDays = Object.keys(driverData.perDay);
       if (availableDays.length > 0) {
-        // Usa il primo giorno disponibile (per debug)
-        list = driverData.perDay[availableDays[0]] || [];
-        console.log(`⚠️ [getActivityForSlot] Attività non trovata per ${slotDateStr} o ${date}, uso ${availableDays[0]}`);
+        // Prova a trovare il giorno più vicino o usa il primo disponibile
+        // Se lo slot è nello stesso giorno di uno dei giorni disponibili, usa quello
+        for (const dayKey of availableDays) {
+          const dayKeyDate = toDate(dayKey);
+          const slotDateOnly = slotDate.toISOString().slice(0, 10);
+          if (dayKeyDate && dayKeyDate.toISOString().slice(0, 10) === slotDateOnly) {
+            list = driverData.perDay[dayKey] || [];
+            console.log(`✅ [getActivityForSlot] Trovata attività usando chiave ${dayKey} per slot ${slotDateStr}`);
+            break;
+          }
+        }
+        // Se ancora non trova, usa il primo giorno disponibile
+        if (!list.length && availableDays.length > 0) {
+          list = driverData.perDay[availableDays[0]] || [];
+          console.log(`⚠️ [getActivityForSlot] Usando primo giorno disponibile ${availableDays[0]} per slot ${slotDateStr}`);
+        }
       }
     }
     
