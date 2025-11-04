@@ -165,10 +165,14 @@ class DocumentoVeicoloService
                         'file_name' => $fileName,
                     ]);
                     
-                    return response($fileContent, 200)
-                        ->header('Content-Type', $mimeType)
-                        ->header('Content-Disposition', 'inline; filename="' . addslashes($fileName) . '"')
-                        ->header('Content-Length', $fileSize);
+                    // Restituisci il file con gli header corretti per visualizzazione inline
+                    // Usa l'array di header invece di header() multipli per evitare problemi
+                    return response($fileContent, 200, [
+                        'Content-Type' => $mimeType,
+                        'Content-Disposition' => 'inline; filename="' . addslashes($fileName) . '"',
+                        'Content-Length' => (string)$fileSize,
+                        'Cache-Control' => 'private, max-age=3600',
+                    ]);
                 } catch (\Exception $readException) {
                     Log::error('Errore durante la lettura del file', [
                         'documento_id' => $documento->id,
