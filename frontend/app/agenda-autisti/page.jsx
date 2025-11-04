@@ -145,31 +145,81 @@ export default function AgendaAutistiPage() {
         const status = String(act.status || act.stato || '').toLowerCase();
         if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
         
+        // DEBUG: Log struttura attività per capire il formato
+        if (items.indexOf(act) === 0) {
+          console.log('🔍 DEBUG Prima attività:', {
+            id: act.id,
+            descrizione: act.descrizione,
+            hasResources: Array.isArray(act.resources),
+            resourcesCount: Array.isArray(act.resources) ? act.resources.length : 0,
+            resources: act.resources,
+            hasDrivers: Array.isArray(act.drivers),
+            driversCount: Array.isArray(act.drivers) ? act.drivers.length : 0,
+            drivers: act.drivers,
+            driver_id: act.driver_id,
+            driver: act.driver,
+            totalDrivers: drivers.length
+          });
+        }
+        
         // Supporta multiple fonti di dati driver
         let driverIds = [];
         
         // 1. Prima controlla resources (formato nuovo)
         if (Array.isArray(act.resources) && act.resources.length > 0) {
+          console.log(`🔍 Attività ${act.id} ha ${act.resources.length} resources`);
           for (const r of act.resources) {
             const drv = r.driver || (r.driver_id && drivers.find(x => String(x.id) === String(r.driver_id)));
-            if (drv) driverIds.push(drv);
+            if (drv) {
+              driverIds.push(drv);
+              console.log(`✅ Driver trovato in resources: ${drv.nome || drv.name} ${drv.cognome || drv.surname} (ID: ${drv.id})`);
+            } else {
+              console.warn(`⚠️ Resource senza driver valido:`, r);
+            }
           }
         }
         
-        // 2. Fallback: controlla drivers array (formato alternativo)
+        // 2. Fallback: controlla drivers array (formato alternativo dal backend)
         if (driverIds.length === 0 && Array.isArray(act.drivers) && act.drivers.length > 0) {
-          driverIds = act.drivers.filter(drv => drv && drv.id);
+          console.log(`🔍 Attività ${act.id} ha drivers array con ${act.drivers.length} elementi`);
+          driverIds = act.drivers.filter(drv => {
+            if (!drv || !drv.id) return false;
+            // Verifica che il driver esista nella lista
+            const found = drivers.find(x => String(x.id) === String(drv.id));
+            if (!found) {
+              console.warn(`⚠️ Driver ${drv.id} non trovato nella lista autisti`);
+              return false;
+            }
+            return true;
+          });
+          if (driverIds.length > 0) {
+            console.log(`✅ Trovati ${driverIds.length} driver dal drivers array`);
+          }
         }
         
         // 3. Fallback: controlla driver_id diretto
         if (driverIds.length === 0 && act.driver_id) {
+          console.log(`🔍 Attività ${act.id} ha driver_id diretto: ${act.driver_id}`);
           const drv = drivers.find(x => String(x.id) === String(act.driver_id));
-          if (drv) driverIds.push(drv);
+          if (drv) {
+            driverIds.push(drv);
+            console.log(`✅ Driver trovato da driver_id: ${drv.nome || drv.name} ${drv.cognome || drv.surname}`);
+          } else {
+            console.warn(`⚠️ Driver con ID ${act.driver_id} non trovato nella lista autisti`);
+          }
         }
         
         // 4. Fallback: controlla driver object diretto
         if (driverIds.length === 0 && act.driver && act.driver.id) {
-          driverIds.push(act.driver);
+          console.log(`🔍 Attività ${act.id} ha driver object diretto`);
+          const drv = drivers.find(x => String(x.id) === String(act.driver.id));
+          if (drv) {
+            driverIds.push(drv);
+            console.log(`✅ Driver trovato da driver object`);
+          } else {
+            driverIds.push(act.driver); // Aggiungi comunque se ha struttura driver
+            console.log(`⚠️ Driver object non trovato nella lista, aggiunto comunque`);
+          }
         }
         
         // Aggiungi attività a tutti i driver trovati
@@ -186,7 +236,14 @@ export default function AgendaAutistiPage() {
         }
         
         if (driverIds.length === 0) {
-          console.warn('⚠️ Attività senza driver assegnato:', act.id, act.descrizione);
+          console.warn('⚠️ Attività senza driver assegnato:', {
+            id: act.id,
+            descrizione: act.descrizione,
+            resources: act.resources,
+            drivers: act.drivers,
+            driver_id: act.driver_id,
+            driver: act.driver
+          });
         }
       }
     }
