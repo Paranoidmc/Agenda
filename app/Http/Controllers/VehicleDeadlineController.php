@@ -96,6 +96,19 @@ class VehicleDeadlineController extends Controller
             return $deadline;
         })->concat($documentDeadlines);
         
+        Log::info('VehicleDeadlineController allWithVehicles: Risultati combinati', [
+            'deadlines_count' => $deadlines->count(),
+            'document_deadlines_count' => $documentDeadlines->count(),
+            'total_count' => $allDeadlines->count(),
+            'sample_document_deadline' => $documentDeadlines->first() ? [
+                'id' => $documentDeadlines->first()->id,
+                'vehicle_id' => $documentDeadlines->first()->vehicle_id,
+                'tipo' => $documentDeadlines->first()->tipo,
+                'expiry_date' => $documentDeadlines->first()->expiry_date,
+                'data_scadenza' => $documentDeadlines->first()->data_scadenza,
+            ] : null
+        ]);
+        
         // Filtra per date se specificate
         if ($request->has('start_date')) {
             $allDeadlines = $allDeadlines->filter(function ($dl) use ($request) {
@@ -224,14 +237,8 @@ class VehicleDeadlineController extends Controller
                 return $expiryStr >= $request->start_date;
             });
         } else {
-            // Se non c'è filtro start_date, mostra solo scadenze future o odierne
-            $documentDeadlines = $documentDeadlines->filter(function ($dl) {
-                $expiry = $dl->expiry_date ?? $dl->data_scadenza;
-                if (!$expiry) return false;
-                // Converti in stringa se è una data Carbon
-                $expiryStr = is_object($expiry) ? $expiry->format('Y-m-d') : $expiry;
-                return $expiryStr >= now()->format('Y-m-d');
-            });
+            // Se non c'è filtro start_date, mostra tutte le scadenze (non solo future)
+            // Il calendario può mostrare anche scadenze passate
         }
         
         if ($request->has('end_date')) {
@@ -250,10 +257,9 @@ class VehicleDeadlineController extends Controller
             Log::info('VehicleDeadlineController: start_date APPLICATA', [
                 'start_date' => $request->start_date
             ]);
-        } else {
-            // Se non è specificata una data di inizio, mostra solo scadenze future o odierne
-            $query->whereDate('expiry_date', '>=', date('Y-m-d'));
         }
+        // RIMOSSO: filtro automatico per scadenze future - mostriamo tutte le scadenze
+        // Il calendario può mostrare anche scadenze passate
         
         // Filtraggio per data di fine
         if ($request->has('end_date')) {
@@ -327,6 +333,19 @@ class VehicleDeadlineController extends Controller
             
             return $deadline;
         })->concat($documentDeadlines);
+        
+        Log::info('VehicleDeadlineController index: Risultati combinati', [
+            'deadlines_count' => $deadlines->count(),
+            'document_deadlines_count' => $documentDeadlines->count(),
+            'total_count' => $allDeadlines->count(),
+            'sample_document_deadline' => $documentDeadlines->first() ? [
+                'id' => $documentDeadlines->first()->id,
+                'vehicle_id' => $documentDeadlines->first()->vehicle_id,
+                'tipo' => $documentDeadlines->first()->tipo,
+                'expiry_date' => $documentDeadlines->first()->expiry_date,
+                'data_scadenza' => $documentDeadlines->first()->data_scadenza,
+            ] : null
+        ]);
         
         // Log del numero di risultati
         Log::info('VehicleDeadlineController: Risultati', [
