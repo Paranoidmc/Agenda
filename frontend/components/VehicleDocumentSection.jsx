@@ -16,11 +16,16 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
     setLoading(true);
     setError("");
     try {
+      // Invalida cache prima di ricaricare
+      axios.invalidateCache(`/veicoli/${veicoloId}/documenti`);
+      
       const res = await axios.get(`/veicoli/${veicoloId}/documenti`, {
         params: { categoria },
+        useCache: false, // Disabilita cache per avere sempre dati freschi
       });
       setDocumenti(res.data.data || []);
     } catch (e) {
+      console.error('Errore caricamento documenti:', e);
       setError("Errore caricamento documenti");
     } finally {
       setLoading(false);
@@ -29,6 +34,26 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
 
   useEffect(() => {
     if (veicoloId) fetchDocumenti();
+    
+    // Listener per eventi di sincronizzazione documenti da altre parti dell'app
+    const handleDocumentSync = (event) => {
+      console.log('🔄 Evento sincronizzazione documenti ricevuto:', event.detail);
+      if (event.detail?.veicoloId === veicoloId || !event.detail?.veicoloId) {
+        setTimeout(() => {
+          fetchDocumenti();
+        }, 200);
+      }
+    };
+    
+    window.addEventListener('vehicleDocumentCreated', handleDocumentSync);
+    window.addEventListener('vehicleDocumentUpdated', handleDocumentSync);
+    window.addEventListener('vehicleDocumentDeleted', handleDocumentSync);
+    
+    return () => {
+      window.removeEventListener('vehicleDocumentCreated', handleDocumentSync);
+      window.removeEventListener('vehicleDocumentUpdated', handleDocumentSync);
+      window.removeEventListener('vehicleDocumentDeleted', handleDocumentSync);
+    };
     // eslint-disable-next-line
   }, [veicoloId, categoria]);
 
@@ -43,16 +68,33 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
     if (descrizione) formData.append("descrizione", descrizione);
     if (dataScadenza) formData.append("data_scadenza", dataScadenza);
     try {
-      await axios.post(`/veicoli/${veicoloId}/documenti`, formData, {
+      const response = await axios.post(`/veicoli/${veicoloId}/documenti`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      
+      // Reset form
       setFile(null);
       setDescrizione("");
       setDataScadenza("");
       if (fileInput.current) fileInput.current.value = "";
-      fetchDocumenti();
+      
+      // Invalida cache
+      axios.invalidateCache(`/veicoli/${veicoloId}/documenti`);
+      
+      // Ricarica documenti dopo un breve delay per assicurarsi che il server abbia finito
+      setTimeout(() => {
+        fetchDocumenti();
+      }, 300);
+      
+      // Dispatch evento globale per notificare altre istanze del componente
+      window.dispatchEvent(new CustomEvent('vehicleDocumentCreated', {
+        detail: { veicoloId, categoria, documentoId: response.data?.data?.id }
+      }));
+      
+      console.log('✅ Documento caricato con successo:', response.data);
     } catch (e) {
-      setError(e.response?.data?.error || "Errore upload documento");
+      console.error('❌ Errore upload documento:', e);
+      setError(e.response?.data?.error || e.response?.data?.message || "Errore upload documento");
     } finally {
       setUploading(false);
     }
@@ -60,11 +102,30 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Eliminare il documento?")) return;
+    
+    setLoading(true);
+    setError("");
     try {
       await axios.delete(`/documenti/${id}`);
-      fetchDocumenti();
+      
+      // Invalida cache
+      axios.invalidateCache(`/veicoli/${veicoloId}/documenti`);
+      
+      // Ricarica documenti dopo un breve delay
+      setTimeout(() => {
+        fetchDocumenti();
+      }, 300);
+      
+      // Dispatch evento globale per notificare altre istanze del componente
+      window.dispatchEvent(new CustomEvent('vehicleDocumentDeleted', {
+        detail: { veicoloId, categoria, documentoId: id }
+      }));
+      
+      console.log('✅ Documento eliminato con successo');
     } catch (e) {
-      setError("Errore eliminazione documento");
+      console.error('❌ Errore eliminazione documento:', e);
+      setError(e.response?.data?.error || e.response?.data?.message || "Errore eliminazione documento");
+      setLoading(false);
     }
   };
 
