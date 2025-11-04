@@ -301,7 +301,8 @@ export default function AgendaAutistiPage() {
             start,
             end,
           });
-          console.log(`✅ Attività ${act.id} aggiunta a driver ${key} per giorno ${d}`);
+          console.log(`✅ Attività ${act.id} aggiunta a driver ${key} per giorno ${d} (start: ${start}, end: ${end})`);
+          console.log(`   Contenuto perDay[${d}]:`, acc[key].perDay[d]);
         }
         
         if (driverIds.length === 0) {
@@ -326,8 +327,10 @@ export default function AgendaAutistiPage() {
     console.log('📋 Riepilogo:', Object.entries(acc).map(([id, data]) => {
       const name = `${data.driver.nome || data.driver.name || ''} ${data.driver.cognome || data.driver.surname || ''}`.trim();
       const totalActs = Object.values(data.perDay).reduce((sum, acts) => sum + acts.length, 0);
-      return `${name}: ${totalActs} attività`;
+      const perDayDetails = Object.entries(data.perDay).map(([day, acts]) => `${day}: ${acts.length}`).join(', ');
+      return `${name}: ${totalActs} attività (${perDayDetails})`;
     }));
+    console.log('📋 Dettaglio completo groupedByDriver:', JSON.stringify(acc, null, 2));
     
     return acc;
   }, [activitiesByDay, weekDays, drivers, includeAllStatuses, view]);
