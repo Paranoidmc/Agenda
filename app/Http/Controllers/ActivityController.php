@@ -220,6 +220,20 @@ class ActivityController extends Controller
 
             // Mappa 'notes' a 'note' per il frontend
             $activity->note = $activity->notes;
+            
+            // Assicurati che descrizione sia sempre presente (mappa da descrizione o description)
+            if (!isset($activity->descrizione) && isset($activity->description)) {
+                $activity->descrizione = $activity->description;
+            } elseif (!isset($activity->description) && isset($activity->descrizione)) {
+                $activity->description = $activity->descrizione;
+            }
+            
+            // Assicurati che status sia sempre presente (mappa da status o stato)
+            if (!isset($activity->status) && isset($activity->stato)) {
+                $activity->status = $activity->stato;
+            } elseif (!isset($activity->stato) && isset($activity->status)) {
+                $activity->stato = $activity->status;
+            }
 
             return $activity;
         });
