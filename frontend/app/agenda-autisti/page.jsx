@@ -256,7 +256,7 @@ export default function AgendaAutistiPage() {
     }));
     
     return acc;
-  }, [activitiesByDay, weekDays, drivers, includeAllStatuses]);
+  }, [activitiesByDay, weekDays, drivers, includeAllStatuses, view]);
 
   // Costruisce gli slot orari dalle 06:00 alle 18:00, step 30 minuti
   const timeSlots = useMemo(() => {
@@ -278,14 +278,58 @@ export default function AgendaAutistiPage() {
 
   // Helper: trova l'attività del driver che copre lo slot specifico
   const getActivityForSlot = (driverId, slotDate) => {
+    // Cerca l'attività nel giorno corrente (date)
     const list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
     if (!list.length) return null;
+    
     const t = slotDate.getTime();
+    const slotDateOnly = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
+    const slotHour = slotDate.getHours();
+    const slotMinute = slotDate.getMinutes();
+    
+    // DEBUG per il primo slot del primo driver
+    if (driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+      console.log('🔍 DEBUG getActivityForSlot:', {
+        driverId,
+        slotDate: slotDate.toISOString(),
+        slotDateOnly,
+        date,
+        listLength: list.length,
+        activities: list.map(a => ({
+          id: a.id,
+          start: a.start,
+          end: a.end,
+          startParsed: toDate(a.start)?.toISOString(),
+          endParsed: toDate(a.end)?.toISOString()
+        }))
+      });
+    }
+    
     for (const a of list) {
       const s = toDate(a.start);
-      const e = toDate(a.end) || new Date(s.getTime() + 60 * 60 * 1000); // default 1h se end mancante
+      const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000)); // default 1h se end mancante
       if (!s) continue;
-      if (t >= s.getTime() && t < e.getTime()) {
+      
+      // Verifica che l'attività sia nello stesso giorno dello slot
+      const activityDateOnly = s.toISOString().slice(0, 10);
+      if (activityDateOnly !== slotDateOnly) {
+        // DEBUG
+        if (driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+          console.log(`⚠️ Data attività (${activityDateOnly}) non corrisponde allo slot (${slotDateOnly})`);
+        }
+        continue;
+      }
+      
+      // Verifica che lo slot sia dentro l'intervallo dell'attività
+      const startTime = s.getTime();
+      const endTime = e.getTime();
+      
+      // DEBUG per il primo slot
+      if (driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+        console.log(`🔍 Verifica slot ${t} (${slotDate.toLocaleTimeString()}) vs attività ${startTime}-${endTime} (${s.toLocaleTimeString()}-${e.toLocaleTimeString()})`);
+      }
+      
+      if (t >= startTime && t < endTime) {
         // Estrai la destinazione dalla descrizione dell'attività
         const descrizione = a.descrizione || '';
         // Se la descrizione contiene informazioni sulla destinazione, usala
