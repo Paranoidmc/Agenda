@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, Suspense, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 // Funzione helper per mostrare il tipo in italiano
 function tipoScadenzaIT(tipo) {
@@ -33,6 +33,7 @@ import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 
 function ScadenzeContent() {
+  const router = useRouter();
   const { user, loading } = useAuth();
   const searchParams = useSearchParams();
   const [scadenze, setScadenze] = useState([]);
@@ -76,10 +77,18 @@ function ScadenzeContent() {
   }, []);
 
   const handleViewDetails = useCallback((scadenza) => {
+    // Se è una scadenza collegata a un documento veicolo, naviga alla pagina del veicolo
+    if (scadenza.source === 'documento_veicolo' && scadenza.documento_id && scadenza.vehicle_id) {
+      // Naviga alla pagina del veicolo con hash per aprire direttamente il tab documenti
+      router.push(`/veicoli/${scadenza.vehicle_id}?tab=documenti`);
+      return;
+    }
+    
+    // Altrimenti apri il pannello laterale
     setSelectedScadenza(scadenza);
     setIsEditing(false);
     setIsPanelOpen(true);
-  }, []);
+  }, [router]);
 
   // Campi del form scadenza (usa useMemo per evitare ricalcoli)
   const scadenzaFields = useMemo(() => [
@@ -118,6 +127,36 @@ function ScadenzeContent() {
       setFetching(false);
     }
   }, [user, loading, loadScadenze, loadVeicoli]);
+  
+  // Listener per eventi di sincronizzazione real-time delle scadenze
+  useEffect(() => {
+    const handleDeadlineEvent = (event) => {
+      console.log('🔄 Ricevuto evento scadenza:', event.type, event.detail);
+      // Ricarica le scadenze quando vengono create, modificate o eliminate
+      loadScadenze();
+    };
+
+    // Listener per eventi scadenze (create, update, delete)
+    window.addEventListener('vehicleDeadlineCreated', handleDeadlineEvent);
+    window.addEventListener('vehicleDeadlineUpdated', handleDeadlineEvent);
+    window.addEventListener('vehicleDeadlineDeleted', handleDeadlineEvent);
+    window.addEventListener('vehicleDeadlineSaved', handleDeadlineEvent);
+    
+    // Listener per eventi documenti veicolo (che possono creare scadenze)
+    window.addEventListener('vehicleDocumentCreated', handleDeadlineEvent);
+    window.addEventListener('vehicleDocumentUpdated', handleDeadlineEvent);
+    window.addEventListener('vehicleDocumentDeleted', handleDeadlineEvent);
+
+    return () => {
+      window.removeEventListener('vehicleDeadlineCreated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDeadlineUpdated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDeadlineDeleted', handleDeadlineEvent);
+      window.removeEventListener('vehicleDeadlineSaved', handleDeadlineEvent);
+      window.removeEventListener('vehicleDocumentCreated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDocumentUpdated', handleDeadlineEvent);
+      window.removeEventListener('vehicleDocumentDeleted', handleDeadlineEvent);
+    };
+  }, [loadScadenze]);
   
   // Effetto separato per gestire i parametri URL dopo che le scadenze sono caricate
   useEffect(() => {
@@ -173,6 +212,19 @@ function ScadenzeContent() {
         response = await api.post('/vehicle-deadlines', dataToSend);
       }
       
+      // Emetti evento per notificare altre pagine
+      const eventType = dataToSend.id ? 'vehicleDeadlineUpdated' : 'vehicleDeadlineCreated';
+      const deadlineEvent = new CustomEvent(eventType, {
+        detail: { deadline_id: dataToSend.id || response.data?.id, type: dataToSend.id ? 'update' : 'create' }
+      });
+      window.dispatchEvent(deadlineEvent);
+      
+      // Emetti anche un evento generico
+      const genericEvent = new CustomEvent('vehicleDeadlineSaved', {
+        detail: { deadline_id: dataToSend.id || response.data?.id, type: dataToSend.id ? 'update' : 'create' }
+      });
+      window.dispatchEvent(genericEvent);
+      
       // setSelectedScadenza(response.data); // Opzionale
       setIsEditing(false);
       await loadScadenze(); 
@@ -215,6 +267,12 @@ function ScadenzeContent() {
       
       // Rimuovi la scadenza dalla lista
       setScadenze(prev => prev.filter(s => s.id !== id));
+      
+      // Emetti evento per notificare altre pagine
+      const deadlineEvent = new CustomEvent('vehicleDeadlineDeleted', {
+        detail: { deadline_id: id, type: 'delete' }
+      });
+      window.dispatchEvent(deadlineEvent);
       
       // Chiudi il pannello
       handleClosePanel();

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { FiArrowLeft, FiEdit, FiTrash2, FiSave, FiX, FiTruck, FiFileText } from "react-icons/fi";
 import api from "../../../lib/api";
 import { useAuth } from "../../../context/AuthContext";
@@ -11,6 +11,7 @@ import VehicleRentalsSection from "../../../components/VehicleRentalsSection";
 export default function VeicoloDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [veicolo, setVeicolo] = useState(null);
   const [fetching, setFetching] = useState(true);
@@ -136,6 +137,26 @@ export default function VeicoloDetailPage() {
       fetchVeicolo();
     }
   }, [veicoloId]);
+
+  // Gestisci il parametro tab dall'URL
+  useEffect(() => {
+    if (searchParams) {
+      const tabParam = searchParams.get('tab');
+      if (tabParam === 'documenti') {
+        // Trova l'indice del tab "Documenti" (è il 4° tab, indice 3)
+        const documentiTabIndex = tabGroups.findIndex(tab => tab.isDocuments);
+        if (documentiTabIndex !== -1) {
+          setActiveTab(documentiTabIndex);
+        }
+      } else if (tabParam === 'noleggi' || tabParam === 'rentals') {
+        // Trova l'indice del tab "Contratto/Noleggio"
+        const rentalsTabIndex = tabGroups.findIndex(tab => tab.isRentals);
+        if (rentalsTabIndex !== -1) {
+          setActiveTab(rentalsTabIndex);
+        }
+      }
+    }
+  }, [searchParams]);
 
   const fetchVeicolo = async () => {
     setFetching(true);
