@@ -374,6 +374,7 @@ export default function AgendaAutistiPage() {
     // Se ancora non trova nulla, prova con tutte le chiavi disponibili
     if (!list.length) {
       const availableDays = Object.keys(driverData.perDay);
+      console.log(`🔍 [getActivityForSlot] Driver ${driverIdStr}: cercando slot ${slotDateStr}, date corrente ${date}, giorni disponibili:`, availableDays);
       if (availableDays.length > 0) {
         // Prova a trovare il giorno più vicino o usa il primo disponibile
         // Se lo slot è nello stesso giorno di uno dei giorni disponibili, usa quello
@@ -386,7 +387,7 @@ export default function AgendaAutistiPage() {
             break;
           }
         }
-        // Se ancora non trova, usa il primo giorno disponibile
+        // Se ancora non trova, usa il primo giorno disponibile (per ora)
         if (!list.length && availableDays.length > 0) {
           list = driverData.perDay[availableDays[0]] || [];
           console.log(`⚠️ [getActivityForSlot] Usando primo giorno disponibile ${availableDays[0]} per slot ${slotDateStr}`);
