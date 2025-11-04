@@ -284,58 +284,19 @@ export default function AgendaAutistiPage() {
     
     const t = slotDate.getTime();
     const slotDateOnly = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
-    const slotHour = slotDate.getHours();
-    const slotMinute = slotDate.getMinutes();
-    
-    // DEBUG solo per il primo slot del primo driver (per evitare spam)
-    const isFirstSlot = slotHour === 6 && slotMinute === 0;
-    if (isFirstSlot && !getActivityForSlot._debugLogged) {
-      console.log('🔍 DEBUG getActivityForSlot:', {
-        driverId,
-        slotDate: slotDate.toISOString(),
-        slotDateOnly,
-        date,
-        listLength: list.length,
-        activities: list.map(a => ({
-          id: a.id,
-          start: a.start,
-          end: a.end,
-          startParsed: toDate(a.start)?.toISOString(),
-          endParsed: toDate(a.end)?.toISOString(),
-          startDate: toDate(a.start)?.toISOString().slice(0, 10)
-        }))
-      });
-      getActivityForSlot._debugLogged = true;
-      setTimeout(() => { getActivityForSlot._debugLogged = false; }, 2000);
-    }
     
     for (const a of list) {
       const s = toDate(a.start);
       const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000)); // default 1h se end mancante
-      if (!s) {
-        if (isFirstSlot && !getActivityForSlot._debugLogged) {
-          console.warn(`⚠️ Attività ${a.id} ha data_inizio non valida:`, a.start);
-        }
-        continue;
-      }
+      if (!s) continue;
       
       // Verifica che l'attività sia nello stesso giorno dello slot
       const activityDateOnly = s.toISOString().slice(0, 10);
-      if (activityDateOnly !== slotDateOnly) {
-        if (isFirstSlot && !getActivityForSlot._debugLogged) {
-          console.log(`⚠️ Data attività (${activityDateOnly}) non corrisponde allo slot (${slotDateOnly})`);
-        }
-        continue;
-      }
+      if (activityDateOnly !== slotDateOnly) continue;
       
       // Verifica che lo slot sia dentro l'intervallo dell'attività
       const startTime = s.getTime();
       const endTime = e.getTime();
-      
-      if (isFirstSlot && !getActivityForSlot._debugLogged) {
-        console.log(`🔍 Verifica slot ${t} (${slotDate.toLocaleTimeString()}) vs attività ${startTime}-${endTime} (${s.toLocaleTimeString()}-${e.toLocaleTimeString()})`);
-        console.log(`   Slot timestamp: ${t}, Start: ${startTime}, End: ${endTime}, Match: ${t >= startTime && t < endTime}`);
-      }
       
       if (t >= startTime && t < endTime) {
         // Estrai la destinazione dalla descrizione dell'attività
