@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Funzione helper per mostrare il tipo in italiano
 function tipoScadenzaIT(tipo) {
@@ -33,6 +34,7 @@ import DataTable from "../../components/DataTable";
 
 export default function ScadenzePage() {
   const { user, loading } = useAuth();
+  const searchParams = useSearchParams();
   const [scadenze, setScadenze] = useState([]);
 const [searchText, setSearchText] = useState("");
   const [fetching, setFetching] = useState(true);
@@ -82,6 +84,19 @@ const [searchText, setSearchText] = useState("");
       setFetching(false);
     }
   }, [user, loading]);
+  
+  // Effetto separato per gestire i parametri URL dopo che le scadenze sono caricate
+  useEffect(() => {
+    if (scadenze.length > 0 && searchParams) {
+      const idParam = searchParams.get('id');
+      if (idParam) {
+        const scadenza = scadenze.find(s => s.id === idParam || s.id?.toString() === idParam);
+        if (scadenza) {
+          handleViewDetails(scadenza);
+        }
+      }
+    }
+  }, [scadenze, searchParams]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
