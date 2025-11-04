@@ -179,7 +179,7 @@ export default function AgendaAutistiPage() {
   const groupedByDriver = useMemo(() => {
     // Restituisce { driverId: { driver, perDay: { date: [acts] } } }
     const acc = {};
-    const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
+    const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned','non assegnato']);
     console.log('🔄 Elaborazione attività per autisti, giorni:', weekDays);
     console.log('📊 Attività per giorno:', Object.keys(activitiesByDay).map(d => `${d}: ${activitiesByDay[d]?.length || 0}`));
     console.log('👥 Totale autisti nel sistema:', drivers.length);
