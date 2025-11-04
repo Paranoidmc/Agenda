@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import api from "../../lib/api";
 import PageHeader from "../../components/PageHeader";
 
@@ -277,10 +277,23 @@ export default function AgendaAutistiPage() {
   }, [date]);
 
   // Helper: trova l'attività del driver che copre lo slot specifico
-  const getActivityForSlot = (driverId, slotDate) => {
+  const getActivityForSlot = useCallback((driverId, slotDate) => {
     // Cerca l'attività nel giorno corrente (date)
     const list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
-    if (!list.length) return null;
+    if (!list.length) {
+      // DEBUG: log solo una volta per evitare spam
+      if (driverId && !getActivityForSlot._logged) {
+        console.log(`📋 Driver ${driverId} non ha attività per ${date}`, {
+          driverId,
+          date,
+          hasGroupedDriver: !!groupedByDriver[String(driverId)],
+          perDayKeys: groupedByDriver[String(driverId)]?.perDay ? Object.keys(groupedByDriver[String(driverId)].perDay) : []
+        });
+        getActivityForSlot._logged = true;
+        setTimeout(() => { getActivityForSlot._logged = false; }, 5000);
+      }
+      return null;
+    }
     
     const t = slotDate.getTime();
     const slotDateOnly = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
@@ -288,9 +301,10 @@ export default function AgendaAutistiPage() {
     const slotMinute = slotDate.getMinutes();
     
     // DEBUG per il primo slot del primo driver
-    if (driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+    if (driverList.length > 0 && driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
       console.log('🔍 DEBUG getActivityForSlot:', {
         driverId,
+        driverName: driverList[0]?.nome || driverList[0]?.name,
         slotDate: slotDate.toISOString(),
         slotDateOnly,
         date,
@@ -300,7 +314,8 @@ export default function AgendaAutistiPage() {
           start: a.start,
           end: a.end,
           startParsed: toDate(a.start)?.toISOString(),
-          endParsed: toDate(a.end)?.toISOString()
+          endParsed: toDate(a.end)?.toISOString(),
+          startDate: toDate(a.start)?.toISOString().slice(0, 10)
         }))
       });
     }
@@ -308,13 +323,16 @@ export default function AgendaAutistiPage() {
     for (const a of list) {
       const s = toDate(a.start);
       const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000)); // default 1h se end mancante
-      if (!s) continue;
+      if (!s) {
+        console.warn(`⚠️ Attività ${a.id} ha data_inizio non valida:`, a.start);
+        continue;
+      }
       
       // Verifica che l'attività sia nello stesso giorno dello slot
       const activityDateOnly = s.toISOString().slice(0, 10);
       if (activityDateOnly !== slotDateOnly) {
         // DEBUG
-        if (driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+        if (driverList.length > 0 && driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
           console.log(`⚠️ Data attività (${activityDateOnly}) non corrisponde allo slot (${slotDateOnly})`);
         }
         continue;
@@ -325,8 +343,9 @@ export default function AgendaAutistiPage() {
       const endTime = e.getTime();
       
       // DEBUG per il primo slot
-      if (driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
+      if (driverList.length > 0 && driverId === driverList[0]?.id && slotHour === 6 && slotMinute === 0) {
         console.log(`🔍 Verifica slot ${t} (${slotDate.toLocaleTimeString()}) vs attività ${startTime}-${endTime} (${s.toLocaleTimeString()}-${e.toLocaleTimeString()})`);
+        console.log(`   Slot timestamp: ${t}, Start: ${startTime}, End: ${endTime}, Match: ${t >= startTime && t < endTime}`);
       }
       
       if (t >= startTime && t < endTime) {
@@ -341,7 +360,7 @@ export default function AgendaAutistiPage() {
       }
     }
     return null;
-  };
+  }, [groupedByDriver, date, driverList]);
 
   const driverList = useMemo(() => {
     const q = driverQuery.trim().toLowerCase();
