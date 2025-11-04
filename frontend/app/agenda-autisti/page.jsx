@@ -245,6 +245,9 @@ export default function AgendaAutistiPage() {
         }
         
         // Aggiungi attività a tutti i driver trovati
+        if (driverIds.length > 0) {
+          totalActivitiesWithDrivers += driverIds.length;
+        }
         for (const drv of driverIds) {
           const key = String(drv.id);
           if (!acc[key]) acc[key] = { driver: drv, perDay: {} };
