@@ -675,6 +675,26 @@ export default function AgendaAutistiPage() {
     
     console.log('🔍 [driverList] Lista dopo filtro attività:', list.length, 'autisti');
     
+    // IMPORTANTE: Se un autista ha attività in groupedByDriver ma non è nella lista drivers,
+    // aggiungilo comunque dalla struttura groupedByDriver
+    const missingDriversWithActivities = [];
+    for (const driverId of hasAssignments) {
+      const driverInList = list.find(d => String(d.id) === driverId);
+      if (!driverInList) {
+        const driverData = groupedByDriver[driverId];
+        if (driverData && driverData.driver) {
+          missingDriversWithActivities.push(driverData.driver);
+          console.log(`✅ [driverList] Aggiunto driver mancante ${driverId} (${driverData.driver.nome || driverData.driver.name}) da groupedByDriver`);
+        }
+      }
+    }
+    if (missingDriversWithActivities.length > 0) {
+      console.log(`✅ [driverList] Aggiunti ${missingDriversWithActivities.length} autisti con attività non presenti nella lista drivers`);
+      list = [...list, ...missingDriversWithActivities];
+    }
+    
+    console.log('🔍 [driverList] Lista dopo aggiunta driver mancanti:', list.length, 'autisti');
+    
     // Filtra autisti nascosti
     list = list.filter(d => !hiddenDrivers.has(String(d.id)));
     console.log('🔍 [driverList] Lista dopo filtro nascosti:', list.length, 'autisti');
