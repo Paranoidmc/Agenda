@@ -73,10 +73,13 @@ class RentalVehicleController extends Controller
     public function show($id): JsonResponse
     {
         try {
-            // Cerca per ID veicolo o ID contratto
+            // Cerca per ID contratto o ID veicolo
             $rental = VehicleRental::with('vehicle')
-                ->where('id', $id)
-                ->orWhere('vehicle_id', $id)
+                ->where(function($q) use ($id) {
+                    $q->where('id', $id)
+                      ->orWhere('vehicle_id', $id);
+                })
+                ->where('is_active', true)
                 ->first();
 
             if (!$rental || !$rental->vehicle) {
