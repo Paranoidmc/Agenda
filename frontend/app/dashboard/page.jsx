@@ -523,7 +523,17 @@ export default function DashboardPage() {
                         transition: 'background-color 0.2s',
                         backgroundColor: getDeadlineColor(deadline, 0.1)
                       }}
-                      onClick={() => router.push(`/scadenze/${deadline.id}`)}
+                      onClick={() => {
+                        // Se è una scadenza documento, naviga al veicolo invece della pagina scadenze
+                        if (deadline.source === 'documento_veicolo' && deadline.documento_id) {
+                          router.push(`/veicoli/${deadline.vehicle_id}`);
+                        } else if (deadline.id && !deadline.id.toString().startsWith('doc_')) {
+                          router.push(`/scadenze/${deadline.id}`);
+                        } else {
+                          // Fallback: cerca la scadenza nella pagina scadenze usando il veicolo
+                          router.push(`/scadenze?vehicle_id=${deadline.vehicle_id}`);
+                        }
+                      }}
                       onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f7ff'}
                       onMouseOut={(e) => e.currentTarget.style.backgroundColor = getDeadlineColor(deadline, 0.1)}
                     >

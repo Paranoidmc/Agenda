@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import api from "../../../lib/api";
 import { useAuth } from "../../../context/AuthContext";
 import PageHeader from "../../../components/PageHeader";
+import { showSuccessToast, showErrorToast } from "../../../lib/toast";
 import TabPanel from "../../../components/TabPanel";
 import EntityForm from "../../../components/EntityForm";
 import ResourcePairing from "../../../components/ResourcePairing";
@@ -1060,15 +1061,31 @@ export default function AttivitaDetailPage() {
       
       // Emetti anche un evento generico per compatibilità
       const genericEvent = new CustomEvent('activitySaved', {
-        detail: { activity_id: isNew ? createdActivityId : attivitaId, type: isNew ? 'create' : 'update' }
+        detail: { activity_id: isNew ? createdActivityId : attivitaId, type: isNew ? 'create' : 'update', activity: response.data }
       });
       window.dispatchEvent(genericEvent);
+      
+      // Se l'attività è stata completata, mostra una notifica toast
+      const activityStatus = dataToSend.status || dataToSend.stato || attivita?.status || attivita?.stato;
+      if (activityStatus && String(activityStatus).toLowerCase() === 'completato') {
+        const activityDesc = dataToSend.descrizione || attivita?.descrizione || 'Attività';
+        showSuccessToast(`✅ Attività completata: ${activityDesc}`);
+        
+        // Emetti anche un evento specifico per attività completata
+        const completedEvent = new CustomEvent('activityCompleted', {
+          detail: { 
+            activity_id: isNew ? createdActivityId : attivitaId, 
+            activity: response.data 
+          }
+        });
+        window.dispatchEvent(completedEvent);
+      }
       
       setIsEditing(false);
       setPreSelectedDocuments([]);
       
       const message = isNew ? 'Attività creata con successo!' : 'Attività aggiornata con successo!';
-      alert(message);
+      showSuccessToast(message);
     } catch (e) {
       console.error("Errore durante il salvataggio:", e);
       if (e.response && e.response.data && e.response.data.errors) {
@@ -1094,11 +1111,11 @@ export default function AttivitaDetailPage() {
       });
       window.dispatchEvent(activityEvent);
       
-      alert('Attività eliminata con successo!');
+      showSuccessToast('Attività eliminata con successo!');
       router.push('/attivita');
     } catch (e) {
       console.error('Errore durante l\'eliminazione:', e);
-      setError('Impossibile eliminare l\'attività.');
+      showErrorToast('Impossibile eliminare l\'attività.');
     } finally {
       setIsDeleting(false);
     }

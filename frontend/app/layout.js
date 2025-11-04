@@ -5,6 +5,8 @@ import { AuthProvider } from "../context/AuthContext";
 import Sidebar from "../components/Sidebar";
 import GlobalLoader from "../components/GlobalLoader";
 import Header from "../components/Header";
+import ToastProvider from "../components/ToastProvider";
+import DeadlineNotifications from "../components/DeadlineNotifications";
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -31,6 +33,12 @@ export default function RootLayout({ children }) {
     <html lang="it" suppressHydrationWarning={true}>
       <body className={inter.className}>
         <AuthProvider>
+          {/* Sistema di notifiche toast */}
+          <ToastProvider />
+          
+          {/* Notifiche scadenze al login */}
+          <DeadlineNotifications />
+          
           {/* Indicatore di caricamento globale */}
           <GlobalLoader />
           
