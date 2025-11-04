@@ -27,6 +27,18 @@ class VehicleDeadlineController extends Controller
             ->whereNotNull('data_scadenza')
             ->get();
         
+        Log::info('VehicleDeadlineController allWithVehicles: Documenti con scadenza trovati', [
+            'count' => $documentScadenze->count(),
+            'documenti' => $documentScadenze->map(function($d) {
+                return [
+                    'id' => $d->id,
+                    'veicolo_id' => $d->veicolo_id,
+                    'categoria' => $d->categoria,
+                    'data_scadenza' => $d->data_scadenza ? $d->data_scadenza->format('Y-m-d') : null,
+                ];
+            })
+        ]);
+        
         // Trasforma i documenti in formato compatibile con le scadenze
         $documentDeadlines = $documentScadenze->map(function ($doc) {
             $vehicle = $doc->veicolo;
@@ -48,8 +60,8 @@ class VehicleDeadlineController extends Controller
                 'vehicle_id' => $doc->veicolo_id,
                 'type' => $tipo,
                 'tipo' => $doc->categoria,
-                'expiry_date' => $doc->data_scadenza,
-                'data_scadenza' => $doc->data_scadenza,
+                'expiry_date' => $doc->data_scadenza ? $doc->data_scadenza->format('Y-m-d') : null,
+                'data_scadenza' => $doc->data_scadenza ? $doc->data_scadenza->format('Y-m-d') : null,
                 'notes' => $doc->descrizione,
                 'note' => $doc->descrizione,
                 'status' => $doc->data_scadenza && $doc->data_scadenza->isPast() ? 'expired' : 'active',
@@ -88,14 +100,20 @@ class VehicleDeadlineController extends Controller
         if ($request->has('start_date')) {
             $allDeadlines = $allDeadlines->filter(function ($dl) use ($request) {
                 $expiry = $dl->expiry_date ?? $dl->data_scadenza;
-                return $expiry && $expiry >= $request->start_date;
+                if (!$expiry) return false;
+                // Converti in stringa se è una data Carbon
+                $expiryStr = is_object($expiry) ? $expiry->format('Y-m-d') : $expiry;
+                return $expiryStr >= $request->start_date;
             });
         }
         
         if ($request->has('end_date')) {
             $allDeadlines = $allDeadlines->filter(function ($dl) use ($request) {
                 $expiry = $dl->expiry_date ?? $dl->data_scadenza;
-                return $expiry && $expiry <= $request->end_date;
+                if (!$expiry) return false;
+                // Converti in stringa se è una data Carbon
+                $expiryStr = is_object($expiry) ? $expiry->format('Y-m-d') : $expiry;
+                return $expiryStr <= $request->end_date;
             });
         }
         
@@ -139,6 +157,18 @@ class VehicleDeadlineController extends Controller
         $documentScadenze = DocumentoVeicolo::with('veicolo')
             ->whereNotNull('data_scadenza')
             ->get();
+        
+        Log::info('VehicleDeadlineController: Documenti con scadenza trovati', [
+            'count' => $documentScadenze->count(),
+            'documenti' => $documentScadenze->map(function($d) {
+                return [
+                    'id' => $d->id,
+                    'veicolo_id' => $d->veicolo_id,
+                    'categoria' => $d->categoria,
+                    'data_scadenza' => $d->data_scadenza ? $d->data_scadenza->format('Y-m-d') : null,
+                ];
+            })
+        ]);
         
         // Trasforma i documenti in formato compatibile
         $documentDeadlines = $documentScadenze->map(function ($doc) {
@@ -188,20 +218,29 @@ class VehicleDeadlineController extends Controller
         if ($request->has('start_date')) {
             $documentDeadlines = $documentDeadlines->filter(function ($dl) use ($request) {
                 $expiry = $dl->expiry_date ?? $dl->data_scadenza;
-                return $expiry && $expiry >= $request->start_date;
+                if (!$expiry) return false;
+                // Converti in stringa se è una data Carbon
+                $expiryStr = is_object($expiry) ? $expiry->format('Y-m-d') : $expiry;
+                return $expiryStr >= $request->start_date;
             });
         } else {
             // Se non c'è filtro start_date, mostra solo scadenze future o odierne
             $documentDeadlines = $documentDeadlines->filter(function ($dl) {
                 $expiry = $dl->expiry_date ?? $dl->data_scadenza;
-                return $expiry && $expiry >= now()->format('Y-m-d');
+                if (!$expiry) return false;
+                // Converti in stringa se è una data Carbon
+                $expiryStr = is_object($expiry) ? $expiry->format('Y-m-d') : $expiry;
+                return $expiryStr >= now()->format('Y-m-d');
             });
         }
         
         if ($request->has('end_date')) {
             $documentDeadlines = $documentDeadlines->filter(function ($dl) use ($request) {
                 $expiry = $dl->expiry_date ?? $dl->data_scadenza;
-                return $expiry && $expiry <= $request->end_date;
+                if (!$expiry) return false;
+                // Converti in stringa se è una data Carbon
+                $expiryStr = is_object($expiry) ? $expiry->format('Y-m-d') : $expiry;
+                return $expiryStr <= $request->end_date;
             });
         }
         
@@ -263,19 +302,15 @@ class VehicleDeadlineController extends Controller
         
         $deadlines = $query->get();
         
-        // Log del numero di risultati
-        Log::info('VehicleDeadlineController: Risultati', [
-            'count' => $deadlines->count()
-        ]);
-        
-        // Aggiungiamo i campi in italiano per ogni scadenza
-        $deadlines = $deadlines->map(function ($deadline) {
+        // Combina le scadenze normali con quelle dei documenti
+        $allDeadlines = $deadlines->map(function ($deadline) {
             // Aggiungiamo i campi in italiano
             $deadline->tipo = $deadline->type;
             $deadline->data_scadenza = $deadline->expiry_date;
             $deadline->data_promemoria = $deadline->reminder_date;
             $deadline->stato = $deadline->status;
             $deadline->note = $deadline->notes;
+            $deadline->source = 'vehicle_deadline';
             
             // Aggiungiamo i campi in italiano per il veicolo
             if ($deadline->vehicle) {
@@ -291,9 +326,16 @@ class VehicleDeadlineController extends Controller
             }
             
             return $deadline;
-        });
+        })->concat($documentDeadlines);
         
-        return response()->json($deadlines);
+        // Log del numero di risultati
+        Log::info('VehicleDeadlineController: Risultati', [
+            'deadlines_count' => $deadlines->count(),
+            'document_deadlines_count' => $documentDeadlines->count(),
+            'total_count' => $allDeadlines->count()
+        ]);
+        
+        return response()->json($allDeadlines->values());
     }
 
     /**
