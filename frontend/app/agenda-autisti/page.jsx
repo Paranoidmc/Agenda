@@ -31,7 +31,14 @@ export default function AgendaAutistiPage() {
   const [includeAllStatuses, setIncludeAllStatuses] = useState(false);
   const [driverQuery, setDriverQuery] = useState("");
   const [onlyWithActivities, setOnlyWithActivities] = useState(true);
-  const [sortBy, setSortBy] = useState("nome"); // 'nome' | 'cognome' | 'attivita' | 'none'
+  const [driverOrder, setDriverOrder] = useState(() => {
+    // Carica ordinamento custom da localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agendaAutistiOrder');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [hiddenDrivers, setHiddenDrivers] = useState(() => {
     // Carica autisti nascosti da localStorage
     if (typeof window !== 'undefined') {
@@ -40,6 +47,7 @@ export default function AgendaAutistiPage() {
     }
     return new Set();
   });
+  const [draggedDriverId, setDraggedDriverId] = useState(null);
 
   // Carica anagrafica autisti
   useEffect(() => {
@@ -395,6 +403,61 @@ export default function AgendaAutistiPage() {
     }
   };
 
+  // Funzioni per drag & drop
+  const handleDragStart = (e, driverId) => {
+    setDraggedDriverId(String(driverId));
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', '');
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetDriverId) => {
+    e.preventDefault();
+    if (!draggedDriverId || draggedDriverId === String(targetDriverId)) return;
+    
+    // Usa l'ordine corrente o costruiscilo dalla lista filtrata corrente
+    setDriverOrder(prevOrder => {
+      // Se non c'è ordine salvato, costruiscilo dalla lista attuale
+      const currentOrder = prevOrder.length > 0 ? [...prevOrder] : [];
+      
+      // Se l'ordine non contiene i driver, aggiungili
+      const draggedIdStr = String(draggedDriverId);
+      const targetIdStr = String(targetDriverId);
+      
+      if (currentOrder.length === 0) {
+        // Costruisci ordine iniziale da tutti i driver (non filtrati)
+        currentOrder.push(...drivers.map(d => String(d.id)));
+      }
+      
+      const draggedIndex = currentOrder.findIndex(id => id === draggedIdStr);
+      const targetIndex = currentOrder.findIndex(id => id === targetIdStr);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prevOrder;
+      
+      // Rimuovi elemento dalla posizione corrente
+      const [dragged] = currentOrder.splice(draggedIndex, 1);
+      // Inserisci nella nuova posizione
+      currentOrder.splice(targetIndex, 0, dragged);
+      
+      // Salva in localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('agendaAutistiOrder', JSON.stringify(currentOrder));
+      }
+      
+      return currentOrder;
+    });
+    
+    setDraggedDriverId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedDriverId(null);
+  };
+
   const driverList = useMemo(() => {
     const q = driverQuery.trim().toLowerCase();
     
@@ -458,51 +521,68 @@ export default function AgendaAutistiPage() {
     
     // Filtra per attività (se richiesto)
     let list = [];
-    if (q && filteredDrivers.length > 0) {
-      // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività se onlyWithActivities è false)
+    if (q) {
+      // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività)
       list = filteredDrivers.filter(d => {
         const hasInGrouped = hasAssignments.has(String(d.id));
         const hasInActivities = withActs.has(String(d.id));
         const hasActivity = hasInGrouped || hasInActivities;
-        if (onlyWithActivities && !q) {
-          return hasActivity; // Se solo con attività e senza ricerca, mostra solo quelli con attività
+        // Se solo con attività è attivo, mostra solo quelli con attività
+        if (onlyWithActivities) {
+          return hasActivity;
         }
-        return hasActivity || q; // Se c'è ricerca, mostra anche senza attività
+        // Altrimenti mostra tutti (con o senza attività)
+        return true;
       });
     } else if (onlyWithActivities) {
-      list = filteredDrivers.filter(d => hasAssignments.has(String(d.id)));
-      if (list.length === 0) {
-        list = filteredDrivers.filter(d => withActs.has(String(d.id)));
-      }
+      // Mostra solo autisti con attività
+      list = filteredDrivers.filter(d => {
+        const hasInGrouped = hasAssignments.has(String(d.id));
+        const hasInActivities = withActs.has(String(d.id));
+        return hasInGrouped || hasInActivities;
+      });
     } else {
+      // Mostra tutti gli autisti
       list = filteredDrivers;
     }
     
     // Filtra autisti nascosti
     list = list.filter(d => !hiddenDrivers.has(String(d.id)));
     
-    // Applica ordinamento
-    if (sortBy !== 'none') {
+    // Applica ordinamento custom (drag & drop) se presente
+    if (driverOrder.length > 0) {
+      const orderMap = new Map(driverOrder.map((id, idx) => [String(id), idx]));
       list = [...list].sort((a, b) => {
-        if (sortBy === 'nome') {
-          const nomeA = (a.nome || a.name || a.first_name || '').toLowerCase();
-          const nomeB = (b.nome || b.name || b.first_name || '').toLowerCase();
-          return nomeA.localeCompare(nomeB, 'it');
-        } else if (sortBy === 'cognome') {
-          const cognomeA = (a.cognome || a.surname || a.last_name || '').toLowerCase();
-          const cognomeB = (b.cognome || b.surname || b.last_name || '').toLowerCase();
-          return cognomeA.localeCompare(cognomeB, 'it');
-        } else if (sortBy === 'attivita') {
-          const countA = Object.values(groupedByDriver[String(a.id)]?.perDay || {}).reduce((sum, acts) => sum + acts.length, 0);
-          const countB = Object.values(groupedByDriver[String(b.id)]?.perDay || {}).reduce((sum, acts) => sum + acts.length, 0);
-          return countB - countA; // Più attività prima
+        const idxA = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : Infinity;
+        const idxB = orderMap.has(String(b.id)) ? orderMap.get(String(b.id)) : Infinity;
+        if (idxA !== Infinity || idxB !== Infinity) {
+          return idxA - idxB;
         }
+        // Se non in ordine custom, mantieni ordine originale
         return 0;
       });
     }
     
     return list;
-  }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses, onlyWithActivities, sortBy, hiddenDrivers]);
+  }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses, onlyWithActivities, driverOrder, hiddenDrivers]);
+  
+  // Aggiorna driverOrder quando cambiano i driver (aggiungi nuovi driver alla fine)
+  useEffect(() => {
+    if (driverOrder.length === 0 && drivers.length > 0) {
+      // Se non c'è ordine salvato e ci sono driver, non fare nulla (mantieni ordine originale)
+      return;
+    }
+    // Se ci sono nuovi driver non nell'ordine, aggiungili alla fine
+    const driverIds = new Set(drivers.map(d => String(d.id)));
+    const orderSet = new Set(driverOrder);
+    const missing = drivers
+      .map(d => String(d.id))
+      .filter(id => !orderSet.has(id));
+    
+    if (missing.length > 0) {
+      setDriverOrder(prev => [...prev, ...missing]);
+    }
+  }, [drivers, driverOrder]);
 
   const goPrev = () => {
     const base = toDate(date);
@@ -548,16 +628,20 @@ export default function AgendaAutistiPage() {
           <input type="checkbox" checked={onlyWithActivities} onChange={e => setOnlyWithActivities(e.target.checked)} />
           Solo autisti con attività
         </label>
-        <select
-          value={sortBy}
-          onChange={e => setSortBy(e.target.value)}
-          style={{ ...dateInputStyle, minWidth: 150 }}
-        >
-          <option value="none">Nessun ordinamento</option>
-          <option value="nome">Ordina per nome</option>
-          <option value="cognome">Ordina per cognome</option>
-          <option value="attivita">Più attività prima</option>
-        </select>
+        {driverOrder.length > 0 && (
+          <button
+            onClick={() => {
+              setDriverOrder([]);
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('agendaAutistiOrder');
+              }
+            }}
+            style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
+            title="Ripristina ordinamento originale"
+          >
+            Reset ordinamento
+          </button>
+        )}
         {hiddenDrivers.size > 0 && (
           <button
             onClick={restoreAllHiddenDrivers}
@@ -586,11 +670,26 @@ export default function AgendaAutistiPage() {
             <div style={{ color: '#666' }}>Nessun autista risulta impegnato per il giorno selezionato.</div>
           ) : (
             driverList.map(d => (
-              <div key={d.id} style={cardStyle}>
+              <div
+                key={d.id}
+                style={{
+                  ...cardStyle,
+                  cursor: 'move',
+                  opacity: draggedDriverId === String(d.id) ? 0.5 : 1
+                }}
+                draggable
+                onDragStart={(e) => handleDragStart(e, d.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, d.id)}
+                onDragEnd={handleDragEnd}
+              >
                 <div style={{ fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
                   <button
-                    onClick={() => toggleDriverVisibility(d.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleDriverVisibility(d.id);
+                    }}
                     style={{
                       background: 'transparent',
                       border: 'none',
@@ -603,7 +702,7 @@ export default function AgendaAutistiPage() {
                     }}
                     title="Nascondi autista"
                   >
-                    ✕
+                    👁️
                   </button>
                 </div>
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
@@ -627,11 +726,29 @@ export default function AgendaAutistiPage() {
               <tr>
                 <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
                 {driverList.map(d => (
-                  <th key={d.id} style={{ ...thStyle, minWidth: 180, textAlign: 'center' }} title={String(d.id)}>
+                  <th
+                    key={d.id}
+                    style={{
+                      ...thStyle,
+                      minWidth: 180,
+                      textAlign: 'center',
+                      cursor: 'move',
+                      opacity: draggedDriverId === String(d.id) ? 0.5 : 1
+                    }}
+                    title={String(d.id)}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, d.id)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, d.id)}
+                    onDragEnd={handleDragEnd}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
                       <button
-                        onClick={() => toggleDriverVisibility(d.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDriverVisibility(d.id);
+                        }}
                         style={{
                           background: 'transparent',
                           border: 'none',
@@ -644,7 +761,7 @@ export default function AgendaAutistiPage() {
                         }}
                         title="Nascondi autista"
                       >
-                        ✕
+                        👁️
                       </button>
                     </div>
                   </th>
@@ -713,12 +830,26 @@ export default function AgendaAutistiPage() {
                 <tr><td style={tdStyle} colSpan={1 + weekDays.length}>Nessun autista impegnato nella settimana.</td></tr>
               ) : (
                 driverList.map(d => (
-                  <tr key={d.id}>
+                  <tr
+                    key={d.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, d.id)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, d.id)}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      cursor: 'move',
+                      opacity: draggedDriverId === String(d.id) ? 0.5 : 1
+                    }}
+                  >
                     <td style={tdStyle}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
                         <button
-                          onClick={() => toggleDriverVisibility(d.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleDriverVisibility(d.id);
+                          }}
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -731,7 +862,7 @@ export default function AgendaAutistiPage() {
                           }}
                           title="Nascondi autista"
                         >
-                          ✕
+                          👁️
                         </button>
                       </div>
                     </td>
