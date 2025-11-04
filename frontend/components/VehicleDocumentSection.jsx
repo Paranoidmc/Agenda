@@ -129,6 +129,21 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
     }
   };
 
+  const handleView = async (id, nome) => {
+    try {
+      const response = await axios.get(`/documenti/${id}/download`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // Apri il documento in una nuova finestra/tab
+      window.open(url, '_blank');
+      // Pulizia dopo un po' di tempo
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      setError("Errore visualizzazione documento");
+    }
+  };
+
   const handleDownload = async (id, nome) => {
     try {
       const response = await axios.get(`/documenti/${id}/download`, {
@@ -196,6 +211,13 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
                 <td style={{ padding: '8px 8px' }}>{doc.descrizione || "-"}</td>
                 <td style={{ padding: '8px 8px' }}>{doc.data_scadenza || "-"}</td>
                 <td style={{ padding: '8px 8px', textAlign: 'center' }}>
+                  <button onClick={() => handleView(doc.id, doc.file_path?.split("_").slice(1).join("_") || "documento.pdf")}
+                    style={{
+                      background: '#10b981', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 600, cursor: 'pointer', marginRight: 4, transition: 'background 0.2s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = '#059669'}
+                    onMouseOut={e => e.currentTarget.style.background = '#10b981'}
+                  >Visualizza</button>
                   <button onClick={() => handleDownload(doc.id, doc.file_path?.split("_").slice(1).join("_") || "documento.pdf")}
                     style={{
                       background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 600, cursor: 'pointer', marginRight: 4, transition: 'background 0.2s',
