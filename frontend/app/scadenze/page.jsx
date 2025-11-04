@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 // Funzione helper per mostrare il tipo in italiano
@@ -32,7 +32,7 @@ import EntityForm from "../../components/EntityForm";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 
-export default function ScadenzePage() {
+function ScadenzeContent() {
   const { user, loading } = useAuth();
   const searchParams = useSearchParams();
   const [scadenze, setScadenze] = useState([]);
@@ -96,7 +96,7 @@ const [searchText, setSearchText] = useState("");
         }
       }
     }
-  }, [scadenze, searchParams]);
+  }, [scadenze, searchParams, handleViewDetails]);
 
   // Effetto per animare la tabella quando il pannello si apre/chiude
   useEffect(() => {
@@ -139,11 +139,11 @@ const [searchText, setSearchText] = useState("");
   };
 
 
-  const handleViewDetails = (scadenza) => {
+  const handleViewDetails = useCallback((scadenza) => {
     setSelectedScadenza(scadenza);
     setIsEditing(false);
     setIsPanelOpen(true);
-  };
+  }, []);
 
   const handleClosePanel = () => {
     setIsPanelOpen(false);
@@ -443,5 +443,13 @@ const [searchText, setSearchText] = useState("");
         )}
       </SidePanel>
     </div>
+  );
+}
+
+export default function ScadenzePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '20px' }}>Caricamento...</div>}>
+      <ScadenzeContent />
+    </Suspense>
   );
 }
