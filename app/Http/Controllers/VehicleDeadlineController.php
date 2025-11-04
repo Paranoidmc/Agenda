@@ -184,11 +184,17 @@ class VehicleDeadlineController extends Controller
             ];
         });
         
-        // Filtra le scadenze documenti per data se specificata
+        // Filtra le scadenze documenti per data se specificata (deve essere fatto dopo il filtro query)
         if ($request->has('start_date')) {
             $documentDeadlines = $documentDeadlines->filter(function ($dl) use ($request) {
                 $expiry = $dl->expiry_date ?? $dl->data_scadenza;
                 return $expiry && $expiry >= $request->start_date;
+            });
+        } else {
+            // Se non c'è filtro start_date, mostra solo scadenze future o odierne
+            $documentDeadlines = $documentDeadlines->filter(function ($dl) {
+                $expiry = $dl->expiry_date ?? $dl->data_scadenza;
+                return $expiry && $expiry >= now()->format('Y-m-d');
             });
         }
         

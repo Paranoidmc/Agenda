@@ -144,7 +144,8 @@ export default function DashboardPage() {
           params: {
             start_date: effectiveStartDate,
             end_date: effectiveEndDate
-          }
+          },
+          useCache: false
         });
         let allDeadlines = deadlinesResponse.data || [];
 if (allDeadlines.length > 0) {
