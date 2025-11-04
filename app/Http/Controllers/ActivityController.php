@@ -110,11 +110,26 @@ class ActivityController extends Controller
             'bindings' => $bindings
         ]);
 
+        // Conteggio totale prima della paginazione per debug
+        $totalBeforePaginate = $query->count();
+        Log::info('ActivityController: Totale attività prima paginazione', [
+            'total' => $totalBeforePaginate,
+            'filters' => [
+                'date' => $request->input('date'),
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'search' => $request->input('search'),
+            ]
+        ]);
+
         $activities = $query->orderBy('data_inizio', 'desc')->paginate($perPage);
 
         Log::info('ActivityController: Risultati dopo paginazione', [
             'total' => $activities->total(),
             'count_items_current_page' => count($activities->items()),
+            'current_page' => $activities->currentPage(),
+            'per_page' => $perPage,
+            'first_item_id' => count($activities->items()) > 0 ? $activities->items()[0]->id : null,
         ]);
 
         // Debug: verifica che le relazioni resources siano caricate
