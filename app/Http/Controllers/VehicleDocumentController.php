@@ -76,7 +76,11 @@ class VehicleDocumentController extends Controller
             return response(['error' => 'Documento non trovato'], 404);
         }
         $this->authorize('view', $documento);
-        return $this->service->downloadDocumento($documento) ?: response(['error' => 'File non trovato'], 404);
+        
+        // Controlla se è una richiesta di visualizzazione (query param 'view')
+        $inline = request()->query('view') === 'true';
+        
+        return $this->service->downloadDocumento($documento, $inline) ?: response(['error' => 'File non trovato'], 404);
     }
 
     /**

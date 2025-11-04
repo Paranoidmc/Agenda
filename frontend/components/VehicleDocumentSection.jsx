@@ -131,14 +131,10 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
 
   const handleView = async (id, nome) => {
     try {
-      const response = await axios.get(`/documenti/${id}/download`, {
-        responseType: "blob",
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      // Apri il documento in una nuova finestra/tab
+      // Usa l'endpoint con parametro view=true per visualizzazione inline
+      const url = `/api/documenti/${id}/download?view=true`;
+      // Apri direttamente l'URL in una nuova finestra - il server invierà il file con Content-Disposition: inline
       window.open(url, '_blank');
-      // Pulizia dopo un po' di tempo
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (e) {
       setError("Errore visualizzazione documento");
     }

@@ -69,13 +69,34 @@ class DocumentoVeicoloService
     }
 
     /**
-     * Restituisce il file per il download
+     * Restituisce il file per il download o la visualizzazione
      */
-    public function downloadDocumento(DocumentoVeicolo $documento)
+    public function downloadDocumento(DocumentoVeicolo $documento, bool $inline = false)
     {
         try {
             if ($documento->file_path && Storage::disk('local')->exists($documento->file_path)) {
-                return Storage::disk('local')->download($documento->file_path);
+                $filePath = Storage::disk('local')->path($documento->file_path);
+                $mimeType = Storage::disk('local')->mimeType($documento->file_path);
+                $fileName = basename($documento->file_path);
+                
+                // Rimuovi il prefisso UUID dal nome file se presente
+                if (strpos($fileName, '_') !== false) {
+                    $parts = explode('_', $fileName, 2);
+                    if (count($parts) === 2 && strlen($parts[0]) === 36) {
+                        $fileName = $parts[1]; // Prendi solo la parte dopo l'UUID
+                    }
+                }
+                
+                if ($inline) {
+                    // Per visualizzazione inline nel browser
+                    return response()->file($filePath, [
+                        'Content-Type' => $mimeType ?: 'application/octet-stream',
+                        'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+                    ]);
+                } else {
+                    // Per download
+                    return Storage::disk('local')->download($documento->file_path, $fileName);
+                }
             }
             return null;
         } catch (Exception $e) {
