@@ -301,6 +301,7 @@ export default function AgendaAutistiPage() {
             start,
             end,
           });
+          console.log(`✅ Attività ${act.id} aggiunta a driver ${key} per giorno ${d}`);
         }
         
         if (driverIds.length === 0) {
@@ -372,7 +373,9 @@ export default function AgendaAutistiPage() {
         date,
         listLength: list.length,
         hasGroupedDriver: !!groupedByDriver[String(driverId)],
-        perDayKeys: groupedByDriver[String(driverId)]?.perDay ? Object.keys(groupedByDriver[String(driverId)].perDay) : []
+        perDayKeys: groupedByDriver[String(driverId)]?.perDay ? Object.keys(groupedByDriver[String(driverId)].perDay) : [],
+        perDayData: groupedByDriver[String(driverId)]?.perDay ? groupedByDriver[String(driverId)].perDay : null,
+        fullGroupedByDriver: groupedByDriver
       });
       if (list.length > 0) {
         console.log('📋 Attività trovate per questo driver:', list.map(a => ({
@@ -383,6 +386,11 @@ export default function AgendaAutistiPage() {
         })));
       } else {
         console.log('⚠️ Nessuna attività trovata per questo driver in questa data');
+        // Verifica tutte le chiavi disponibili
+        if (groupedByDriver[String(driverId)]) {
+          console.log('🔍 Chiavi disponibili in perDay:', Object.keys(groupedByDriver[String(driverId)].perDay || {}));
+          console.log('🔍 Contenuto perDay:', groupedByDriver[String(driverId)].perDay);
+        }
       }
       getActivityForSlot._logged = true;
       setTimeout(() => { getActivityForSlot._logged = false; }, 2000);
