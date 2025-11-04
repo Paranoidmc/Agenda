@@ -587,6 +587,10 @@ export default function AgendaAutistiPage() {
     const hasAssignments = new Set(Object.keys(groupedByDriver));
     const withActs = new Set();
     
+    console.log('🔍 [driverList] hasAssignments:', Array.from(hasAssignments));
+    console.log('🔍 [driverList] groupedByDriver keys:', Object.keys(groupedByDriver));
+    console.log('🔍 [driverList] drivers count:', drivers.length);
+    
     // Verifica anche direttamente nelle attività per sicurezza
     for (const day of weekDays) {
       const items = activitiesByDay[day] || [];
@@ -637,12 +641,17 @@ export default function AgendaAutistiPage() {
     
     // Filtra per attività (se richiesto)
     let list = [];
+    console.log('🔍 [driverList] onlyWithActivities:', onlyWithActivities);
+    console.log('🔍 [driverList] hasAssignments:', Array.from(hasAssignments));
+    console.log('🔍 [driverList] withActs:', Array.from(withActs));
+    
     if (q) {
       // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività)
       list = filteredDrivers.filter(d => {
         const hasInGrouped = hasAssignments.has(String(d.id));
         const hasInActivities = withActs.has(String(d.id));
         const hasActivity = hasInGrouped || hasInActivities;
+        console.log(`🔍 [driverList] Driver ${d.id} (${d.nome || d.name}): hasInGrouped=${hasInGrouped}, hasInActivities=${hasInActivities}, hasActivity=${hasActivity}`);
         // Se solo con attività è attivo, mostra solo quelli con attività
         if (onlyWithActivities) {
           return hasActivity;
@@ -655,15 +664,21 @@ export default function AgendaAutistiPage() {
       list = filteredDrivers.filter(d => {
         const hasInGrouped = hasAssignments.has(String(d.id));
         const hasInActivities = withActs.has(String(d.id));
-        return hasInGrouped || hasInActivities;
+        const result = hasInGrouped || hasInActivities;
+        console.log(`🔍 [driverList] Driver ${d.id} (${d.nome || d.name}): hasInGrouped=${hasInGrouped}, hasInActivities=${hasInActivities}, result=${result}`);
+        return result;
       });
     } else {
       // Mostra tutti gli autisti
       list = filteredDrivers;
     }
     
+    console.log('🔍 [driverList] Lista dopo filtro attività:', list.length, 'autisti');
+    
     // Filtra autisti nascosti
     list = list.filter(d => !hiddenDrivers.has(String(d.id)));
+    console.log('🔍 [driverList] Lista dopo filtro nascosti:', list.length, 'autisti');
+    console.log('🔍 [driverList] hiddenDrivers:', Array.from(hiddenDrivers));
     
     // Applica ordinamento custom (drag & drop) se presente
     if (driverOrder.length > 0) {
@@ -788,8 +803,16 @@ export default function AgendaAutistiPage() {
           <strong>Debug:</strong> Attività caricate: {Object.values(activitiesByDay).reduce((sum, acts) => sum + acts.length, 0)} | 
           Autisti con attività: {Object.keys(groupedByDriver).length} | 
           Autisti visibili: {driverList.length} | 
-          Autisti nascosti: {hiddenDrivers.size} | 
+          Autisti nascosti: {hiddenDrivers.size} {hiddenDrivers.size > 0 && `(${Array.from(hiddenDrivers).join(', ')})`} | 
           Filtro "Solo con attività": {onlyWithActivities ? 'ON' : 'OFF'}
+          {hiddenDrivers.size > 0 && (
+            <button 
+              onClick={restoreAllHiddenDrivers}
+              style={{ marginLeft: 8, padding: '4px 8px', fontSize: '11px', background: '#007bff', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+            >
+              Ripristina tutti
+            </button>
+          )}
         </div>
       )}
 
