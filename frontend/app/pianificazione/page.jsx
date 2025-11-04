@@ -239,13 +239,25 @@ function PianificazioneInner() {
       const last = p.cognome || p.surname || '';
       return `${first} ${last}`.trim() || (p.full_name || p.fullName || p.display_name || p.displayName || p.name || '');
     };
-    // Possibili liste di autisti
-    const driversArray = (
-      (Array.isArray(ev.drivers) && ev.drivers)
-      || (Array.isArray(ev.assigned_drivers) && ev.assigned_drivers)
-      || (Array.isArray(ev.driverList) && ev.driverList)
-      || (Array.isArray(ev.assignees) && ev.assignees)
-    );
+    
+    // Prima controlla resources (nuovo formato dall'API)
+    let driversArray = null;
+    if (Array.isArray(ev.resources) && ev.resources.length > 0) {
+      driversArray = ev.resources
+        .map(r => r.driver)
+        .filter(Boolean);
+    }
+    
+    // Se non trovato in resources, controlla i formati vecchi
+    if (!driversArray || driversArray.length === 0) {
+      driversArray = (
+        (Array.isArray(ev.drivers) && ev.drivers)
+        || (Array.isArray(ev.assigned_drivers) && ev.assigned_drivers)
+        || (Array.isArray(ev.driverList) && ev.driverList)
+        || (Array.isArray(ev.assignees) && ev.assignees)
+      );
+    }
+    
     if (Array.isArray(driversArray) && driversArray.length > 0) {
       const names = driversArray.map(d => typeof d === 'string' ? d : toFullName(d)).filter(Boolean);
       if (names.length > 0) driverName = names.join(', ');
@@ -255,9 +267,21 @@ function PianificazioneInner() {
       const name = typeof d === 'string' ? d : toFullName(d);
       if (name) driverName = name;
     }
-    // Veicolo
-    let v = ev.vehicle || ev.veicolo;
-    if (!v && Array.isArray(ev.vehicles) && ev.vehicles.length > 0) v = ev.vehicles[0];
+    
+    // Veicolo: prima controlla resources
+    let v = null;
+    if (Array.isArray(ev.resources) && ev.resources.length > 0) {
+      v = ev.resources
+        .map(r => r.vehicle)
+        .filter(Boolean)[0]; // Prendi il primo veicolo
+    }
+    
+    // Fallback ai formati vecchi
+    if (!v) {
+      v = ev.vehicle || ev.veicolo;
+      if (!v && Array.isArray(ev.vehicles) && ev.vehicles.length > 0) v = ev.vehicles[0];
+    }
+    
     let vehicleName = 'N/D';
     if (v && (v.targa || v.plate || v.modello || v.model || v.name)) {
       vehicleName = `${v.targa || v.plate || ''} ${v.modello || v.model || ''}`.trim() || v.name || 'N/D';
