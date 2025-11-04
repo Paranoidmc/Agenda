@@ -221,16 +221,33 @@ function AttivitaContent() {
       load({ page: currentPage, take: perPage });
     };
 
+    const handleActivityEvent = (event) => {
+      console.log('🔄 Ricevuto evento attività:', event.type, event.detail);
+      // Ricarica le attività quando vengono create, modificate o eliminate
+      load({ page: currentPage, take: perPage });
+    };
+
+    // Listener per sincronizzazione documenti, clienti, autisti, sedi
     window.addEventListener('documentsSync', handleSyncEvent);
     window.addEventListener('clientsSync', handleSyncEvent);
     window.addEventListener('driversSync', handleSyncEvent);
     window.addEventListener('sitesSync', handleSyncEvent);
+    
+    // Listener per eventi attività (create, update, delete)
+    window.addEventListener('activityCreated', handleActivityEvent);
+    window.addEventListener('activityUpdated', handleActivityEvent);
+    window.addEventListener('activitySaved', handleActivityEvent);
+    window.addEventListener('activityDeleted', handleActivityEvent);
 
     return () => {
       window.removeEventListener('documentsSync', handleSyncEvent);
       window.removeEventListener('clientsSync', handleSyncEvent);
       window.removeEventListener('driversSync', handleSyncEvent);
       window.removeEventListener('sitesSync', handleSyncEvent);
+      window.removeEventListener('activityCreated', handleActivityEvent);
+      window.removeEventListener('activityUpdated', handleActivityEvent);
+      window.removeEventListener('activitySaved', handleActivityEvent);
+      window.removeEventListener('activityDeleted', handleActivityEvent);
     };
   }, [currentPage, perPage]);
 
