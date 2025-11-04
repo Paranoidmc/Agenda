@@ -75,8 +75,14 @@ class DocumentoVeicoloService
     public function downloadDocumento(DocumentoVeicolo $documento, bool $inline = false): ?Response
     {
         try {
+            Log::info('Download documento richiesto', [
+                'documento_id' => $documento->id,
+                'inline' => $inline,
+                'file_path' => $documento->file_path,
+            ]);
+            
             if (!$documento->file_path || !Storage::disk('local')->exists($documento->file_path)) {
-                Log::warning('File documento non trovato', [
+                Log::warning('File documento non trovato in Storage', [
                     'documento_id' => $documento->id,
                     'file_path' => $documento->file_path,
                 ]);
@@ -84,6 +90,13 @@ class DocumentoVeicoloService
             }
             
             $filePath = Storage::disk('local')->path($documento->file_path);
+            Log::info('Percorso file calcolato', [
+                'documento_id' => $documento->id,
+                'file_path' => $documento->file_path,
+                'absolute_path' => $filePath,
+                'file_exists' => file_exists($filePath),
+                'is_readable' => is_readable($filePath),
+            ]);
             
             // Verifica che il file esista fisicamente
             if (!file_exists($filePath)) {
@@ -91,6 +104,15 @@ class DocumentoVeicoloService
                     'documento_id' => $documento->id,
                     'file_path' => $documento->file_path,
                     'absolute_path' => $filePath,
+                ]);
+                return null;
+            }
+            
+            if (!is_readable($filePath)) {
+                Log::error('File documento non leggibile', [
+                    'documento_id' => $documento->id,
+                    'file_path' => $filePath,
+                    'permissions' => substr(sprintf('%o', fileperms($filePath)), -4),
                 ]);
                 return null;
             }
@@ -130,6 +152,7 @@ class DocumentoVeicoloService
                         Log::error('Impossibile leggere il contenuto del file', [
                             'documento_id' => $documento->id,
                             'file_path' => $filePath,
+                            'error' => error_get_last(),
                         ]);
                         return null;
                     }
@@ -151,6 +174,7 @@ class DocumentoVeicoloService
                         'documento_id' => $documento->id,
                         'file_path' => $filePath,
                         'error' => $readException->getMessage(),
+                        'trace' => $readException->getTraceAsString(),
                     ]);
                     return null;
                 }
