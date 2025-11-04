@@ -99,7 +99,7 @@ export default function AgendaAutistiPage() {
             if (!loadAllActivities) {
               params.append("date", String(d));
             }
-            params.append("include", "resources");
+          params.append("include", "resources");
             const url = `/activities?${params.toString()}`;
             console.log(`🔍 Richiesta attività per ${d}:`, url, loadAllActivities ? '(senza filtro data)' : '(con filtro data)');
             const response = await api.get(url, { 
@@ -140,7 +140,7 @@ export default function AgendaAutistiPage() {
                 resourcesCount: items[0].resources ? items[0].resources.length : 0
               });
             }
-            return [d, items];
+          return [d, items];
           } catch (err) {
             console.error(`❌ Errore caricamento attività per ${d}:`, err);
             console.error(`❌ Dettagli errore:`, {
@@ -234,7 +234,7 @@ export default function AgendaAutistiPage() {
         if (Array.isArray(act.resources) && act.resources.length > 0) {
           console.log(`🔍 Attività ${act.id} ha ${act.resources.length} resources`);
           for (const r of act.resources) {
-            const drv = r.driver || (r.driver_id && drivers.find(x => String(x.id) === String(r.driver_id)));
+          const drv = r.driver || (r.driver_id && drivers.find(x => String(x.id) === String(r.driver_id)));
             if (drv) {
               driverIds.push(drv);
               console.log(`✅ Driver trovato in resources: ${drv.nome || drv.name} ${drv.cognome || drv.surname} (ID: ${drv.id})`);
@@ -410,16 +410,22 @@ export default function AgendaAutistiPage() {
         continue;
       }
       
-      // Verifica che lo slot sia dentro l'intervallo dell'attività
+      // Verifica che lo slot si sovrapponga all'attività
+      // Lo slot copre 30 minuti, quindi controlliamo se lo slot si sovrappone all'attività
       const startTime = s.getTime();
       const endTime = e ? e.getTime() : startTime + 60 * 60 * 1000;
+      const slotStartTime = slotDate.getTime();
+      const slotEndTime = slotStartTime + (30 * 60 * 1000); // 30 minuti
+      
+      // Lo slot si sovrappone se: slotStartTime < endTime && slotEndTime > startTime
+      const overlaps = slotStartTime < endTime && slotEndTime > startTime;
       
       if (isFirstCheck) {
-        console.log(`🔍 Verifica slot ${slotDate.toLocaleTimeString()} (${t}) vs attività ${s.toLocaleTimeString()} (${startTime}) - ${e ? e.toLocaleTimeString() : 'N/A'} (${endTime})`);
-        console.log(`   Match: ${t >= startTime && t < endTime}`);
+        console.log(`🔍 Verifica slot ${slotDate.toLocaleTimeString()} (${slotStartTime} - ${slotEndTime}) vs attività ${s.toLocaleTimeString()} (${startTime}) - ${e ? e.toLocaleTimeString() : 'N/A'} (${endTime})`);
+        console.log(`   Overlap: ${overlaps}`);
       }
       
-      if (t >= startTime && t < endTime) {
+      if (overlaps) {
         // Estrai la destinazione dalla descrizione dell'attività
         const descrizione = a.descrizione || '';
         if (isFirstCheck) {
@@ -558,7 +564,7 @@ export default function AgendaAutistiPage() {
         let driverIds = [];
         if (Array.isArray(act.resources) && act.resources.length > 0) {
           for (const r of act.resources) {
-            const drvId = r.driver?.id || r.driver_id;
+          const drvId = r.driver?.id || r.driver_id;
             if (drvId != null) driverIds.push(String(drvId));
           }
         }
