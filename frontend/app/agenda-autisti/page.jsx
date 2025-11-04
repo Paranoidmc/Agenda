@@ -354,11 +354,28 @@ export default function AgendaAutistiPage() {
   const getActivityForSlot = useCallback((driverId, slotDate) => {
     // Determina il giorno da cercare: per la vista grid usa il giorno dello slot, per week cerca in tutti i giorni
     const slotDateStr = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
+    const driverIdStr = String(driverId);
     
-    // Cerca prima nel giorno dello slot, poi nel giorno corrente se diverso
-    let list = groupedByDriver[String(driverId)]?.perDay?.[slotDateStr] || [];
+    // Cerca in tutti i giorni disponibili per questo driver
+    const driverData = groupedByDriver[driverIdStr];
+    if (!driverData || !driverData.perDay) {
+      return null;
+    }
+    
+    // Prova prima con la data dello slot, poi con la data corrente
+    let list = driverData.perDay[slotDateStr] || [];
     if (!list.length && slotDateStr !== date) {
-      list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
+      list = driverData.perDay[date] || [];
+    }
+    
+    // Se ancora non trova nulla, prova con tutte le chiavi disponibili (per debug)
+    if (!list.length) {
+      const availableDays = Object.keys(driverData.perDay);
+      if (availableDays.length > 0) {
+        // Usa il primo giorno disponibile (per debug)
+        list = driverData.perDay[availableDays[0]] || [];
+        console.log(`⚠️ [getActivityForSlot] Attività non trovata per ${slotDateStr} o ${date}, uso ${availableDays[0]}`);
+      }
     }
     
     // DEBUG: log solo per il primo slot (evita spam)
