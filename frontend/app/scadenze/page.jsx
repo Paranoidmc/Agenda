@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
 // Funzione helper per mostrare il tipo in italiano
@@ -47,8 +47,42 @@ function ScadenzeContent() {
   const [tableWidth, setTableWidth] = useState('100%');
   const [veicoli, setVeicoli] = useState([]);
 
-  // Campi del form scadenza
-  const scadenzaFields = [
+  // Definisci le funzioni prima di usarle negli useEffect
+  const loadScadenze = useCallback(() => {
+    setFetching(true);
+    api.get("/vehicle-deadlines", { params: { _: new Date().getTime() } }) // Cache-busting
+      .then(res => {
+        let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        setScadenze(arr);
+      })
+      .catch((err) => {
+        console.error("Errore nel caricamento delle scadenze:", err);
+        if (err.response && err.response.status === 401) {
+          setError("Sessione scaduta. Effettua nuovamente il login.");
+        } else {
+          setError("Errore nel caricamento delle scadenze");
+        }
+      })
+      .finally(() => setFetching(false));
+  }, []);
+
+  const loadVeicoli = useCallback(() => {
+    api.get("/vehicles")
+      .then(res => {
+        const arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+        setVeicoli(arr);
+      })
+      .catch(err => console.error("Errore nel caricamento dei veicoli:", err));
+  }, []);
+
+  const handleViewDetails = useCallback((scadenza) => {
+    setSelectedScadenza(scadenza);
+    setIsEditing(false);
+    setIsPanelOpen(true);
+  }, []);
+
+  // Campi del form scadenza (usa useMemo per evitare ricalcoli)
+  const scadenzaFields = useMemo(() => [
     { name: 'vehicle_id', label: 'Veicolo', type: 'select', required: true, options: 
       veicoli.map(veicolo => ({ value: veicolo.id, label: `${veicolo.targa} - ${veicolo.marca} ${veicolo.modello}` }))
     },
@@ -73,7 +107,7 @@ function ScadenzeContent() {
     ]},
     { name: 'data_pagamento', label: 'Data Pagamento', type: 'date' },
     { name: 'note', label: 'Note', type: 'textarea' }
-  ];
+  ], [veicoli]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -83,7 +117,7 @@ function ScadenzeContent() {
       // Se non c'è un utente e non sta caricando, imposta fetching a false
       setFetching(false);
     }
-  }, [user, loading]);
+  }, [user, loading, loadScadenze, loadVeicoli]);
   
   // Effetto separato per gestire i parametri URL dopo che le scadenze sono caricate
   useEffect(() => {
@@ -110,40 +144,6 @@ function ScadenzeContent() {
       setTableWidth('100%');
     }
   }, [isPanelOpen]);
-
-  const loadScadenze = () => {
-    setFetching(true);
-    api.get("/vehicle-deadlines", { params: { _: new Date().getTime() } }) // Cache-busting
-      .then(res => {
-        let arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-        setScadenze(arr);
-      })
-      .catch((err) => {
-        console.error("Errore nel caricamento delle scadenze:", err);
-        if (err.response && err.response.status === 401) {
-          setError("Sessione scaduta. Effettua nuovamente il login.");
-        } else {
-          setError("Errore nel caricamento delle scadenze");
-        }
-      })
-      .finally(() => setFetching(false));
-  };
-
-  const loadVeicoli = () => {
-    api.get("/vehicles")
-      .then(res => {
-        const arr = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-        setVeicoli(arr);
-      })
-      .catch(err => console.error("Errore nel caricamento dei veicoli:", err));
-  };
-
-
-  const handleViewDetails = useCallback((scadenza) => {
-    setSelectedScadenza(scadenza);
-    setIsEditing(false);
-    setIsPanelOpen(true);
-  }, []);
 
   const handleClosePanel = () => {
     setIsPanelOpen(false);
