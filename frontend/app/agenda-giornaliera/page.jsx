@@ -286,11 +286,13 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
 
     window.addEventListener('activityCreated', handleActivityEvent);
     window.addEventListener('activityUpdated', handleActivityEvent);
+    window.addEventListener('activityDeleted', handleActivityEvent);
     window.addEventListener('activitySaved', handleActivityEvent);
 
     return () => {
       window.removeEventListener('activityCreated', handleActivityEvent);
       window.removeEventListener('activityUpdated', handleActivityEvent);
+      window.removeEventListener('activityDeleted', handleActivityEvent);
       window.removeEventListener('activitySaved', handleActivityEvent);
     };
   }, []);

@@ -176,6 +176,76 @@ export default function AgendaAutistiPage() {
     return () => { mounted = false; };
   }, [weekDays, loadAllActivities]);
 
+  // Listener per eventi di creazione/modifica/cancellazione attività (real-time updates)
+  useEffect(() => {
+    const handleActivityEvent = () => {
+      console.log('🔄 Evento attività ricevuto, ricarico attività...');
+      // Ricarica le attività quando cambiano
+      const fetchForDays = async (days) => {
+        setLoadingActs(true);
+        setError("");
+        try {
+          const results = await Promise.all(days.map(async (d) => {
+            try {
+              const params = new URLSearchParams({ perPage: "500" });
+              if (!loadAllActivities) {
+                params.append("date", String(d));
+              }
+              params.append("include", "resources");
+              const url = `/activities?${params.toString()}`;
+              const response = await api.get(url, { 
+                useCache: false, 
+                skipLoadingState: false,
+                timeout: 30000 
+              });
+              
+              let items = [];
+              if (Array.isArray(response.data)) {
+                items = response.data;
+              } else if (response.data?.data && Array.isArray(response.data.data)) {
+                items = response.data.data;
+              } else if (response.data?.items && Array.isArray(response.data.items)) {
+                items = response.data.items;
+              } else if (response.data?.results && Array.isArray(response.data.results)) {
+                items = response.data.results;
+              }
+              
+              return [d, items];
+            } catch (err) {
+              console.error(`❌ Errore caricamento attività per ${d}:`, err);
+              return [d, []];
+            }
+          }));
+          
+          const map = {};
+          for (const [d, items] of results) {
+            map[d] = items;
+          }
+          setActivitiesByDay(map);
+        } catch (e) {
+          console.error("Errore ricaricamento attività:", e);
+          setError("Impossibile ricaricare le attività: " + (e?.message || e));
+        } finally {
+          setLoadingActs(false);
+        }
+      };
+      
+      fetchForDays(weekDays);
+    };
+
+    window.addEventListener('activityCreated', handleActivityEvent);
+    window.addEventListener('activityUpdated', handleActivityEvent);
+    window.addEventListener('activityDeleted', handleActivityEvent);
+    window.addEventListener('activitySaved', handleActivityEvent);
+    
+    return () => {
+      window.removeEventListener('activityCreated', handleActivityEvent);
+      window.removeEventListener('activityUpdated', handleActivityEvent);
+      window.removeEventListener('activityDeleted', handleActivityEvent);
+      window.removeEventListener('activitySaved', handleActivityEvent);
+    };
+  }, [weekDays, loadAllActivities]);
+
   const groupedByDriver = useMemo(() => {
     // Restituisce { driverId: { driver, perDay: { date: [acts] } } }
     const acc = {};

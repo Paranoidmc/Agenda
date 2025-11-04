@@ -1087,6 +1087,13 @@ export default function AttivitaDetailPage() {
     setIsDeleting(true);
     try {
       await api.delete(`/activities/${attivitaId}`);
+      
+      // Emetti evento per notificare altre pagine
+      const activityEvent = new CustomEvent('activityDeleted', {
+        detail: { activity_id: attivitaId, type: 'delete' }
+      });
+      window.dispatchEvent(activityEvent);
+      
       alert('Attività eliminata con successo!');
       router.push('/attivita');
     } catch (e) {

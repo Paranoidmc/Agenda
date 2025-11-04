@@ -289,6 +289,7 @@ function PianificazioneInner() {
     window.addEventListener('sitesSync', handleSyncEvent);
     window.addEventListener('activityCreated', handleActivityEvent);
     window.addEventListener('activityUpdated', handleActivityEvent);
+    window.addEventListener('activityDeleted', handleActivityEvent);
     window.addEventListener('activitySaved', handleActivityEvent);
 
     return () => {
@@ -298,6 +299,7 @@ function PianificazioneInner() {
       window.removeEventListener('sitesSync', handleSyncEvent);
       window.removeEventListener('activityCreated', handleActivityEvent);
       window.removeEventListener('activityUpdated', handleActivityEvent);
+      window.removeEventListener('activityDeleted', handleActivityEvent);
       window.removeEventListener('activitySaved', handleActivityEvent);
     };
   }, [fetchActivities]);
