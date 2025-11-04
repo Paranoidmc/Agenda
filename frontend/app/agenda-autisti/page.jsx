@@ -280,6 +280,29 @@ export default function AgendaAutistiPage() {
   const getActivityForSlot = useCallback((driverId, slotDate) => {
     // Cerca l'attività nel giorno corrente (date)
     const list = groupedByDriver[String(driverId)]?.perDay?.[date] || [];
+    
+    // DEBUG: log solo per il primo driver al primo slot
+    const isFirstCheck = slotDate.getHours() === 6 && slotDate.getMinutes() === 0;
+    if (isFirstCheck && driverList.length > 0 && String(driverId) === String(driverList[0]?.id)) {
+      console.log('🔍 DEBUG getActivityForSlot chiamata:', {
+        driverId,
+        driverName: driverList[0]?.nome || driverList[0]?.name,
+        slotDate: slotDate.toISOString(),
+        date,
+        listLength: list.length,
+        hasGroupedDriver: !!groupedByDriver[String(driverId)],
+        perDayKeys: groupedByDriver[String(driverId)]?.perDay ? Object.keys(groupedByDriver[String(driverId)].perDay) : []
+      });
+      if (list.length > 0) {
+        console.log('📋 Attività trovate per questo driver:', list.map(a => ({
+          id: a.id,
+          start: a.start,
+          end: a.end,
+          descrizione: a.descrizione
+        })));
+      }
+    }
+    
     if (!list.length) return null;
     
     const t = slotDate.getTime();
@@ -288,19 +311,35 @@ export default function AgendaAutistiPage() {
     for (const a of list) {
       const s = toDate(a.start);
       const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null); // default 1h se end mancante
-      if (!s) continue;
+      if (!s) {
+        if (isFirstCheck) console.warn('⚠️ Attività senza data_inizio valida:', a);
+        continue;
+      }
       
       // Verifica che l'attività sia nello stesso giorno dello slot
       const activityDateOnly = s.toISOString().slice(0, 10);
-      if (activityDateOnly !== slotDateOnly) continue;
+      if (activityDateOnly !== slotDateOnly) {
+        if (isFirstCheck) {
+          console.log(`⚠️ Data attività (${activityDateOnly}) ≠ slot (${slotDateOnly})`);
+        }
+        continue;
+      }
       
       // Verifica che lo slot sia dentro l'intervallo dell'attività
       const startTime = s.getTime();
-      const endTime = e.getTime();
+      const endTime = e ? e.getTime() : startTime + 60 * 60 * 1000;
+      
+      if (isFirstCheck) {
+        console.log(`🔍 Verifica slot ${slotDate.toLocaleTimeString()} (${t}) vs attività ${s.toLocaleTimeString()} (${startTime}) - ${e ? e.toLocaleTimeString() : 'N/A'} (${endTime})`);
+        console.log(`   Match: ${t >= startTime && t < endTime}`);
+      }
       
       if (t >= startTime && t < endTime) {
         // Estrai la destinazione dalla descrizione dell'attività
         const descrizione = a.descrizione || '';
+        if (isFirstCheck) {
+          console.log('✅ Attività trovata per questo slot!', { id: a.id, descrizione });
+        }
         // Se la descrizione contiene informazioni sulla destinazione, usala
         // Altrimenti usa la descrizione completa
         return {
@@ -310,7 +349,7 @@ export default function AgendaAutistiPage() {
       }
     }
     return null;
-  }, [groupedByDriver, date]);
+  }, [groupedByDriver, date, driverList]);
 
   const driverList = useMemo(() => {
     const q = driverQuery.trim().toLowerCase();
