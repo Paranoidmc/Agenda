@@ -30,7 +30,7 @@ export default function AgendaAutistiPage() {
   const [activitiesByDay, setActivitiesByDay] = useState({}); // { 'YYYY-MM-DD': activities[] }
   const [includeAllStatuses, setIncludeAllStatuses] = useState(false);
   const [driverQuery, setDriverQuery] = useState("");
-  const [onlyWithActivities, setOnlyWithActivities] = useState(true);
+  const [onlyWithActivities, setOnlyWithActivities] = useState(false); // Cambiato a false per vedere tutti gli autisti di default
   const [driverOrder, setDriverOrder] = useState(() => {
     // Carica ordinamento custom da localStorage
     if (typeof window !== 'undefined') {
@@ -139,6 +139,10 @@ export default function AgendaAutistiPage() {
     const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned']);
     console.log('🔄 Elaborazione attività per autisti, giorni:', weekDays);
     console.log('📊 Attività per giorno:', Object.keys(activitiesByDay).map(d => `${d}: ${activitiesByDay[d]?.length || 0}`));
+    console.log('👥 Totale autisti nel sistema:', drivers.length);
+    
+    let totalActivitiesProcessed = 0;
+    let totalActivitiesWithDrivers = 0;
     
     for (const d of weekDays) {
       const items = activitiesByDay[d] || [];
@@ -150,6 +154,7 @@ export default function AgendaAutistiPage() {
       }
       
       for (const act of items) {
+        totalActivitiesProcessed++;
         const start = act.data_inizio || act.start_date || act.start;
         const end = act.data_fine || act.end_date || act.end;
         // Includi attività che si sovrappongono al giorno (non solo quelle che iniziano oggi)
@@ -266,6 +271,11 @@ export default function AgendaAutistiPage() {
     }
     
     console.log('👥 Autisti con attività:', Object.keys(acc).length);
+    console.log('📊 Statistiche:', {
+      totalActivitiesProcessed,
+      totalActivitiesWithDrivers,
+      activitiesWithoutDrivers: totalActivitiesProcessed - totalActivitiesWithDrivers
+    });
     console.log('📋 Riepilogo:', Object.entries(acc).map(([id, data]) => {
       const name = `${data.driver.nome || data.driver.name || ''} ${data.driver.cognome || data.driver.surname || ''}`.trim();
       const totalActs = Object.values(data.perDay).reduce((sum, acts) => sum + acts.length, 0);
@@ -661,6 +671,17 @@ export default function AgendaAutistiPage() {
       </div>
 
       {error && <div style={{ color: '#d32f2f', marginBottom: 12 }}>{error}</div>}
+      
+      {/* Debug info */}
+      {!loadingActs && Object.keys(activitiesByDay).length > 0 && (
+        <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f0f0f0', borderRadius: 6, fontSize: '12px' }}>
+          <strong>Debug:</strong> Attività caricate: {Object.values(activitiesByDay).reduce((sum, acts) => sum + acts.length, 0)} | 
+          Autisti con attività: {Object.keys(groupedByDriver).length} | 
+          Autisti visibili: {driverList.length} | 
+          Autisti nascosti: {hiddenDrivers.size} | 
+          Filtro "Solo con attività": {onlyWithActivities ? 'ON' : 'OFF'}
+        </div>
+      )}
 
       {view === 'day' ? (
         <div style={{ display: 'grid', gap: 12 }}>
