@@ -157,6 +157,40 @@ class SiteController extends Controller
     }
 
     /**
+     * Display empty data for new site form.
+     */
+    public function showNew()
+    {
+        return response()->json([
+            'id' => null,
+            'name' => '',
+            'nome' => '',
+            'address' => '',
+            'indirizzo' => '',
+            'city' => '',
+            'citta' => '',
+            'postal_code' => '',
+            'cap' => '',
+            'province' => '',
+            'provincia' => '',
+            'client_id' => null,
+            'notes' => '',
+            'note' => '',
+            'status' => 'active',
+            'client' => null,
+            'activities' => [],
+        ]);
+    }
+
+    /**
+     * Get sites for a new client (returns empty array).
+     */
+    public function getClientSitesNew()
+    {
+        return response()->json([]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Site $site)

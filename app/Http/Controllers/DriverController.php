@@ -219,6 +219,42 @@ class DriverController extends Controller
     }
 
     /**
+     * Display empty data for new driver form.
+     */
+    public function showNew()
+    {
+        return response()->json([
+            'id' => null,
+            'name' => '',
+            'surname' => '',
+            'nome' => '',
+            'cognome' => '',
+            'email' => '',
+            'phone' => '',
+            'telefono' => '',
+            'address' => '',
+            'indirizzo' => '',
+            'city' => '',
+            'citta' => '',
+            'postal_code' => '',
+            'cap' => '',
+            'province' => '',
+            'provincia' => '',
+            'fiscal_code' => '',
+            'codice_fiscale' => '',
+            'license_number' => '',
+            'patente' => '',
+            'license_expiry' => null,
+            'scadenza_patente' => null,
+            'codice_arca' => '',
+            'notes' => '',
+            'note' => '',
+            'status' => 'active',
+            'activities' => [],
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Driver $driver)

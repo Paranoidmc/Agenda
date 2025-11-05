@@ -185,6 +185,38 @@ class ClientController extends Controller
     }
 
     /**
+     * Display empty data for new client form.
+     */
+    public function showNew()
+    {
+        return response()->json([
+            'id' => null,
+            'name' => '',
+            'nome' => '',
+            'email' => '',
+            'phone' => '',
+            'telefono' => '',
+            'address' => '',
+            'indirizzo' => '',
+            'city' => '',
+            'citta' => '',
+            'postal_code' => '',
+            'cap' => '',
+            'province' => '',
+            'provincia' => '',
+            'vat_number' => '',
+            'partita_iva' => '',
+            'fiscal_code' => '',
+            'codice_fiscale' => '',
+            'codice_arca' => '',
+            'notes' => '',
+            'note' => '',
+            'sites' => [],
+            'activities' => [],
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Client $client)

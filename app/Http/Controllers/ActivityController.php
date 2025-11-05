@@ -448,6 +448,22 @@ class ActivityController extends Controller
     }
     
     /**
+     * Get all activities for a new driver (returns empty array).
+     */
+    public function getDriverActivitiesNew()
+    {
+        return response()->json([]);
+    }
+    
+    /**
+     * Get all activities for a new client (returns empty array).
+     */
+    public function getClientActivitiesNew()
+    {
+        return response()->json([]);
+    }
+    
+    /**
      * Get all activities for a specific driver
      */
     public function getDriverActivities($driverId)

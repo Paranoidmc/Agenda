@@ -153,6 +153,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/documenti/{documento}', [VehicleDocumentController::class, 'update']);
 
     // Core API Resources
+    // Route speciali per gestire "new" prima delle apiResource
+    Route::get('/drivers/new', [DriverController::class, 'showNew']);
+    Route::get('/drivers/new/activities', [ActivityController::class, 'getDriverActivitiesNew']);
+    Route::get('/drivers/new/professional-licenses', [ProfessionalDriverLicenseController::class, 'indexNew']);
+    Route::get('/clients/new', [ClientController::class, 'showNew']);
+    Route::get('/clients/new/sites', [SiteController::class, 'getClientSitesNew']);
+    Route::get('/clients/new/activities', [ActivityController::class, 'getClientActivitiesNew']);
+    Route::get('/sites/new', [SiteController::class, 'showNew']);
+    
     Route::apiResource('drivers', DriverController::class);
     Route::post('/drivers/sync', [DriverController::class, 'sync']);
     Route::apiResource('clients', ClientController::class);

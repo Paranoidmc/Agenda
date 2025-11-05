@@ -9,6 +9,14 @@ use Illuminate\Support\Facades\Log;
 
 class ProfessionalDriverLicenseController extends Controller
 {
+    /**
+     * Display empty data for new driver professional licenses.
+     */
+    public function indexNew()
+    {
+        return response()->json([]);
+    }
+
     public function index(Driver $driver)
     {
         try {
