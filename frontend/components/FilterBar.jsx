@@ -9,16 +9,27 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
   const handleFilterChange = (key, value) => {
     const newFilters = { ...localFilters, [key]: value === '' ? undefined : value };
     setLocalFilters(newFilters);
-    onFilterChange(newFilters);
+    if (onFilterChange) {
+      onFilterChange(newFilters);
+    }
   };
 
   const handleClearFilters = () => {
     setLocalFilters({});
-    onFilterChange({});
-    if (onClearFilters) onClearFilters();
+    if (onFilterChange) {
+      onFilterChange({});
+    }
+    if (onClearFilters) {
+      onClearFilters();
+    }
   };
 
   const activeFiltersCount = Object.values(localFilters).filter(v => v !== undefined && v !== '' && v !== null).length;
+
+  // Se non ci sono filtri configurati, non renderizzare nulla
+  if (!filterConfig || !Array.isArray(filterConfig) || filterConfig.length === 0) {
+    return null;
+  }
 
   return (
     <div style={{ marginBottom: 20, background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: 16 }}>
@@ -76,54 +87,40 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
           borderRadius: 8,
           border: '1px solid #e5e5ea'
         }}>
-          {filterConfig?.map((filter) => (
-            <div key={filter.key}>
-              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                {filter.label}
-              </label>
-              {filter.type === 'select' ? (
-                <select
-                  value={localFilters[filter.key] || ''}
-                  onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid #e5e5ea',
-                    fontSize: 14,
-                    background: '#fff'
-                  }}
-                >
-                  <option value="">Tutti</option>
-                  {filter.options?.map(opt => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : filter.type === 'date' ? (
-                <input
-                  type="date"
-                  value={localFilters[filter.key] || ''}
-                  onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid #e5e5ea',
-                    fontSize: 14,
-                    background: '#fff'
-                  }}
-                />
-              ) : filter.type === 'dateRange' ? (
-                <div style={{ display: 'flex', gap: 8 }}>
+          {filterConfig.map((filter) => {
+            if (!filter || !filter.key) return null;
+            return (
+              <div key={filter.key}>
+                <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+                  {filter.label || filter.key}
+                </label>
+                {filter.type === 'select' ? (
+                  <select
+                    value={localFilters[filter.key] || ''}
+                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      border: '1px solid #e5e5ea',
+                      fontSize: 14,
+                      background: '#fff'
+                    }}
+                  >
+                    <option value="">Tutti</option>
+                    {filter.options?.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : filter.type === 'date' ? (
                   <input
                     type="date"
-                    placeholder="Da"
-                    value={localFilters[filter.key]?.from || ''}
-                    onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), from: e.target.value })}
+                    value={localFilters[filter.key] || ''}
+                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
                     style={{
-                      flex: 1,
+                      width: '100%',
                       padding: '8px 12px',
                       borderRadius: 6,
                       border: '1px solid #e5e5ea',
@@ -131,13 +128,45 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
                       background: '#fff'
                     }}
                   />
+                ) : filter.type === 'dateRange' ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="date"
+                      placeholder="Da"
+                      value={localFilters[filter.key]?.from || ''}
+                      onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), from: e.target.value })}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: 6,
+                        border: '1px solid #e5e5ea',
+                        fontSize: 14,
+                        background: '#fff'
+                      }}
+                    />
+                    <input
+                      type="date"
+                      placeholder="A"
+                      value={localFilters[filter.key]?.to || ''}
+                      onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), to: e.target.value })}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: 6,
+                        border: '1px solid #e5e5ea',
+                        fontSize: 14,
+                        background: '#fff'
+                      }}
+                    />
+                  </div>
+                ) : (
                   <input
-                    type="date"
-                    placeholder="A"
-                    value={localFilters[filter.key]?.to || ''}
-                    onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), to: e.target.value })}
+                    type="text"
+                    value={localFilters[filter.key] || ''}
+                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                    placeholder={filter.placeholder || `Filtra per ${filter.label?.toLowerCase() || filter.key}`}
                     style={{
-                      flex: 1,
+                      width: '100%',
                       padding: '8px 12px',
                       borderRadius: 6,
                       border: '1px solid #e5e5ea',
@@ -145,25 +174,10 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
                       background: '#fff'
                     }}
                   />
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  value={localFilters[filter.key] || ''}
-                  onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                  placeholder={filter.placeholder || `Filtra per ${filter.label.toLowerCase()}`}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid #e5e5ea',
-                    fontSize: 14,
-                    background: '#fff'
-                  }}
-                />
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
