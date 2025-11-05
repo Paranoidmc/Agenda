@@ -94,7 +94,7 @@ export default function SediPage() {
     if (!loading && user) {
       fetchSediWithSearch(searchTerm);
     }
-  }, [currentPage, perPage]);
+  }, [currentPage, perPage, filters]);
 
   // Nessun sidepanel: tabella sempre full width
 
