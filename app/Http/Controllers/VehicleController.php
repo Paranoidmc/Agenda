@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class VehicleController extends Controller
 {
@@ -773,5 +775,109 @@ class VehicleController extends Controller
 
         $vehicle->delete();
         return response()->json(null, 204);
+    }
+
+    /**
+     * Upload photo for a vehicle
+     */
+    public function uploadPhoto(Request $request, Vehicle $vehicle)
+    {
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+        ]);
+
+        try {
+            $file = $request->file('photo');
+            $path = "vehicles/{$vehicle->id}/photos/";
+            $filename = 'photo_' . time() . '_' . \Illuminate\Support\Str::random(8) . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs($path, $filename, 'local');
+
+            // Elimina la vecchia foto se esiste
+            if ($vehicle->photo) {
+                Storage::disk('local')->delete($vehicle->photo);
+            }
+
+            $vehicle->photo = $filePath;
+            $vehicle->save();
+
+            return response()->json([
+                'success' => true,
+                'photo' => $filePath,
+                'message' => 'Foto caricata con successo'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Errore upload foto veicolo', [
+                'vehicle_id' => $vehicle->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore durante il caricamento della foto'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get vehicle photo
+     */
+    public function getPhoto(Vehicle $vehicle)
+    {
+        if (!$vehicle->photo) {
+            return response()->json(['error' => 'Foto non trovata'], 404);
+        }
+
+        try {
+            $normalizedPath = preg_replace('#/+#', '/', trim($vehicle->photo ?? '', '/'));
+            
+            if (!Storage::disk('local')->exists($normalizedPath)) {
+                return response()->json(['error' => 'File non trovato'], 404);
+            }
+
+            $filePath = Storage::disk('local')->path($normalizedPath);
+            $mimeType = mime_content_type($filePath) ?: 'image/jpeg';
+
+            return response()->file($filePath, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Errore recupero foto veicolo', [
+                'vehicle_id' => $vehicle->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json(['error' => 'Errore nel recupero della foto'], 500);
+        }
+    }
+
+    /**
+     * Delete vehicle photo
+     */
+    public function deletePhoto(Vehicle $vehicle)
+    {
+        try {
+            if ($vehicle->photo && Storage::disk('local')->exists($vehicle->photo)) {
+                Storage::disk('local')->delete($vehicle->photo);
+            }
+
+            $vehicle->photo = null;
+            $vehicle->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Foto eliminata con successo'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Errore eliminazione foto veicolo', [
+                'vehicle_id' => $vehicle->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Errore durante l\'eliminazione della foto'
+            ], 500);
+        }
     }
 }

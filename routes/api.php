@@ -168,6 +168,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/sites/filter-values', [SiteController::class, 'getFilterValues']);
     Route::get('/vehicles/filter-values', [VehicleController::class, 'getFilterValues']);
     
+    // Vehicle photo routes (must be before apiResource)
+    Route::post('/vehicles/{vehicle}/photo', [VehicleController::class, 'uploadPhoto']);
+    Route::get('/vehicles/{vehicle}/photo', [VehicleController::class, 'getPhoto']);
+    Route::delete('/vehicles/{vehicle}/photo', [VehicleController::class, 'deletePhoto']);
+
     Route::apiResource('drivers', DriverController::class);
     Route::post('/drivers/sync', [DriverController::class, 'sync']);
     Route::apiResource('clients', ClientController::class);

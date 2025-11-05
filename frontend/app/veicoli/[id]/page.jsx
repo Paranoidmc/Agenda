@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { FiArrowLeft, FiEdit, FiTrash2, FiSave, FiX, FiTruck, FiFileText } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiTrash2, FiSave, FiX, FiTruck, FiFileText, FiMapPin } from "react-icons/fi";
 import api from "../../../lib/api";
 import { useAuth } from "../../../context/AuthContext";
 import PageHeader from "../../../components/PageHeader";
 import VehicleDocumentSection from "../../../components/VehicleDocumentSection";
 import VehicleRentalsSection from "../../../components/VehicleRentalsSection";
+import VehiclePhotoSection from "../../../components/VehiclePhotoSection";
+import VehicleMomapMap from "../../../components/VehicleMomapMap";
 
 export default function VeicoloDetailPage() {
   const router = useRouter();
@@ -143,13 +145,11 @@ export default function VeicoloDetailPage() {
     if (searchParams) {
       const tabParam = searchParams.get('tab');
       if (tabParam === 'documenti') {
-        // Trova l'indice del tab "Documenti" (è il 4° tab, indice 3)
         const documentiTabIndex = tabGroups.findIndex(tab => tab.isDocuments);
         if (documentiTabIndex !== -1) {
           setActiveTab(documentiTabIndex);
         }
       } else if (tabParam === 'noleggi' || tabParam === 'rentals') {
-        // Trova l'indice del tab "Contratto/Noleggio"
         const rentalsTabIndex = tabGroups.findIndex(tab => tab.isRentals);
         if (rentalsTabIndex !== -1) {
           setActiveTab(rentalsTabIndex);
@@ -217,7 +217,6 @@ export default function VeicoloDetailPage() {
     try {
       console.log('🚗 Aggiornamento veicolo:', veicoloId, formData);
       
-      // IMPORTANTE: Non aggiungere Authorization header per sessione Sanctum
       const response = await api.put(`/vehicles/${veicoloId}`, formData);
       
       console.log('✅ Veicolo aggiornato:', response.data);
@@ -255,7 +254,6 @@ export default function VeicoloDetailPage() {
     try {
       console.log('🗑️ Eliminazione veicolo:', veicoloId);
       
-      // IMPORTANTE: Non aggiungere Authorization header per sessione Sanctum
       await api.delete(`/vehicles/${veicoloId}`);
       
       console.log('✅ Veicolo eliminato con successo');
@@ -280,21 +278,44 @@ export default function VeicoloDetailPage() {
     setError("");
   };
 
+  const handlePhotoUpdate = (newPhoto) => {
+    setVeicolo(prev => ({ ...prev, photo: newPhoto }));
+    setFormData(prev => ({ ...prev, photo: newPhoto }));
+  };
+
   if (loading || fetching) {
     return (
-      <div style={{ padding: 20, textAlign: 'center' }}>
-        <div>Caricamento veicolo...</div>
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <div style={{
+          display: 'inline-block',
+          width: 40,
+          height: 40,
+          border: '4px solid #e5e7eb',
+          borderTopColor: '#3b82f6',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <div style={{ marginTop: 16, color: '#6b7280' }}>Caricamento veicolo...</div>
       </div>
     );
   }
 
   if (error && !veicolo) {
     return (
-      <div style={{ padding: 20, textAlign: 'center', color: 'red' }}>
-        <div>Errore: {error}</div>
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <div style={{ color: '#dc2626', fontSize: 18, marginBottom: 20 }}>Errore: {error}</div>
         <button 
           onClick={() => router.push('/veicoli')}
-          style={{ marginTop: 20, padding: '10px 20px' }}
+          style={{
+            padding: '12px 24px',
+            background: '#3b82f6',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            cursor: 'pointer',
+            fontSize: 14,
+            fontWeight: 500
+          }}
         >
           Torna ai Veicoli
         </button>
@@ -304,11 +325,20 @@ export default function VeicoloDetailPage() {
 
   if (!veicolo) {
     return (
-      <div style={{ padding: 20, textAlign: 'center' }}>
-        <div>Veicolo non trovato</div>
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <div style={{ fontSize: 18, marginBottom: 20 }}>Veicolo non trovato</div>
         <button 
           onClick={() => router.push('/veicoli')}
-          style={{ marginTop: 20, padding: '10px 20px' }}
+          style={{
+            padding: '12px 24px',
+            background: '#3b82f6',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            cursor: 'pointer',
+            fontSize: 14,
+            fontWeight: 500
+          }}
         >
           Torna ai Veicoli
         </button>
@@ -316,239 +346,414 @@ export default function VeicoloDetailPage() {
     );
   }
 
+  const statusColors = {
+    operational: { bg: '#dcfce7', text: '#16a34a', border: '#86efac' },
+    maintenance: { bg: '#fef3c7', text: '#d97706', border: '#fde68a' },
+    decommissioned: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' }
+  };
+
+  const statusLabels = {
+    operational: 'Operativo',
+    maintenance: 'In manutenzione',
+    decommissioned: 'Disattivato'
+  };
+
+  const statusColor = statusColors[veicolo.status] || statusColors.operational;
+
   return (
-    <div style={{ padding: 20 }}>
-      <PageHeader 
-        title={`Veicolo ${veicolo.plate || veicolo.nome || `#${veicolo.id}`}`}
-        subtitle={`${veicolo.brand || ''} ${veicolo.model || ''} ${veicolo.year ? `(${veicolo.year})` : ''}`.trim()}
-        icon={<FiTruck />}
-        actions={[
-          {
-            label: "Torna ai Veicoli",
-            onClick: () => router.push('/veicoli'),
-            icon: <FiArrowLeft />,
-            variant: "secondary"
-          },
-          ...(canEdit ? [
-            ...(isEditing ? [
-              {
-                label: "Annulla",
-                onClick: handleCancelEdit,
-                icon: <FiX />,
-                variant: "secondary"
-              },
-              {
-                label: isSaving ? "Salvando..." : "Salva",
-                onClick: handleSave,
-                icon: <FiSave />,
-                variant: "primary",
-                disabled: isSaving
-              }
-            ] : [
-              {
-                label: "Modifica",
-                onClick: () => setIsEditing(true),
-                icon: <FiEdit />,
-                variant: "primary"
-              },
-              {
-                label: isDeleting ? "Eliminando..." : "Elimina",
-                onClick: handleDelete,
-                icon: <FiTrash2 />,
-                variant: "danger",
-                disabled: isDeleting
-              }
-            ])
-          ] : [])
-        ]}
-      />
+    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Header con card migliorata */}
+      <div style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        borderRadius: 16,
+        padding: 32,
+        marginBottom: 24,
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        color: '#fff'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 24
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 12
+            }}>
+              <FiTruck style={{ fontSize: 32 }} />
+              <h1 style={{
+                margin: 0,
+                fontSize: 28,
+                fontWeight: 700
+              }}>
+                {veicolo.plate || veicolo.nome || `Veicolo #${veicolo.id}`}
+              </h1>
+              <span style={{
+                padding: '6px 12px',
+                background: statusColor.bg,
+                color: statusColor.text,
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 600,
+                border: `1px solid ${statusColor.border}`
+              }}>
+                {statusLabels[veicolo.status] || veicolo.status}
+              </span>
+            </div>
+            <p style={{
+              margin: 0,
+              fontSize: 18,
+              opacity: 0.9
+            }}>
+              {veicolo.brand || ''} {veicolo.model || ''} {veicolo.year ? `(${veicolo.year})` : ''}
+            </p>
+            {veicolo.color && (
+              <p style={{
+                margin: '8px 0 0 0',
+                fontSize: 14,
+                opacity: 0.8
+              }}>
+                Colore: {veicolo.color}
+              </p>
+            )}
+          </div>
+          
+          <div style={{
+            display: 'flex',
+            gap: 8,
+            flexWrap: 'wrap'
+          }}>
+            <button
+              onClick={() => router.push('/veicoli')}
+              style={{
+                padding: '10px 20px',
+                background: 'rgba(255,255,255,0.2)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <FiArrowLeft /> Torna ai Veicoli
+            </button>
+            {canEdit && (
+              <>
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={handleCancelEdit}
+                      style={{
+                        padding: '10px 20px',
+                        background: 'rgba(255,255,255,0.2)',
+                        color: '#fff',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8
+                      }}
+                    >
+                      <FiX /> Annulla
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      style={{
+                        padding: '10px 20px',
+                        background: '#fff',
+                        color: '#667eea',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: isSaving ? 'not-allowed' : 'pointer',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        opacity: isSaving ? 0.6 : 1
+                      }}
+                    >
+                      <FiSave /> {isSaving ? 'Salvando...' : 'Salva'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      style={{
+                        padding: '10px 20px',
+                        background: '#fff',
+                        color: '#667eea',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8
+                      }}
+                    >
+                      <FiEdit /> Modifica
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      style={{
+                        padding: '10px 20px',
+                        background: 'rgba(220, 38, 38, 0.9)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: isDeleting ? 'not-allowed' : 'pointer',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        opacity: isDeleting ? 0.6 : 1
+                      }}
+                    >
+                      <FiTrash2 /> {isDeleting ? 'Eliminando...' : 'Elimina'}
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {error && (
         <div style={{
           background: '#fef2f2',
           border: '1px solid #fecaca',
-          borderRadius: 8,
-          padding: 15,
-          marginTop: 20,
-          color: '#dc2626'
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 24,
+          color: '#dc2626',
+          fontSize: 14
         }}>
           <strong>Errore:</strong> {error}
         </div>
       )}
 
-      <div style={{ marginTop: 30 }}>
-        {/* Tab Navigation */}
+      {/* Sezione Foto e Mappa */}
+      {!isEditing && (
         <div style={{
-          background: '#fff',
-          borderRadius: '8px 8px 0 0',
-          border: '1px solid #e5e7eb',
-          borderBottom: 'none'
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: 24,
+          marginBottom: 24
         }}>
-          <div style={{
-            display: 'flex',
-            borderBottom: '1px solid #e5e7eb'
-          }}>
-            {tabGroups.map((tab, index) => (
-              <button
-                key={index}
-                onClick={() => setActiveTab(index)}
-                style={{
-                  padding: '15px 25px',
-                  border: 'none',
-                  background: activeTab === index ? '#f3f4f6' : 'transparent',
-                  borderBottom: activeTab === index ? '2px solid #3b82f6' : '2px solid transparent',
-                  cursor: 'pointer',
-                  fontWeight: activeTab === index ? 'bold' : 'normal',
-                  color: activeTab === index ? '#1f2937' : '#6b7280',
-                  fontSize: '14px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        <div style={{ 
-          background: '#fff', 
-          borderRadius: '0 0 8px 8px', 
-          padding: 30, 
-          border: '1px solid #e5e7eb'
-        }}>
-          <h3 style={{ marginTop: 0, marginBottom: 25, color: '#1f2937' }}>
-            {tabGroups[activeTab]?.isDocuments ? '📄' : tabGroups[activeTab]?.isRentals ? '📋' : '🚗'} {tabGroups[activeTab]?.label}
-          </h3>
+          <VehiclePhotoSection
+            vehicleId={veicoloId}
+            currentPhoto={veicolo.photo}
+            onPhotoUpdate={handlePhotoUpdate}
+          />
           
-          {tabGroups[activeTab]?.isRentals ? (
-            // Tab Storico Contratti
-            <div>
-              <VehicleRentalsSection veicoloId={veicoloId} canEdit={canEdit} />
-            </div>
-          ) : tabGroups[activeTab]?.isDocuments ? (
-            // Tab Documenti
-            <div>
-              <VehicleDocumentSection veicoloId={veicoloId} categoria="assicurazione" />
-              <VehicleDocumentSection veicoloId={veicoloId} categoria="bollo" />
-              <VehicleDocumentSection veicoloId={veicoloId} categoria="manutenzione" />
-              <VehicleDocumentSection veicoloId={veicoloId} categoria="libretto_circolazione" />
-              <VehicleDocumentSection veicoloId={veicoloId} categoria="autorizzazione_albo" />
-              <VehicleDocumentSection veicoloId={veicoloId} categoria="altri_documenti" />
-            </div>
-          ) : isEditing ? (
-            // Modalità modifica
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-              gap: 20 
-            }}>
-              {tabGroups[activeTab]?.fields.map((field) => (
-                <div key={field.name} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ 
-                    marginBottom: 8, 
-                    fontWeight: 'bold', 
-                    color: '#374151',
-                    fontSize: '14px'
-                  }}>
-                    {field.label}
-                    {field.required && <span style={{ color: '#dc2626' }}>*</span>}
-                  </label>
-                  
-                  {field.type === 'select' ? (
-                    <select
-                      name={field.name}
-                      value={formData[field.name] || ''}
-                      onChange={handleInputChange}
-                      style={{
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        backgroundColor: '#fff'
-                      }}
-                    >
-                      <option value="">Seleziona...</option>
-                      {field.options?.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : field.type === 'textarea' ? (
-                    <textarea
-                      name={field.name}
-                      value={formData[field.name] || ''}
-                      onChange={handleInputChange}
-                      placeholder={field.placeholder}
-                      rows={4}
-                      style={{
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        resize: 'vertical'
-                      }}
-                    />
-                  ) : (
-                    <input
-                      type={field.type || 'text'}
-                      name={field.name}
-                      value={formData[field.name] || ''}
-                      onChange={handleInputChange}
-                      placeholder={field.placeholder}
-                      style={{
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            // Modalità visualizzazione
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-              gap: 20 
-            }}>
-              {tabGroups[activeTab]?.fields.map((field) => {
-                const value = veicolo[field.name];
-                const displayValue = field.type === 'select' 
-                  ? field.options?.find(opt => opt.value === value)?.label || value
-                  : field.type === 'date' && value
-                  ? new Date(value).toLocaleDateString('it-IT')
-                  : field.type === 'number' && value
-                  ? Number(value).toLocaleString('it-IT')
-                  : value;
-                
-                return (
-                  <div key={field.name}>
-                    <div style={{ 
-                      fontWeight: 'bold', 
-                      color: '#374151', 
-                      marginBottom: 4,
-                      fontSize: '14px'
-                    }}>
-                      {field.label}
-                    </div>
-                    <div style={{ 
-                      color: '#6b7280', 
-                      fontSize: '14px',
-                      minHeight: '20px',
-                      whiteSpace: field.type === 'textarea' ? 'pre-wrap' : 'normal'
-                    }}>
-                      {displayValue || 'N/A'}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {veicolo.imei && veicolo.imei.length >= 5 && (
+            <VehicleMomapMap
+              vehicleId={veicoloId}
+              imei={veicolo.imei}
+            />
           )}
         </div>
+      )}
+
+      {/* Tab Navigation migliorata */}
+      <div style={{
+        background: '#fff',
+        borderRadius: '12px 12px 0 0',
+        border: '1px solid #e5e7eb',
+        borderBottom: 'none',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{
+          display: 'flex',
+          borderBottom: '2px solid #e5e7eb',
+          overflowX: 'auto'
+        }}>
+          {tabGroups.map((tab, index) => (
+            <button
+              key={index}
+              onClick={() => setActiveTab(index)}
+              style={{
+                padding: '16px 28px',
+                border: 'none',
+                background: activeTab === index ? '#f8fafc' : 'transparent',
+                borderBottom: activeTab === index ? '3px solid #3b82f6' : '3px solid transparent',
+                cursor: 'pointer',
+                fontWeight: activeTab === index ? 600 : 500,
+                color: activeTab === index ? '#1f2937' : '#6b7280',
+                fontSize: '15px',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                position: 'relative'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Content migliorata */}
+      <div style={{ 
+        background: '#fff', 
+        borderRadius: '0 0 12px 12px', 
+        padding: 32, 
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        minHeight: '400px'
+      }}>
+        {tabGroups[activeTab]?.isRentals ? (
+          <VehicleRentalsSection veicoloId={veicoloId} canEdit={canEdit} />
+        ) : tabGroups[activeTab]?.isDocuments ? (
+          <div>
+            <VehicleDocumentSection veicoloId={veicoloId} categoria="assicurazione" />
+            <VehicleDocumentSection veicoloId={veicoloId} categoria="bollo" />
+            <VehicleDocumentSection veicoloId={veicoloId} categoria="manutenzione" />
+            <VehicleDocumentSection veicoloId={veicoloId} categoria="libretto_circolazione" />
+            <VehicleDocumentSection veicoloId={veicoloId} categoria="autorizzazione_albo" />
+            <VehicleDocumentSection veicoloId={veicoloId} categoria="altri_documenti" />
+          </div>
+        ) : isEditing ? (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+            gap: 24 
+          }}>
+            {tabGroups[activeTab]?.fields.map((field) => (
+              <div key={field.name} style={{
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <label style={{ 
+                  marginBottom: 8, 
+                  fontWeight: 600, 
+                  color: '#374151',
+                  fontSize: '14px'
+                }}>
+                  {field.label}
+                  {field.required && <span style={{ color: '#dc2626', marginLeft: 4 }}>*</span>}
+                </label>
+                
+                {field.type === 'select' ? (
+                  <select
+                    name={field.name}
+                    value={formData[field.name] || ''}
+                    onChange={handleInputChange}
+                    style={{
+                      padding: '12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff',
+                      transition: 'border-color 0.2s'
+                    }}
+                  >
+                    <option value="">Seleziona...</option>
+                    {field.options?.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : field.type === 'textarea' ? (
+                  <textarea
+                    name={field.name}
+                    value={formData[field.name] || ''}
+                    onChange={handleInputChange}
+                    placeholder={field.placeholder}
+                    rows={4}
+                    style={{
+                      padding: '12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      resize: 'vertical',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                ) : (
+                  <input
+                    type={field.type || 'text'}
+                    name={field.name}
+                    value={formData[field.name] || ''}
+                    onChange={handleInputChange}
+                    placeholder={field.placeholder}
+                    style={{
+                      padding: '12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      transition: 'border-color 0.2s'
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+            gap: 24 
+          }}>
+            {tabGroups[activeTab]?.fields.map((field) => {
+              const value = veicolo[field.name];
+              const displayValue = field.type === 'select' 
+                ? field.options?.find(opt => opt.value === value)?.label || value
+                : field.type === 'date' && value
+                ? new Date(value).toLocaleDateString('it-IT')
+                : field.type === 'number' && value !== null && value !== undefined
+                ? Number(value).toLocaleString('it-IT')
+                : value;
+              
+              return (
+                <div key={field.name} style={{
+                  padding: '16px',
+                  background: '#f9fafb',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <div style={{ 
+                    fontWeight: 600, 
+                    color: '#374151', 
+                    marginBottom: 8,
+                    fontSize: '13px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {field.label}
+                  </div>
+                  <div style={{ 
+                    color: '#1f2937', 
+                    fontSize: '15px',
+                    minHeight: '24px',
+                    whiteSpace: field.type === 'textarea' ? 'pre-wrap' : 'normal',
+                    fontWeight: 500
+                  }}>
+                    {displayValue || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>N/A</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
