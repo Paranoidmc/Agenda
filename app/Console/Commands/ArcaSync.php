@@ -182,16 +182,17 @@ class ArcaSync extends Command
             $list = json_decode($res->getBody(), true);
             foreach ($list as $item) {
                 // Dividi nome completo in nome e cognome
+                // Arca restituisce "Cognome Nome", quindi invertiamo
                 $nomeCompleto = $item['descrizione'] ?? 'N/D';
                 $parti = explode(' ', $nomeCompleto, 2);
-                $nome = $parti[0] ?? 'N/D';
-                $cognome = $parti[1] ?? 'N/D';
+                $cognome = $parti[0] ?? 'N/D';  // Prima parte è il cognome
+                $nome = $parti[1] ?? 'N/D';     // Seconda parte è il nome
                 
                 DB::table('drivers')->updateOrInsert(
                     ['codice_arca' => $item['codice']],
                     [
-                        'name' => $nome,
-                        'surname' => $cognome,
+                        'name' => $nome,       // Nome va in name
+                        'surname' => $cognome,  // Cognome va in surname
                         'email' => $item['email'] ?? null
                     ]
                 );
