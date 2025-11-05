@@ -33,7 +33,7 @@ function NewSiteContent() {
     { name: 'cap', label: 'CAP' },
     { name: 'provincia', label: 'Provincia' },
     { name: 'client_id', label: 'Cliente', type: 'select', options: 
-      (Array.isArray(clienti?.data) ? clienti.data : (Array.isArray(clienti) ? clienti : [])).map(cliente => ({ value: cliente.id, label: cliente.nome }))
+      Array.isArray(clienti) ? clienti.map(cliente => ({ value: cliente.id, label: cliente.nome || cliente.name })) : []
     },
     { name: 'note', label: 'Note', type: 'textarea' }
   ];
@@ -48,10 +48,15 @@ function NewSiteContent() {
     setFetching(true);
     try {
       const response = await api.get("/clients", { params: { perPage: 20000 } });
-      setClienti(response.data);
+      // Gestisci sia array diretto che oggetto con data
+      const clientiData = Array.isArray(response.data) 
+        ? response.data 
+        : (Array.isArray(response.data?.data) ? response.data.data : []);
+      setClienti(clientiData);
       setFetching(false);
     } catch (err) {
       console.error("Errore nel caricamento dei clienti:", err);
+      setClienti([]); // Imposta array vuoto in caso di errore
       setFetching(false);
     }
   };
@@ -146,9 +151,9 @@ function NewSiteContent() {
                     }}
                   >
                     <option value="">Seleziona...</option>
-                    {clienti.map(cliente => (
+                    {Array.isArray(clienti) && clienti.map(cliente => (
                       <option key={cliente.id} value={cliente.id}>
-                        {cliente.nome}
+                        {cliente.nome || cliente.name}
                       </option>
                     ))}
                   </select>
