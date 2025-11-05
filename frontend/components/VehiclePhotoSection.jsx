@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import api from '../../lib/api';
+import api from '../lib/api';
 import { FiCamera, FiX, FiUpload, FiImage } from 'react-icons/fi';
 
 export default function VehiclePhotoSection({ vehicleId, currentPhoto, onPhotoUpdate }) {

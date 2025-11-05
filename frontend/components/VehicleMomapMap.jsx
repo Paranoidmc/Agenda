@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import api from '../../lib/api';
+import api from '../lib/api';
 import { FiMapPin, FiRefreshCw } from 'react-icons/fi';
 
 // Carica VehicleMap solo lato client (usa Leaflet) con gestione errori
