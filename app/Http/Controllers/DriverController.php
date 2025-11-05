@@ -67,8 +67,8 @@ class DriverController extends Controller
                 $driver->notes = $driver->notes ?? '';
                 
                 // Aggiungi i campi in italiano
-                $driver->nome = $driver->name;
-                $driver->cognome = $driver->surname;
+                $driver->nome = $driver->surname;  // Invertito: surname va in nome
+                $driver->cognome = $driver->name;   // Invertito: name va in cognome
                 $driver->telefono = $driver->phone;
                 $driver->indirizzo = $driver->address;
                 $driver->citta = $driver->city;
