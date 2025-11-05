@@ -5,6 +5,7 @@ import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import FilterBar from "../../components/FilterBar";
 
 export default function SediPage() {
   const router = useRouter();
@@ -20,6 +21,17 @@ export default function SediPage() {
   const [dataVersion, setDataVersion] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [filters, setFilters] = useState({});
+
+  // Configurazione filtri per sedi
+  const filterConfig = [
+    { key: 'nome', label: 'Nome', type: 'text', placeholder: 'Cerca per nome' },
+    { key: 'citta', label: 'Città', type: 'text', placeholder: 'Cerca per città' },
+    { key: 'provincia', label: 'Provincia', type: 'text', placeholder: 'Cerca per provincia' },
+    { key: 'cap', label: 'CAP', type: 'text', placeholder: 'Cerca per CAP' },
+    { key: 'indirizzo', label: 'Indirizzo', type: 'text', placeholder: 'Cerca per indirizzo' },
+    { key: 'client_id', label: 'Cliente', type: 'select', options: Array.isArray(clienti) ? clienti.map(c => ({ value: c.id, label: c.nome || c.name })) : [] },
+  ];
 
   // Sincronizzazione cantieri
   const sincronizzaCantieri = async () => {
@@ -110,6 +122,18 @@ export default function SediPage() {
         params.append('search', searchTermParam.trim());
       }
       
+      // Aggiungi i filtri come parametri
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          if (typeof value === 'object' && value.from) {
+            if (value.from) params.append(`${key}_from`, value.from);
+            if (value.to) params.append(`${key}_to`, value.to);
+          } else {
+            params.append(`filter[${key}]`, value);
+          }
+        }
+      });
+      
       console.log('🔍 Caricamento sedi:', {
         page: pageToUse,
         perPage,
@@ -154,6 +178,18 @@ export default function SediPage() {
     if (!loading && user) {
       fetchSediWithSearch(newTerm, true); // true = reset pagina
     }
+  };
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+    fetchSediWithSearch(searchTerm, true);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setCurrentPage(1);
+    fetchSediWithSearch(searchTerm, true);
   };
 
   const loadClienti = () => {
@@ -261,6 +297,13 @@ export default function SediPage() {
           {syncMessage}
         </div>
       )}
+
+      {/* Filtri avanzati */}
+      <FilterBar 
+        filters={filterConfig}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
+      />
 
       <div>
         <DataTable 

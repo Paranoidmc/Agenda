@@ -37,6 +37,30 @@ class ClientController extends Controller
             });
         }
 
+        // Filtri avanzati per campo specifico
+        $filterParams = $request->input('filter', []);
+        if (is_array($filterParams) && !empty($filterParams)) {
+            foreach ($filterParams as $field => $value) {
+                if ($value !== null && $value !== '') {
+                    // Mappa i campi italiani ai campi inglesi
+                    $fieldMap = [
+                        'nome' => 'name',
+                        'citta' => 'city',
+                        'provincia' => 'province',
+                        'partita_iva' => 'vat_number',
+                        'codice_fiscale' => 'fiscal_code',
+                        'codice_arca' => 'codice_arca',
+                        'email' => 'email',
+                        'telefono' => 'phone',
+                        'indirizzo' => 'address',
+                        'cap' => 'postal_code',
+                    ];
+                    $dbField = $fieldMap[$field] ?? $field;
+                    $query->where($dbField, 'like', "%{$value}%");
+                }
+            }
+        }
+
         // Solo i campi necessari per la tabella
         $fields = [
             'id', 'name', 'address', 'city', 'postal_code', 'province', 'phone', 'email', 'vat_number', 'fiscal_code', 'codice_arca', 'notes'

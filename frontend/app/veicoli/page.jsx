@@ -5,6 +5,7 @@ import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import FilterBar from "../../components/FilterBar";
 
 export default function VeicoliPage() {
   const router = useRouter();
@@ -18,8 +19,37 @@ export default function VeicoliPage() {
   const [error, setError] = useState("");
   const [selectedVeicolo, setSelectedVeicolo] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
+  const [filters, setFilters] = useState({});
 
   const canEdit = user?.role === 'admin';
+
+  // Configurazione filtri per veicoli
+  const filterConfig = [
+    { key: 'plate', label: 'Targa', type: 'text', placeholder: 'Cerca per targa' },
+    { key: 'brand', label: 'Marca', type: 'text', placeholder: 'Cerca per marca' },
+    { key: 'model', label: 'Modello', type: 'text', placeholder: 'Cerca per modello' },
+    { key: 'year', label: 'Anno', type: 'text', placeholder: 'Cerca per anno' },
+    { key: 'type', label: 'Tipo Veicolo', type: 'select', options: [
+      { value: 'Auto', label: 'Auto' },
+      { value: 'Furgone', label: 'Furgone' },
+      { value: 'Camion', label: 'Camion' },
+      { value: 'Moto', label: 'Moto' },
+      { value: 'Altro', label: 'Altro' }
+    ]},
+    { key: 'fuel_type', label: 'Carburante', type: 'select', options: [
+      { value: 'Benzina', label: 'Benzina' },
+      { value: 'Diesel', label: 'Diesel' },
+      { value: 'GPL', label: 'GPL' },
+      { value: 'Metano', label: 'Metano' },
+      { value: 'Elettrico', label: 'Elettrico' },
+      { value: 'Ibrido', label: 'Ibrido' }
+    ]},
+    { key: 'status', label: 'Stato', type: 'select', options: [
+      { value: 'operational', label: 'Operativo' },
+      { value: 'maintenance', label: 'In manutenzione' },
+      { value: 'decommissioned', label: 'Disattivato' }
+    ]},
+  ];
 
   // Campi del form veicolo - allineati alla migration e al model
   const veicoloFields = [
@@ -138,7 +168,7 @@ export default function VeicoliPage() {
     if (!loading && user) {
       loadVeicoliWithSearch(searchTerm);
     }
-  }, [currentPage, perPage]);
+  }, [currentPage, perPage, filters]);
 
   // Sidepanel rimosso: tabella sempre full width
 
@@ -165,6 +195,18 @@ export default function VeicoliPage() {
       if (searchTermParam && searchTermParam.trim()) {
         params.append('search', searchTermParam.trim());
       }
+      
+      // Aggiungi i filtri come parametri
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          if (typeof value === 'object' && value.from) {
+            if (value.from) params.append(`${key}_from`, value.from);
+            if (value.to) params.append(`${key}_to`, value.to);
+          } else {
+            params.append(`filter[${key}]`, value);
+          }
+        }
+      });
       
       console.log('🔍 Caricamento veicoli:', {
         page: pageToUse,
@@ -212,6 +254,18 @@ export default function VeicoliPage() {
     }
   };
 
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+    loadVeicoliWithSearch(searchTerm, true);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setCurrentPage(1);
+    loadVeicoliWithSearch(searchTerm, true);
+  };
+
   const handleViewDetails = (veicolo) => {
     if (veicolo?.id) router.push(`/veicoli/${veicolo.id}`);
   };
@@ -230,6 +284,14 @@ export default function VeicoliPage() {
       buttonLabel={canEdit ? "Nuovo Veicolo" : ""} 
       onAddClick={canEdit ? handleCreateNew : null} 
     />
+    
+    {/* Filtri avanzati */}
+    <FilterBar 
+      filters={filterConfig}
+      onFilterChange={handleFilterChange}
+      onClearFilters={handleClearFilters}
+    />
+    
     <div>
       <DataTable 
         data={veicoli}

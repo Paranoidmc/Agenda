@@ -5,6 +5,7 @@ import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import FilterBar from "../../components/FilterBar";
 
 export default function AutistiPage() {
   const router = useRouter();
@@ -17,8 +18,26 @@ export default function AutistiPage() {
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [filters, setFilters] = useState({});
 
   const canEdit = user?.role === "admin";
+
+  // Configurazione filtri per autisti
+  const filterConfig = [
+    { key: 'nome', label: 'Nome', type: 'text', placeholder: 'Cerca per nome' },
+    { key: 'cognome', label: 'Cognome', type: 'text', placeholder: 'Cerca per cognome' },
+    { key: 'codice_arca', label: 'Codice ARCA', type: 'text', placeholder: 'Cerca per codice Arca' },
+    { key: 'telefono', label: 'Telefono', type: 'text', placeholder: 'Cerca per telefono' },
+    { key: 'email', label: 'Email', type: 'text', placeholder: 'Cerca per email' },
+    { key: 'patente', label: 'Tipo Patente', type: 'select', options: [
+      { value: 'B', label: 'B' },
+      { value: 'C', label: 'C' },
+      { value: 'D', label: 'D' },
+      { value: 'CE', label: 'CE' },
+      { value: 'DE', label: 'DE' }
+    ]},
+    { key: 'citta', label: 'Città', type: 'text', placeholder: 'Cerca per città' },
+  ];
 
   // Sincronizzazione autisti
   const sincronizzaAutisti = async () => {
@@ -61,6 +80,19 @@ export default function AutistiPage() {
     try {
       const params = new URLSearchParams({ page: String(page), perPage: String(take) });
       if (searchTerm && searchTerm.trim()) params.append("search", searchTerm.trim());
+      
+      // Aggiungi i filtri come parametri
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          if (typeof value === 'object' && value.from) {
+            if (value.from) params.append(`${key}_from`, value.from);
+            if (value.to) params.append(`${key}_to`, value.to);
+          } else {
+            params.append(`filter[${key}]`, value);
+          }
+        }
+      });
+      
       const { data } = await api.get(`/drivers?${params.toString()}`);
       if (Array.isArray(data)) {
         setAutisti(data);
@@ -83,7 +115,19 @@ export default function AutistiPage() {
     if (!loading && user) load({ page: currentPage, take: perPage });
     else if (!loading && !user) setFetching(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading, currentPage, perPage]);
+  }, [user, loading, currentPage, perPage, filters]);
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+    load({ searchTerm: "", page: 1, take: perPage });
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setCurrentPage(1);
+    load({ searchTerm: "", page: 1, take: perPage });
+  };
 
   const handleRowClick = (item) => {
     if (item?.id) router.push(`/autisti/${item.id}`);
@@ -177,6 +221,13 @@ export default function AutistiPage() {
           {syncMessage}
         </div>
       )}
+
+      {/* Filtri avanzati */}
+      <FilterBar 
+        filters={filterConfig}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
+      />
 
       <DataTable
         data={autisti}

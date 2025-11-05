@@ -5,6 +5,7 @@ import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import FilterBar from "../../components/FilterBar";
 
 export default function ClientiPage() {
   const router = useRouter();
@@ -17,8 +18,21 @@ export default function ClientiPage() {
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [filters, setFilters] = useState({});
 
   const canEdit = user?.role === 'admin';
+
+  // Configurazione filtri per clienti
+  const filterConfig = [
+    { key: 'nome', label: 'Nome', type: 'text', placeholder: 'Cerca per nome' },
+    { key: 'citta', label: 'Città', type: 'text', placeholder: 'Cerca per città' },
+    { key: 'provincia', label: 'Provincia', type: 'text', placeholder: 'Cerca per provincia' },
+    { key: 'partita_iva', label: 'Partita IVA', type: 'text', placeholder: 'Cerca per P. IVA' },
+    { key: 'codice_fiscale', label: 'Codice Fiscale', type: 'text', placeholder: 'Cerca per codice fiscale' },
+    { key: 'codice_arca', label: 'Codice ARCA', type: 'text', placeholder: 'Cerca per codice Arca' },
+    { key: 'email', label: 'Email', type: 'text', placeholder: 'Cerca per email' },
+    { key: 'telefono', label: 'Telefono', type: 'text', placeholder: 'Cerca per telefono' },
+  ];
 
   // Sincronizzazione clienti
   const sincronizzaClienti = async () => {
@@ -74,6 +88,19 @@ export default function ClientiPage() {
           page: String(currentPage),
           perPage: String(perPage),
         });
+        
+        // Aggiungi i filtri come parametri
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== '' && value !== null) {
+            if (typeof value === 'object' && value.from) {
+              if (value.from) params.append(`${key}_from`, value.from);
+              if (value.to) params.append(`${key}_to`, value.to);
+            } else {
+              params.append(`filter[${key}]`, value);
+            }
+          }
+        });
+        
         const { data } = await api.get(`/clients?${params.toString()}`);
         if (Array.isArray(data)) {
           setClienti(data);
@@ -97,7 +124,17 @@ export default function ClientiPage() {
     } else if (!loading && !user) {
       setFetching(false);
     }
-  }, [user, loading, currentPage, perPage]);
+  }, [user, loading, currentPage, perPage, filters]);
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1); // Reset alla prima pagina quando cambiano i filtri
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setCurrentPage(1);
+  };
 
   const handleRowClick = (item) => {
     if (item?.id) router.push(`/clienti/${item.id}`);
@@ -185,6 +222,13 @@ export default function ClientiPage() {
           {syncMessage}
         </div>
       )}
+
+      {/* Filtri avanzati */}
+      <FilterBar 
+        filters={filterConfig}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
+      />
 
       <DataTable
         data={clienti}

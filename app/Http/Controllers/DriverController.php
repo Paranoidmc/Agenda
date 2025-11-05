@@ -71,8 +71,35 @@ class DriverController extends Controller
                   ->orWhere('notes', 'like', "%$search%")
                   ->orWhere('province', 'like', "%$search%")
                   ->orWhere('postal_code', 'like', "%$search%")
+                  ->orWhere('codice_arca', 'like', "%$search%")
+                  ->orWhere('email', 'like', "%$search%")
                   ;
             });
+        }
+
+        // Filtri avanzati per campo specifico
+        $filterParams = $request->input('filter', []);
+        if (is_array($filterParams) && !empty($filterParams)) {
+            foreach ($filterParams as $field => $value) {
+                if ($value !== null && $value !== '') {
+                    // Mappa i campi italiani ai campi inglesi
+                    $fieldMap = [
+                        'nome' => 'name',
+                        'cognome' => 'surname',
+                        'codice_arca' => 'codice_arca',
+                        'telefono' => 'phone',
+                        'email' => 'email',
+                        'patente' => 'license_number',
+                        'citta' => 'city',
+                        'provincia' => 'province',
+                        'indirizzo' => 'address',
+                        'cap' => 'postal_code',
+                        'codice_fiscale' => 'fiscal_code',
+                    ];
+                    $dbField = $fieldMap[$field] ?? $field;
+                    $query->where($dbField, 'like', "%{$value}%");
+                }
+            }
         }
 
         $drivers = $query->paginate($perPage);

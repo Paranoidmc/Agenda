@@ -40,6 +40,34 @@ class VehicleController extends Controller
                     });
                 }
 
+                // Filtri avanzati per campo specifico
+                $filterParams = $request->input('filter', []);
+                if (is_array($filterParams) && !empty($filterParams)) {
+                    foreach ($filterParams as $field => $value) {
+                        if ($value !== null && $value !== '') {
+                            // Mappa i campi italiani ai campi inglesi
+                            $fieldMap = [
+                                'plate' => 'plate',
+                                'brand' => 'brand',
+                                'model' => 'model',
+                                'year' => 'year',
+                                'type' => 'type',
+                                'fuel_type' => 'fuel_type',
+                                'status' => 'status',
+                                'targa' => 'plate',
+                                'marca' => 'brand',
+                                'modello' => 'model',
+                                'anno' => 'year',
+                                'tipo' => 'type',
+                                'carburante' => 'fuel_type',
+                                'stato' => 'status',
+                            ];
+                            $dbField = $fieldMap[$field] ?? $field;
+                            $query->where($dbField, 'like', "%{$value}%");
+                        }
+                    }
+                }
+
                 $vehicles = $query->paginate($perPage);
                 
                 // Per paginazione, mappa i campi italiani nella collection

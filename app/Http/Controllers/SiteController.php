@@ -31,6 +31,30 @@ class SiteController extends Controller
             });
         }
 
+        // Filtri avanzati per campo specifico
+        $filterParams = $request->input('filter', []);
+        if (is_array($filterParams) && !empty($filterParams)) {
+            foreach ($filterParams as $field => $value) {
+                if ($value !== null && $value !== '') {
+                    // Mappa i campi italiani ai campi inglesi
+                    $fieldMap = [
+                        'nome' => 'name',
+                        'citta' => 'city',
+                        'provincia' => 'province',
+                        'cap' => 'postal_code',
+                        'indirizzo' => 'address',
+                        'client_id' => 'client_id',
+                    ];
+                    $dbField = $fieldMap[$field] ?? $field;
+                    if ($dbField === 'client_id') {
+                        $query->where($dbField, $value);
+                    } else {
+                        $query->where($dbField, 'like', "%{$value}%");
+                    }
+                }
+            }
+        }
+
         // Solo i campi necessari
         $fields = [
             'id', 'name', 'address', 'city', 'postal_code', 'province', 'client_id', 'phone', 'email', 'notes'
