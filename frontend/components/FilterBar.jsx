@@ -2,7 +2,22 @@
 import { useState, useEffect, useRef } from "react";
 
 export default function FilterBar({ filters: filterConfig, onFilterChange, onClearFilters }) {
-  const [showFilters, setShowFilters] = useState(false);
+  // Mantieni lo stato dei filtri aperti usando localStorage per persistenza tra re-render
+  const [showFilters, setShowFilters] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('filterBarOpen') === 'true';
+    }
+    return false;
+  });
+  const [localFilters, setLocalFilters] = useState({});
+  const debounceTimerRef = useRef(null);
+
+  // Salva lo stato aperto/chiuso in localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('filterBarOpen', showFilters.toString());
+    }
+  }, [showFilters]);
   const [localFilters, setLocalFilters] = useState({});
   const debounceTimerRef = useRef(null);
 
