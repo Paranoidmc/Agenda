@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { FiFilter, FiX } from "react-icons/fi";
 
-export default function FilterBar({ filters, onFilterChange, onClearFilters }) {
+export default function FilterBar({ filters: filterConfig, onFilterChange, onClearFilters }) {
   const [showFilters, setShowFilters] = useState(false);
-  const [localFilters, setLocalFilters] = useState(filters || {});
+  const [localFilters, setLocalFilters] = useState({});
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...localFilters, [key]: value === '' ? undefined : value };
@@ -76,7 +76,7 @@ export default function FilterBar({ filters, onFilterChange, onClearFilters }) {
           borderRadius: 8,
           border: '1px solid #e5e5ea'
         }}>
-          {filters.map((filter) => (
+          {filterConfig?.map((filter) => (
             <div key={filter.key}>
               <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 500, color: '#374151' }}>
                 {filter.label}
@@ -121,7 +121,7 @@ export default function FilterBar({ filters, onFilterChange, onClearFilters }) {
                     type="date"
                     placeholder="Da"
                     value={localFilters[filter.key]?.from || ''}
-                    onChange={(e) => handleFilterChange(filter.key, { ...localFilters[filter.key], from: e.target.value })}
+                    onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), from: e.target.value })}
                     style={{
                       flex: 1,
                       padding: '8px 12px',
@@ -135,7 +135,7 @@ export default function FilterBar({ filters, onFilterChange, onClearFilters }) {
                     type="date"
                     placeholder="A"
                     value={localFilters[filter.key]?.to || ''}
-                    onChange={(e) => handleFilterChange(filter.key, { ...localFilters[filter.key], to: e.target.value })}
+                    onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), to: e.target.value })}
                     style={{
                       flex: 1,
                       padding: '8px 12px',
