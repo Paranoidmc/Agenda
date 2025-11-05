@@ -44,25 +44,38 @@ class VehicleController extends Controller
                 $filterParams = $request->input('filter', []);
                 if (is_array($filterParams) && !empty($filterParams)) {
                     foreach ($filterParams as $field => $value) {
-                        if ($value !== null && $value !== '') {
-                            // Mappa i campi italiani ai campi inglesi
-                            $fieldMap = [
-                                'plate' => 'plate',
-                                'brand' => 'brand',
-                                'model' => 'model',
-                                'year' => 'year',
-                                'type' => 'type',
-                                'fuel_type' => 'fuel_type',
-                                'status' => 'status',
-                                'targa' => 'plate',
-                                'marca' => 'brand',
-                                'modello' => 'model',
-                                'anno' => 'year',
-                                'tipo' => 'type',
-                                'carburante' => 'fuel_type',
-                                'stato' => 'status',
-                            ];
-                            $dbField = $fieldMap[$field] ?? $field;
+                        // Salta se il campo è un numero (indice array) o se il valore è vuoto/null
+                        if (is_numeric($field) || $value === null || $value === '') {
+                            continue;
+                        }
+                        
+                        // Mappa i campi italiani ai campi inglesi
+                        $fieldMap = [
+                            'plate' => 'plate',
+                            'brand' => 'brand',
+                            'model' => 'model',
+                            'year' => 'year',
+                            'type' => 'type',
+                            'fuel_type' => 'fuel_type',
+                            'status' => 'status',
+                            'targa' => 'plate',
+                            'marca' => 'brand',
+                            'modello' => 'model',
+                            'anno' => 'year',
+                            'tipo' => 'type',
+                            'carburante' => 'fuel_type',
+                            'stato' => 'status',
+                        ];
+                        
+                        $dbField = $fieldMap[$field] ?? null;
+                        
+                        // Se il campo non è nella mappa, salta
+                        if (!$dbField) {
+                            continue;
+                        }
+                        
+                        // Verifica che il campo esista nella tabella prima di applicare il filtro
+                        if (in_array($dbField, ['plate', 'name', 'brand', 'model', 'year', 'type', 'fuel_type', 'status', 'color', 'notes'])) {
                             $query->where($dbField, 'like', "%{$value}%");
                         }
                     }

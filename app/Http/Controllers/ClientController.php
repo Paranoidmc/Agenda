@@ -41,21 +41,34 @@ class ClientController extends Controller
         $filterParams = $request->input('filter', []);
         if (is_array($filterParams) && !empty($filterParams)) {
             foreach ($filterParams as $field => $value) {
-                if ($value !== null && $value !== '') {
-                    // Mappa i campi italiani ai campi inglesi
-                    $fieldMap = [
-                        'nome' => 'name',
-                        'citta' => 'city',
-                        'provincia' => 'province',
-                        'partita_iva' => 'vat_number',
-                        'codice_fiscale' => 'fiscal_code',
-                        'codice_arca' => 'codice_arca',
-                        'email' => 'email',
-                        'telefono' => 'phone',
-                        'indirizzo' => 'address',
-                        'cap' => 'postal_code',
-                    ];
-                    $dbField = $fieldMap[$field] ?? $field;
+                // Salta se il campo è un numero (indice array) o se il valore è vuoto/null
+                if (is_numeric($field) || $value === null || $value === '') {
+                    continue;
+                }
+                
+                // Mappa i campi italiani ai campi inglesi
+                $fieldMap = [
+                    'nome' => 'name',
+                    'citta' => 'city',
+                    'provincia' => 'province',
+                    'partita_iva' => 'vat_number',
+                    'codice_fiscale' => 'fiscal_code',
+                    'codice_arca' => 'codice_arca',
+                    'email' => 'email',
+                    'telefono' => 'phone',
+                    'indirizzo' => 'address',
+                    'cap' => 'postal_code',
+                ];
+                
+                $dbField = $fieldMap[$field] ?? null;
+                
+                // Se il campo non è nella mappa, salta
+                if (!$dbField) {
+                    continue;
+                }
+                
+                // Verifica che il campo esista nella tabella prima di applicare il filtro
+                if (in_array($dbField, ['name', 'city', 'province', 'vat_number', 'fiscal_code', 'codice_arca', 'email', 'phone', 'address', 'postal_code', 'notes'])) {
                     $query->where($dbField, 'like', "%{$value}%");
                 }
             }
