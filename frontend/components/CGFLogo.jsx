@@ -1,4 +1,5 @@
 "use client";
+import Image from 'next/image';
 
 export default function CGFLogo({ size = 'medium', showTagline = true }) {
   const sizes = {
@@ -16,54 +17,21 @@ export default function CGFLogo({ size = 'medium', showTagline = true }) {
       gap: 12,
       color: '#66CC00'
     }}>
-      {/* Logo grafico */}
+      {/* Logo PNG */}
       <div style={{
         position: 'relative',
         width: logoSize,
         height: logoSize,
         flexShrink: 0
       }}>
-        <svg width={logoSize} height={logoSize} viewBox="0 0 100 100" style={{ display: 'block' }}>
-          {/* Cerchio esterno */}
-          <circle
-            cx="50"
-            cy="50"
-            r="45"
-            fill="none"
-            stroke="#66CC00"
-            strokeWidth="4"
-          />
-          {/* Lettera G stilizzata */}
-          <path
-            d="M 35 30 Q 50 25 65 30 L 65 50 Q 65 60 55 60 L 45 60"
-            fill="none"
-            stroke="#66CC00"
-            strokeWidth="4"
-            strokeLinecap="round"
-          />
-          {/* Lettera F stilizzata */}
-          <path
-            d="M 40 35 L 40 65 M 40 45 L 55 45 M 40 55 L 50 55"
-            fill="none"
-            stroke="#66CC00"
-            strokeWidth="4"
-            strokeLinecap="round"
-          />
-          {/* Foglia verde */}
-          <path
-            d="M 60 45 Q 70 50 75 60 Q 70 65 65 70 Q 60 65 58 60 Q 60 55 60 50 Z"
-            fill="#7ED321"
-            stroke="#66CC00"
-            strokeWidth="1"
-          />
-          {/* Vene della foglia */}
-          <path
-            d="M 60 50 L 70 60 M 60 55 L 68 65"
-            stroke="#66CC00"
-            strokeWidth="1"
-            opacity="0.6"
-          />
-        </svg>
+        <Image
+          src="/img/cgf-logo.png"
+          alt="CGF Srl Logo"
+          width={logoSize}
+          height={logoSize}
+          style={{ objectFit: 'contain' }}
+          priority
+        />
       </div>
       
       {/* Separatore verticale */}

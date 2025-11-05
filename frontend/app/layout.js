@@ -27,8 +27,32 @@ const protectedPaths = [
   "/utenti"
 ];
 
+// Componente per il layout condizionale
+function ConditionalLayout({ children }) {
+  "use client";
+  
+  const { usePathname } = require('next/navigation');
+  const pathname = usePathname();
+  const isLoginPage = pathname === '/login';
+  
+  if (isLoginPage) {
+    // Pagina di login: nessun header, nessuna sidebar
+    return <>{children}</>;
+  }
+  
+  // Pagine normali: header e sidebar
+  return (
+    <>
+      <Header />
+      <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <Sidebar protectedPaths={protectedPaths} />
+        <main style={{ flex: 1, marginLeft: 220 }}>{children}</main>
+      </div>
+    </>
+  );
+}
+
 export default function RootLayout({ children }) {
-  // La sidebar sarà mostrata sempre, sarà Sidebar a gestire la visibilità interna
   return (
     <html lang="it" suppressHydrationWarning={true}>
       <body className={inter.className}>
@@ -42,11 +66,9 @@ export default function RootLayout({ children }) {
           {/* Indicatore di caricamento globale */}
           <GlobalLoader />
           
-          <Header />
-          <div style={{ display: 'flex', minHeight: '100vh' }}>
-            <Sidebar protectedPaths={protectedPaths} />
-            <main style={{ flex: 1, marginLeft: 220 }}>{children}</main>
-          </div>
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
         </AuthProvider>
       </body>
     </html>
