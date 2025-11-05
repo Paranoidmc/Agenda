@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import axios from "../lib/api";
+import DocumentViewer from "./DocumentViewer";
 
 export default function VehicleDocumentSection({ veicoloId, categoria }) {
   const [documenti, setDocumenti] = useState([]);
@@ -10,6 +11,7 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
   const [descrizione, setDescrizione] = useState("");
   const [dataScadenza, setDataScadenza] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState(null);
   const fileInput = useRef();
 
   const fetchDocumenti = async () => {
@@ -131,10 +133,16 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
 
   const handleView = async (id, nome) => {
     try {
-      // Usa l'endpoint con parametro view=true per visualizzazione inline
-      const url = `/api/documenti/${id}/download?view=true`;
-      // Apri direttamente l'URL in una nuova finestra - il server invierà il file con Content-Disposition: inline
-      window.open(url, '_blank');
+      // Costruisci l'URL completo per il documento
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://api.edilcipriano.peels.it/api'
+        : 'http://localhost:8000/api';
+      const url = `${baseUrl}/documenti/${id}/download?view=true`;
+      setViewingDocument({
+        id,
+        url,
+        fileName: nome || `documento_${id}`
+      });
     } catch (e) {
       setError("Errore visualizzazione documento");
     }
@@ -167,6 +175,15 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
   };
 
   return (
+    <>
+      {viewingDocument && (
+        <DocumentViewer
+          documentId={viewingDocument.id}
+          documentUrl={viewingDocument.url}
+          fileName={viewingDocument.fileName}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
     <div style={{ marginBottom: 32, background: '#fff', borderRadius: 12, boxShadow: '0 1px 6px #0001', padding: 24, maxWidth: 700 }}>
       <h4 style={{ marginBottom: 16, fontWeight: 600, fontSize: 20, color: '#2A3A4A' }}>{categoriaLabels[categoria] || categoria.charAt(0).toUpperCase() + categoria.slice(1)}</h4>
       <form onSubmit={handleUpload} style={{ display: "flex", gap: 12, marginBottom: 18, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -241,6 +258,7 @@ export default function VehicleDocumentSection({ veicoloId, categoria }) {
         </table>
       )}
     </div>
+    </>
   );
 }
 
