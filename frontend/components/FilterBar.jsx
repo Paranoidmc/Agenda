@@ -14,23 +14,16 @@ export default function FilterBar({ filters: filterConfig, currentFilters = {}, 
 
   // Sincronizza localFilters con currentFilters quando cambiano dall'esterno
   useEffect(() => {
-    // Se currentFilters è stato resettato esplicitamente (oggetto vuoto), resetta anche localFilters
-    if (currentFilters && Object.keys(currentFilters).length === 0 && Object.keys(localFilters).length > 0) {
-      // Controlla se è un reset esplicito controllando se i filtri attivi erano diversi
-      const hasActiveFilters = Object.values(localFilters).some(v => v !== undefined && v !== '' && v !== null);
-      if (hasActiveFilters) {
-        // È un reset esplicito, svuota localFilters
-        setLocalFilters({});
-      }
-    } else if (currentFilters && Object.keys(currentFilters).length > 0) {
-      // Aggiorna localFilters con i valori da currentFilters
+    // Merge intelligente: mantieni i valori attuali e aggiorna solo quelli che cambiano
+    if (currentFilters) {
       setLocalFilters(prev => {
-        // Merge intelligente: mantieni i valori di currentFilters ma preserva anche quelli che non sono ancora stati applicati
         const merged = { ...prev };
+        // Aggiorna solo i campi che sono presenti in currentFilters
         Object.entries(currentFilters).forEach(([key, value]) => {
           if (value !== undefined && value !== '' && value !== null) {
             merged[key] = value;
-          } else {
+          } else if (key in currentFilters) {
+            // Se il campo è presente ma vuoto, rimuovilo solo se era stato applicato
             delete merged[key];
           }
         });
