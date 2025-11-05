@@ -187,7 +187,9 @@ class SiteController extends Controller
      */
     public function getClientSitesNew()
     {
-        return response()->json([]);
+        return response()->json([
+            'data' => []
+        ]);
     }
 
     /**
