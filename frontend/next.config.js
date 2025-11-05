@@ -55,6 +55,11 @@ const nextConfig = {
         source: '/user',
         destination: 'http://localhost:8000/api/user',
       },
+      // Serve static images from public folder
+      {
+        source: '/img/:path*',
+        destination: '/img/:path*',
+      },
     ];
   },
 };
