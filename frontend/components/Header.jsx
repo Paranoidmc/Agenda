@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
+import CGFLogo from './CGFLogo';
 
 export default function Header() {
   const { logout, user, loading, sessionExpired } = useAuth();
@@ -21,8 +22,8 @@ export default function Header() {
       position: 'relative',
       zIndex: 20
     }}>
-      <Link href="/" style={{ fontWeight: 700, fontSize: 20, color: '#1a1a1a', textDecoration: 'none', letterSpacing: 1 }}>
-        Agenda
+      <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+        <CGFLogo size="medium" showTagline={false} />
       </Link>
       <div>
         {showLogout && (

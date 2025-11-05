@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
+import CGFLogo from "../../components/CGFLogo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -109,7 +110,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="centered">
+    <div className="centered" style={{ 
+      background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+      minHeight: '100vh',
+      padding: '2em'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        gap: 32,
+        marginBottom: 32
+      }}>
+        <CGFLogo size="large" showTagline={true} />
+      </div>
       <form className="card" onSubmit={handleSubmit} style={{ minWidth: 320, maxWidth: 360 }}>
         <h2 style={{ textAlign: 'center', fontWeight: 600, marginBottom: 24 }}>Accedi</h2>
         <div style={{ marginBottom: 16 }}>
