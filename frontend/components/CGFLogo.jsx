@@ -1,5 +1,4 @@
 "use client";
-import Image from 'next/image';
 
 export default function CGFLogo({ size = 'medium', showTagline = true }) {
   const sizes = {
@@ -22,15 +21,24 @@ export default function CGFLogo({ size = 'medium', showTagline = true }) {
         position: 'relative',
         width: logoSize,
         height: logoSize,
-        flexShrink: 0
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}>
-        <Image
+        <img
           src="/img/cgf-logo.png"
           alt="CGF Srl Logo"
-          width={logoSize}
-          height={logoSize}
-          style={{ objectFit: 'contain' }}
-          priority
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block'
+          }}
+          onError={(e) => {
+            console.error('Errore caricamento logo:', e);
+            e.target.style.display = 'none';
+          }}
         />
       </div>
       
