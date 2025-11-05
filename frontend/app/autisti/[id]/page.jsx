@@ -23,6 +23,7 @@ export default function AutistaDetailPage() {
   const [savingProf, setSavingProf] = useState(false);
   const [editingLicenseId, setEditingLicenseId] = useState(null);
   const [newLicense, setNewLicense] = useState({ tipo: '', numero: '', ente_rilascio: '', rilasciata_il: '', scadenza: '', note: '' });
+  const [activeTab, setActiveTab] = useState("details");
 
   const canEdit = user?.role === "admin";
   const autistaId = params?.id;
@@ -219,7 +220,6 @@ export default function AutistaDetailPage() {
   if (!autista) return <div className="centered">Autista non trovato</div>;
 
   const autistaName = `${autista.nome || ""} ${autista.cognome || ""}`.trim();
-  const [activeTab, setActiveTab] = useState("details");
 
   const handleSaveAutista = async (formData) => {
     if (!canEdit) {
