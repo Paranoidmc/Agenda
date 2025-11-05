@@ -1,20 +1,40 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function FilterBar({ filters: filterConfig, onFilterChange, onClearFilters }) {
   const [showFilters, setShowFilters] = useState(false);
   const [localFilters, setLocalFilters] = useState({});
+  const debounceTimerRef = useRef(null);
 
-  const handleFilterChange = (key, value) => {
+  // Debounce per i campi di testo - aggiorna solo dopo che l'utente smette di digitare
+  const handleFilterChange = (key, value, isTextInput = false) => {
     const newFilters = { ...localFilters, [key]: value === '' ? undefined : value };
     setLocalFilters(newFilters);
-    if (onFilterChange) {
-      onFilterChange(newFilters);
+    
+    // Per i campi di testo, usa debounce (500ms)
+    // Per select e date, applica immediatamente
+    if (isTextInput) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        if (onFilterChange) {
+          onFilterChange(newFilters);
+        }
+      }, 500);
+    } else {
+      // Per select e date, applica immediatamente
+      if (onFilterChange) {
+        onFilterChange(newFilters);
+      }
     }
   };
 
   const handleClearFilters = () => {
     setLocalFilters({});
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
     if (onFilterChange) {
       onFilterChange({});
     }
@@ -22,6 +42,15 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
       onClearFilters();
     }
   };
+
+  // Cleanup del timer quando il componente viene smontato
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   const activeFiltersCount = Object.values(localFilters).filter(v => v !== undefined && v !== '' && v !== null).length;
 
@@ -35,6 +64,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showFilters ? 16 : 0 }}>
         <button
           onClick={() => setShowFilters(!showFilters)}
+          type="button"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -58,6 +88,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
         {activeFiltersCount > 0 && (
           <button
             onClick={handleClearFilters}
+            type="button"
             style={{
               padding: '8px 16px',
               borderRadius: 8,
@@ -96,7 +127,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
                 {filter.type === 'select' ? (
                   <select
                     value={localFilters[filter.key] || ''}
-                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                    onChange={(e) => handleFilterChange(filter.key, e.target.value, false)}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -117,7 +148,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
                   <input
                     type="date"
                     value={localFilters[filter.key] || ''}
-                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                    onChange={(e) => handleFilterChange(filter.key, e.target.value, false)}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -133,7 +164,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
                       type="date"
                       placeholder="Da"
                       value={localFilters[filter.key]?.from || ''}
-                      onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), from: e.target.value })}
+                      onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), from: e.target.value }, false)}
                       style={{
                         flex: 1,
                         padding: '8px 12px',
@@ -147,7 +178,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
                       type="date"
                       placeholder="A"
                       value={localFilters[filter.key]?.to || ''}
-                      onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), to: e.target.value })}
+                      onChange={(e) => handleFilterChange(filter.key, { ...(localFilters[filter.key] || {}), to: e.target.value }, false)}
                       style={{
                         flex: 1,
                         padding: '8px 12px',
@@ -162,7 +193,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
                   <input
                     type="text"
                     value={localFilters[filter.key] || ''}
-                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                    onChange={(e) => handleFilterChange(filter.key, e.target.value, true)}
                     placeholder={filter.placeholder || `Filtra per ${filter.label?.toLowerCase() || filter.key}`}
                     style={{
                       width: '100%',
@@ -182,4 +213,3 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
     </div>
   );
 }
-
