@@ -1,6 +1,10 @@
 "use client";
+import { useState, useEffect } from 'react';
 
 export default function CGFLogo({ size = 'medium', showTagline = true }) {
+  const [logoSrc, setLogoSrc] = useState('/img/cgf-logo.png');
+  const [hasError, setHasError] = useState(false);
+  
   const sizes = {
     small: { logoSize: 40, fontSize: 18, taglineSize: 10 },
     medium: { logoSize: 60, fontSize: 24, taglineSize: 11 },
@@ -8,6 +12,28 @@ export default function CGFLogo({ size = 'medium', showTagline = true }) {
   };
   
   const { logoSize, fontSize, taglineSize } = sizes[size] || sizes.medium;
+  
+  // Prova diversi percorsi per il logo
+  useEffect(() => {
+    const testImage = new Image();
+    testImage.onload = () => {
+      setHasError(false);
+    };
+    testImage.onerror = () => {
+      // Prova percorso alternativo
+      const altSrc = '/cgf-logo.png';
+      const testAlt = new Image();
+      testAlt.onload = () => {
+        setLogoSrc(altSrc);
+        setHasError(false);
+      };
+      testAlt.onerror = () => {
+        setHasError(true);
+      };
+      testAlt.src = altSrc;
+    };
+    testImage.src = logoSrc;
+  }, [logoSrc]);
   
   return (
     <div style={{
@@ -17,38 +43,42 @@ export default function CGFLogo({ size = 'medium', showTagline = true }) {
       color: '#66CC00'
     }}>
       {/* Logo PNG */}
-      <div style={{
-        position: 'relative',
-        width: logoSize,
-        height: logoSize,
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <img
-          src="/img/cgf-logo.png"
-          alt="CGF Srl Logo"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            display: 'block'
-          }}
-          onError={(e) => {
-            console.error('Errore caricamento logo:', e);
-            e.target.style.display = 'none';
-          }}
-        />
-      </div>
+      {!hasError && (
+        <div style={{
+          position: 'relative',
+          width: logoSize,
+          height: logoSize,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <img
+            src={logoSrc}
+            alt="CGF Srl Logo"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              display: 'block'
+            }}
+            onError={(e) => {
+              console.error('Errore caricamento logo:', e.target.src);
+              setHasError(true);
+            }}
+          />
+        </div>
+      )}
       
       {/* Separatore verticale */}
-      <div style={{
-        width: 1,
-        height: logoSize * 0.7,
-        background: '#888',
-        flexShrink: 0
-      }} />
+      {!hasError && (
+        <div style={{
+          width: 1,
+          height: logoSize * 0.7,
+          background: '#888',
+          flexShrink: 0
+        }} />
+      )}
       
       {/* Testo */}
       <div style={{
