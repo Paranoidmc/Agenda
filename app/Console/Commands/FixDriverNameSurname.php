@@ -12,7 +12,7 @@ class FixDriverNameSurname extends Command
      *
      * @var string
      */
-    protected $signature = 'drivers:fix-name-surname';
+    protected $signature = 'drivers:fix-name-surname {--force : Esegue la correzione senza richiedere conferma}';
 
     /**
      * The console command description.
@@ -45,7 +45,7 @@ class FixDriverNameSurname extends Command
             return 0;
         }
         
-        if (!$this->confirm('Vuoi procedere con la correzione? (nome e cognome verranno scambiati)')) {
+        if (!$this->option('force') && !$this->confirm('Vuoi procedere con la correzione? (nome e cognome verranno scambiati)')) {
             $this->info('Operazione annullata.');
             return 0;
         }
