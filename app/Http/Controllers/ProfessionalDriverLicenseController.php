@@ -14,7 +14,10 @@ class ProfessionalDriverLicenseController extends Controller
      */
     public function indexNew()
     {
-        return response()->json([]);
+        return response()->json([
+            'success' => true,
+            'data' => []
+        ]);
     }
 
     public function index(Driver $driver)
