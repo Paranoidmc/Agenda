@@ -105,74 +105,86 @@ class DriverController extends Controller
     {
         // $this->authorize('manage-anagrafiche'); // TEMPORANEO: disabilitato per debug gate
 
-        $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'surname' => 'sometimes|required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'license_number' => 'nullable|string|max:20',
-            'license_type' => 'nullable|string|max:20',
-            'license_issue_date' => 'nullable|date',
-            'license_issued_by' => 'nullable|string|max:255',
-            'license_expiry' => 'nullable|date',
-            'birth_date' => 'nullable|date',
-            'birth_place' => 'nullable|string|max:255',
-            'fiscal_code' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:255',
-            'postal_code' => 'nullable|string|max:20',
-            'province' => 'nullable|string|max:50',
-            'hire_date' => 'nullable|date',
-            'termination_date' => 'nullable|date',
-            'employee_id' => 'nullable|string|max:50',
-            'notes' => 'nullable|string',
-            'status' => 'nullable|string|max:20',
-            // Campi in italiano
-            'nome' => 'sometimes|required|string|max:255',
-            'cognome' => 'sometimes|required|string|max:255',
-            'telefono' => 'nullable|string|max:20',
-            'indirizzo' => 'nullable|string|max:255',
-            'citta' => 'nullable|string|max:255',
-            'cap' => 'nullable|string|max:20',
-            'provincia' => 'nullable|string|max:50',
-            'codice_fiscale' => 'nullable|string|max:20',
-            'patente' => 'nullable|string|max:20',
-            'scadenza_patente' => 'nullable|date',
-            'note' => 'nullable|string',
+        \Log::info('DriverController::store - Richiesta ricevuta', [
+            'request_data' => $request->all(),
+            'user_id' => $request->user() ? $request->user()->id : null,
         ]);
 
-        // Map Italian field names to English field names
-        $data = [];
-        
-        // Codice Arca
-        if (isset($validated['codice_arca'])) $data['codice_arca'] = $validated['codice_arca'];
-        
-        // Prioritize English fields, but use Italian if English is not provided
-        $data['name'] = $validated['name'] ?? $validated['nome'] ?? null;
-        $data['surname'] = $validated['surname'] ?? $validated['cognome'] ?? null;
-        $data['email'] = $validated['email'] ?? null;
-        $data['phone'] = $validated['phone'] ?? $validated['telefono'] ?? null;
-        $data['license_number'] = $validated['license_number'] ?? $validated['patente'] ?? null;
-        $data['license_expiry'] = $validated['license_expiry'] ?? $validated['scadenza_patente'] ?? null;
-        $data['fiscal_code'] = $validated['fiscal_code'] ?? $validated['codice_fiscale'] ?? null;
-        $data['address'] = $validated['address'] ?? $validated['indirizzo'] ?? null;
-        $data['city'] = $validated['city'] ?? $validated['citta'] ?? null;
-        $data['postal_code'] = $validated['postal_code'] ?? $validated['cap'] ?? null;
-        $data['province'] = $validated['province'] ?? $validated['provincia'] ?? null;
-        $data['notes'] = $validated['notes'] ?? $validated['note'] ?? null;
-        
-        // Fields that only exist in English
-        if (isset($validated['license_type'])) $data['license_type'] = $validated['license_type'];
-        if (isset($validated['license_issue_date'])) $data['license_issue_date'] = $validated['license_issue_date'];
-        if (isset($validated['license_issued_by'])) $data['license_issued_by'] = $validated['license_issued_by'];
-        if (isset($validated['birth_date'])) $data['birth_date'] = $validated['birth_date'];
-        if (isset($validated['birth_place'])) $data['birth_place'] = $validated['birth_place'];
-        if (isset($validated['hire_date'])) $data['hire_date'] = $validated['hire_date'];
-        if (isset($validated['termination_date'])) $data['termination_date'] = $validated['termination_date'];
-        if (isset($validated['employee_id'])) $data['employee_id'] = $validated['employee_id'];
-        if (isset($validated['status'])) $data['status'] = $validated['status'];
+        try {
+            $validated = $request->validate([
+                'name' => 'sometimes|required|string|max:255',
+                'surname' => 'sometimes|required|string|max:255',
+                'email' => 'nullable|email|max:255',
+                'phone' => 'nullable|string|max:20',
+                'license_number' => 'nullable|string|max:20',
+                'license_type' => 'nullable|string|max:20',
+                'license_issue_date' => 'nullable|date',
+                'license_issued_by' => 'nullable|string|max:255',
+                'license_expiry' => 'nullable|date',
+                'birth_date' => 'nullable|date',
+                'birth_place' => 'nullable|string|max:255',
+                'fiscal_code' => 'nullable|string|max:20',
+                'address' => 'nullable|string|max:255',
+                'city' => 'nullable|string|max:255',
+                'postal_code' => 'nullable|string|max:20',
+                'province' => 'nullable|string|max:50',
+                'hire_date' => 'nullable|date',
+                'termination_date' => 'nullable|date',
+                'employee_id' => 'nullable|string|max:50',
+                'notes' => 'nullable|string',
+                'status' => 'nullable|string|max:20',
+                // Campi in italiano
+                'nome' => 'sometimes|required|string|max:255',
+                'cognome' => 'sometimes|required|string|max:255',
+                'telefono' => 'nullable|string|max:20',
+                'indirizzo' => 'nullable|string|max:255',
+                'citta' => 'nullable|string|max:255',
+                'cap' => 'nullable|string|max:20',
+                'provincia' => 'nullable|string|max:50',
+                'codice_fiscale' => 'nullable|string|max:20',
+                'patente' => 'nullable|string|max:20',
+                'scadenza_patente' => 'nullable|date',
+                'note' => 'nullable|string',
+            ]);
 
-        $driver = Driver::create($data);
+            \Log::info('DriverController::store - Validazione passata', ['validated' => $validated]);
+
+            // Map Italian field names to English field names
+            $data = [];
+            
+            // Codice Arca
+            if (isset($validated['codice_arca'])) $data['codice_arca'] = $validated['codice_arca'];
+            
+            // Prioritize English fields, but use Italian if English is not provided
+            $data['name'] = $validated['name'] ?? $validated['nome'] ?? null;
+            $data['surname'] = $validated['surname'] ?? $validated['cognome'] ?? null;
+            $data['email'] = $validated['email'] ?? null;
+            $data['phone'] = $validated['phone'] ?? $validated['telefono'] ?? null;
+            $data['license_number'] = $validated['license_number'] ?? $validated['patente'] ?? null;
+            $data['license_expiry'] = $validated['license_expiry'] ?? $validated['scadenza_patente'] ?? null;
+            $data['fiscal_code'] = $validated['fiscal_code'] ?? $validated['codice_fiscale'] ?? null;
+            $data['address'] = $validated['address'] ?? $validated['indirizzo'] ?? null;
+            $data['city'] = $validated['city'] ?? $validated['citta'] ?? null;
+            $data['postal_code'] = $validated['postal_code'] ?? $validated['cap'] ?? null;
+            $data['province'] = $validated['province'] ?? $validated['provincia'] ?? null;
+            $data['notes'] = $validated['notes'] ?? $validated['note'] ?? null;
+            
+            // Fields that only exist in English
+            if (isset($validated['license_type'])) $data['license_type'] = $validated['license_type'];
+            if (isset($validated['license_issue_date'])) $data['license_issue_date'] = $validated['license_issue_date'];
+            if (isset($validated['license_issued_by'])) $data['license_issued_by'] = $validated['license_issued_by'];
+            if (isset($validated['birth_date'])) $data['birth_date'] = $validated['birth_date'];
+            if (isset($validated['birth_place'])) $data['birth_place'] = $validated['birth_place'];
+            if (isset($validated['hire_date'])) $data['hire_date'] = $validated['hire_date'];
+            if (isset($validated['termination_date'])) $data['termination_date'] = $validated['termination_date'];
+            if (isset($validated['employee_id'])) $data['employee_id'] = $validated['employee_id'];
+            if (isset($validated['status'])) $data['status'] = $validated['status'];
+
+            \Log::info('DriverController::store - Dati da inserire', ['data' => $data]);
+
+            $driver = Driver::create($data);
+            
+            \Log::info('DriverController::store - Autista creato con successo', ['driver_id' => $driver->id]);
         
         // Aggiungiamo i campi in italiano
         $driver->nome = $driver->name;
@@ -188,6 +200,22 @@ class DriverController extends Controller
         $driver->note = $driver->notes;
         
         return response()->json($driver, 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('DriverController::store - Errore di validazione', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all(),
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            \Log::error('DriverController::store - Errore generico', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all(),
+            ]);
+            return response()->json([
+                'error' => 'Errore nella creazione dell\'autista: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
