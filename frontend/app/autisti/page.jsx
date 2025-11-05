@@ -64,6 +64,7 @@ export default function AutistiPage() {
       { value: 'DE', label: 'DE' }
     ]},
     { key: 'citta', label: 'Città', type: cityOptions.length > 0 ? 'select' : 'text', options: cityOptions, placeholder: 'Cerca per città' },
+    { key: 'provincia', label: 'Provincia', type: provinceOptions.length > 0 ? 'select' : 'text', options: provinceOptions, placeholder: 'Cerca per provincia' },
   ];
 
   // Sincronizzazione autisti
