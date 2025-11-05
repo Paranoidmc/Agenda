@@ -4,8 +4,14 @@ import dynamic from 'next/dynamic';
 import api from '../../lib/api';
 import { FiMapPin, FiRefreshCw } from 'react-icons/fi';
 
-// Carica VehicleMap solo lato client (usa Leaflet)
-const VehicleMap = dynamic(() => import('./VehicleMap'), { ssr: false });
+// Carica VehicleMap solo lato client (usa Leaflet) con gestione errori
+const VehicleMap = dynamic(() => import('./VehicleMap'), { 
+  ssr: false,
+  loading: () => <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6' }}>Caricamento mappa...</div>,
+  onError: (error) => {
+    console.error('Errore caricamento VehicleMap:', error);
+  }
+});
 
 export default function VehicleMomapMap({ vehicleId, imei }) {
   const [vehiclePosition, setVehiclePosition] = useState(null);
@@ -195,10 +201,12 @@ export default function VehicleMomapMap({ vehicleId, imei }) {
           overflow: 'hidden',
           border: '1px solid #e5e7eb'
         }}>
-          <VehicleMap
-            vehicles={[vehiclePosition]}
-            height="400px"
-          />
+          {typeof window !== 'undefined' && (
+            <VehicleMap
+              vehicles={[vehiclePosition]}
+              height="400px"
+            />
+          )}
           {lastUpdate && (
             <div style={{
               marginTop: 12,
