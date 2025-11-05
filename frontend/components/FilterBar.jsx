@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { FiFilter, FiX } from "react-icons/fi";
 
 export default function FilterBar({ filters: filterConfig, onFilterChange, onClearFilters }) {
   const [showFilters, setShowFilters] = useState(false);
@@ -52,7 +51,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
           onMouseEnter={(e) => e.target.style.background = '#e5e5ea'}
           onMouseLeave={(e) => e.target.style.background = '#f5f5f7'}
         >
-          <FiFilter />
+          <span>🔍</span>
           Filtri {activeFiltersCount > 0 && <span style={{ background: 'var(--primary)', color: '#fff', borderRadius: 12, padding: '2px 8px', fontSize: 12 }}>{activeFiltersCount}</span>}
         </button>
         
@@ -72,7 +71,7 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
               gap: 8
             }}
           >
-            <FiX /> Cancella Filtri
+            <span>✕</span> Cancella Filtri
           </button>
         )}
       </div>
