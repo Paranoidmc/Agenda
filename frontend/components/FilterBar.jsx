@@ -18,8 +18,6 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
       localStorage.setItem('filterBarOpen', showFilters.toString());
     }
   }, [showFilters]);
-  const [localFilters, setLocalFilters] = useState({});
-  const debounceTimerRef = useRef(null);
 
   // Debounce per i campi di testo - aggiorna solo dopo che l'utente smette di digitare
   const handleFilterChange = (key, value, isTextInput = false) => {
