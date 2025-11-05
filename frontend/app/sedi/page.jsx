@@ -24,10 +24,36 @@ export default function SediPage() {
   const [filters, setFilters] = useState({});
 
   // Configurazione filtri per sedi
+  const [provinceOptions, setProvinceOptions] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+
+  // Carica valori unici per dropdown
+  useEffect(() => {
+    if (!loading && user) {
+      // Carica province
+      api.get('/sites/filter-values', { params: { field: 'provincia' } })
+        .then(res => {
+          if (res.data?.data) {
+            setProvinceOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento province:', err));
+      
+      // Carica città
+      api.get('/sites/filter-values', { params: { field: 'citta' } })
+        .then(res => {
+          if (res.data?.data) {
+            setCityOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento città:', err));
+    }
+  }, [user, loading]);
+
   const filterConfig = [
     { key: 'nome', label: 'Nome', type: 'text', placeholder: 'Cerca per nome' },
-    { key: 'citta', label: 'Città', type: 'text', placeholder: 'Cerca per città' },
-    { key: 'provincia', label: 'Provincia', type: 'text', placeholder: 'Cerca per provincia' },
+    { key: 'citta', label: 'Città', type: cityOptions.length > 0 ? 'select' : 'text', options: cityOptions, placeholder: 'Cerca per città' },
+    { key: 'provincia', label: 'Provincia', type: provinceOptions.length > 0 ? 'select' : 'text', options: provinceOptions, placeholder: 'Cerca per provincia' },
     { key: 'cap', label: 'CAP', type: 'text', placeholder: 'Cerca per CAP' },
     { key: 'indirizzo', label: 'Indirizzo', type: 'text', placeholder: 'Cerca per indirizzo' },
     { key: 'client_id', label: 'Cliente', type: 'select', options: Array.isArray(clienti) ? clienti.map(c => ({ value: c.id, label: c.nome || c.name })) : [] },
@@ -301,6 +327,7 @@ export default function SediPage() {
       {/* Filtri avanzati */}
       <FilterBar 
         filters={filterConfig}
+        currentFilters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
       />

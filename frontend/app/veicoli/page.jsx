@@ -23,12 +23,49 @@ export default function VeicoliPage() {
 
   const canEdit = user?.role === 'admin';
 
+  // Stato per valori dropdown
+  const [brandOptions, setBrandOptions] = useState([]);
+  const [modelOptions, setModelOptions] = useState([]);
+  const [yearOptions, setYearOptions] = useState([]);
+
+  // Carica valori unici per dropdown
+  useEffect(() => {
+    if (!loading && user) {
+      // Carica marche
+      api.get('/vehicles/filter-values', { params: { field: 'brand' } })
+        .then(res => {
+          if (res.data?.data) {
+            setBrandOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento marche:', err));
+      
+      // Carica modelli
+      api.get('/vehicles/filter-values', { params: { field: 'model' } })
+        .then(res => {
+          if (res.data?.data) {
+            setModelOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento modelli:', err));
+      
+      // Carica anni
+      api.get('/vehicles/filter-values', { params: { field: 'year' } })
+        .then(res => {
+          if (res.data?.data) {
+            setYearOptions(res.data.data.sort((a, b) => b - a).map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento anni:', err));
+    }
+  }, [user, loading]);
+
   // Configurazione filtri per veicoli
   const filterConfig = [
     { key: 'plate', label: 'Targa', type: 'text', placeholder: 'Cerca per targa' },
-    { key: 'brand', label: 'Marca', type: 'text', placeholder: 'Cerca per marca' },
-    { key: 'model', label: 'Modello', type: 'text', placeholder: 'Cerca per modello' },
-    { key: 'year', label: 'Anno', type: 'text', placeholder: 'Cerca per anno' },
+    { key: 'brand', label: 'Marca', type: brandOptions.length > 0 ? 'select' : 'text', options: brandOptions, placeholder: 'Cerca per marca' },
+    { key: 'model', label: 'Modello', type: modelOptions.length > 0 ? 'select' : 'text', options: modelOptions, placeholder: 'Cerca per modello' },
+    { key: 'year', label: 'Anno', type: yearOptions.length > 0 ? 'select' : 'text', options: yearOptions, placeholder: 'Cerca per anno' },
     { key: 'type', label: 'Tipo Veicolo', type: 'select', options: [
       { value: 'Auto', label: 'Auto' },
       { value: 'Furgone', label: 'Furgone' },
@@ -288,6 +325,7 @@ export default function VeicoliPage() {
     {/* Filtri avanzati */}
     <FilterBar 
       filters={filterConfig}
+      currentFilters={filters}
       onFilterChange={handleFilterChange}
       onClearFilters={handleClearFilters}
     />

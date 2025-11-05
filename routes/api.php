@@ -162,6 +162,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/clients/new/activities', [ActivityController::class, 'getClientActivitiesNew']);
     Route::get('/sites/new', [SiteController::class, 'showNew']);
     
+    // Route per ottenere valori unici per filtri dropdown
+    Route::get('/clients/filter-values', [ClientController::class, 'getFilterValues']);
+    Route::get('/drivers/filter-values', [DriverController::class, 'getFilterValues']);
+    Route::get('/sites/filter-values', [SiteController::class, 'getFilterValues']);
+    Route::get('/vehicles/filter-values', [VehicleController::class, 'getFilterValues']);
+    
     Route::apiResource('drivers', DriverController::class);
     Route::post('/drivers/sync', [DriverController::class, 'sync']);
     Route::apiResource('clients', ClientController::class);

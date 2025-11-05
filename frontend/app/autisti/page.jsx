@@ -22,6 +22,33 @@ export default function AutistiPage() {
 
   const canEdit = user?.role === "admin";
 
+  // Stato per valori dropdown
+  const [provinceOptions, setProvinceOptions] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+
+  // Carica valori unici per dropdown
+  useEffect(() => {
+    if (!loading && user) {
+      // Carica province
+      api.get('/drivers/filter-values', { params: { field: 'provincia' } })
+        .then(res => {
+          if (res.data?.data) {
+            setProvinceOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento province:', err));
+      
+      // Carica città
+      api.get('/drivers/filter-values', { params: { field: 'citta' } })
+        .then(res => {
+          if (res.data?.data) {
+            setCityOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento città:', err));
+    }
+  }, [user, loading]);
+
   // Configurazione filtri per autisti
   const filterConfig = [
     { key: 'nome', label: 'Nome', type: 'text', placeholder: 'Cerca per nome' },
@@ -36,7 +63,7 @@ export default function AutistiPage() {
       { value: 'CE', label: 'CE' },
       { value: 'DE', label: 'DE' }
     ]},
-    { key: 'citta', label: 'Città', type: 'text', placeholder: 'Cerca per città' },
+    { key: 'citta', label: 'Città', type: cityOptions.length > 0 ? 'select' : 'text', options: cityOptions, placeholder: 'Cerca per città' },
   ];
 
   // Sincronizzazione autisti
@@ -225,6 +252,7 @@ export default function AutistiPage() {
       {/* Filtri avanzati */}
       <FilterBar 
         filters={filterConfig}
+        currentFilters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
       />

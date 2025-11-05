@@ -11,6 +11,40 @@ class ClientController extends Controller
     use AuthorizesRequests;
 
     /**
+     * Get unique values for filter dropdowns
+     */
+    public function getFilterValues(Request $request)
+    {
+        $field = $request->input('field');
+        
+        if (!$field) {
+            return response()->json(['error' => 'Field parameter required'], 400);
+        }
+        
+        $fieldMap = [
+            'provincia' => 'province',
+            'citta' => 'city',
+        ];
+        
+        $dbField = $fieldMap[$field] ?? $field;
+        
+        if (!in_array($dbField, ['province', 'city'])) {
+            return response()->json(['error' => 'Invalid field'], 400);
+        }
+        
+        $values = Client::select($dbField)
+            ->whereNotNull($dbField)
+            ->where($dbField, '!=', '')
+            ->distinct()
+            ->orderBy($dbField)
+            ->pluck($dbField)
+            ->filter()
+            ->values();
+        
+        return response()->json(['data' => $values]);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)

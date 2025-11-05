@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 
-export default function FilterBar({ filters: filterConfig, onFilterChange, onClearFilters }) {
+export default function FilterBar({ filters: filterConfig, currentFilters = {}, onFilterChange, onClearFilters }) {
   // Mantieni lo stato dei filtri aperti usando localStorage per persistenza tra re-render
   const [showFilters, setShowFilters] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -9,8 +9,35 @@ export default function FilterBar({ filters: filterConfig, onFilterChange, onCle
     }
     return false;
   });
-  const [localFilters, setLocalFilters] = useState({});
+  const [localFilters, setLocalFilters] = useState(currentFilters || {});
   const debounceTimerRef = useRef(null);
+
+  // Sincronizza localFilters con currentFilters quando cambiano dall'esterno
+  useEffect(() => {
+    // Se currentFilters è stato resettato esplicitamente (oggetto vuoto), resetta anche localFilters
+    if (currentFilters && Object.keys(currentFilters).length === 0 && Object.keys(localFilters).length > 0) {
+      // Controlla se è un reset esplicito controllando se i filtri attivi erano diversi
+      const hasActiveFilters = Object.values(localFilters).some(v => v !== undefined && v !== '' && v !== null);
+      if (hasActiveFilters) {
+        // È un reset esplicito, svuota localFilters
+        setLocalFilters({});
+      }
+    } else if (currentFilters && Object.keys(currentFilters).length > 0) {
+      // Aggiorna localFilters con i valori da currentFilters
+      setLocalFilters(prev => {
+        // Merge intelligente: mantieni i valori di currentFilters ma preserva anche quelli che non sono ancora stati applicati
+        const merged = { ...prev };
+        Object.entries(currentFilters).forEach(([key, value]) => {
+          if (value !== undefined && value !== '' && value !== null) {
+            merged[key] = value;
+          } else {
+            delete merged[key];
+          }
+        });
+        return merged;
+      });
+    }
+  }, [currentFilters]);
 
   // Salva lo stato aperto/chiuso in localStorage
   useEffect(() => {

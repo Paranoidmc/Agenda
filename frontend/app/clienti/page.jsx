@@ -22,11 +22,38 @@ export default function ClientiPage() {
 
   const canEdit = user?.role === 'admin';
 
+  // Stato per valori dropdown
+  const [provinceOptions, setProvinceOptions] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+
+  // Carica valori unici per dropdown
+  useEffect(() => {
+    if (!loading && user) {
+      // Carica province
+      api.get('/clients/filter-values', { params: { field: 'provincia' } })
+        .then(res => {
+          if (res.data?.data) {
+            setProvinceOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento province:', err));
+      
+      // Carica città
+      api.get('/clients/filter-values', { params: { field: 'citta' } })
+        .then(res => {
+          if (res.data?.data) {
+            setCityOptions(res.data.data.map(v => ({ value: v, label: v })));
+          }
+        })
+        .catch(err => console.error('Errore caricamento città:', err));
+    }
+  }, [user, loading]);
+
   // Configurazione filtri per clienti
   const filterConfig = [
     { key: 'nome', label: 'Nome', type: 'text', placeholder: 'Cerca per nome' },
-    { key: 'citta', label: 'Città', type: 'text', placeholder: 'Cerca per città' },
-    { key: 'provincia', label: 'Provincia', type: 'text', placeholder: 'Cerca per provincia' },
+    { key: 'citta', label: 'Città', type: cityOptions.length > 0 ? 'select' : 'text', options: cityOptions, placeholder: 'Cerca per città' },
+    { key: 'provincia', label: 'Provincia', type: provinceOptions.length > 0 ? 'select' : 'text', options: provinceOptions, placeholder: 'Cerca per provincia' },
     { key: 'partita_iva', label: 'Partita IVA', type: 'text', placeholder: 'Cerca per P. IVA' },
     { key: 'codice_fiscale', label: 'Codice Fiscale', type: 'text', placeholder: 'Cerca per codice fiscale' },
     { key: 'codice_arca', label: 'Codice ARCA', type: 'text', placeholder: 'Cerca per codice Arca' },
@@ -226,6 +253,7 @@ export default function ClientiPage() {
       {/* Filtri avanzati */}
       <FilterBar 
         filters={filterConfig}
+        currentFilters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
       />
