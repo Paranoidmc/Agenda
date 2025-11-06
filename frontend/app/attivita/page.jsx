@@ -64,6 +64,8 @@ function AttivitaContent() {
   
   // Ref per tracciare gli stati precedenti delle attività per rilevare cambiamenti
   const previousActivityStates = useRef(new Map());
+  // Ref per tracciare i timestamp dell'ultimo aggiornamento delle attività
+  const previousActivityTimestamps = useRef(new Map());
   
   // Stato per documenti suggeriti
   const [suggestedDocuments, setSuggestedDocuments] = useState([]);
@@ -228,15 +230,27 @@ function AttivitaContent() {
         if (!activity.id) return;
         
         const prevState = previousActivityStates.current.get(activity.id);
+        const prevTimestamp = previousActivityTimestamps.current.get(activity.id);
         const rawState = activity.status || activity.stato || 'non assegnato';
         const currentState = normalizeStatus(rawState);
+        
+        // Ottieni il timestamp dell'attività (updated_at o completed_at se completata)
+        const activityTimestamp = activity.updated_at || activity.completed_at || activity.created_at;
+        const activityDate = activityTimestamp ? new Date(activityTimestamp).getTime() : Date.now();
+        const now = Date.now();
+        const timeSinceUpdate = now - activityDate;
+        const recentlyUpdated = timeSinceUpdate < 60000; // Modificata negli ultimi 60 secondi
         
         console.log(`[ATTIVITA PAGE] Attività ${activity.id}:`, {
           prevState,
           rawState,
           currentState,
           hasPrevState: !!prevState,
-          statesDiffer: prevState !== currentState
+          statesDiffer: prevState !== currentState,
+          activityTimestamp,
+          prevTimestamp,
+          recentlyUpdated,
+          timeSinceUpdate: Math.round(timeSinceUpdate / 1000) + 's'
         });
         
         // Se c'è uno stato precedente e è diverso da quello corrente
@@ -262,10 +276,31 @@ function AttivitaContent() {
             console.log(`[ATTIVITA PAGE] ✅ Mostrando notifica completamento attività: ${activityDesc}`);
             showSuccessToast(`✅ Attività completata: ${activityDesc}`);
           }
+        } 
+        // Se lo stato è uguale ma l'attività è stata modificata di recente e lo stato è "in corso" o "completato"
+        // e non abbiamo ancora tracciato questo timestamp, mostra la notifica
+        else if (prevState === currentState && recentlyUpdated && prevTimestamp !== activityTimestamp) {
+          const normalizedCurrent = String(currentState).toLowerCase();
+          
+          // Notifica avvio attività se è stata modificata di recente e lo stato è "in corso"
+          if (normalizedCurrent === 'in corso' && prevState !== 'in corso') {
+            const activityDesc = activity.descrizione || `Attività #${activity.id}`;
+            console.log(`[ATTIVITA PAGE] 🚀 Mostrando notifica avvio attività (modifica recente): ${activityDesc}`);
+            showInfoToast(`🚀 Attività avviata: ${activityDesc}`);
+          }
+          
+          // Notifica completamento attività se è stata modificata di recente e lo stato è "completato"
+          if (normalizedCurrent === 'completato' && prevState !== 'completato') {
+            const activityDesc = activity.descrizione || `Attività #${activity.id}`;
+            console.log(`[ATTIVITA PAGE] ✅ Mostrando notifica completamento attività (modifica recente): ${activityDesc}`);
+            showSuccessToast(`✅ Attività completata: ${activityDesc}`);
+          }
         }
         
         // Aggiorna lo stato tracciato (normalizzato) - SEMPRE, anche se non c'è prevState
         previousActivityStates.current.set(activity.id, currentState);
+        // Aggiorna anche il timestamp tracciato
+        previousActivityTimestamps.current.set(activity.id, activityTimestamp);
       });
       
       setAttivita(activitiesData);
