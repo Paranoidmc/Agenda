@@ -21,8 +21,8 @@ export default function Header() {
       boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
       position: 'relative',
       zIndex: 20,
-      height: '70px',
-      maxHeight: '70px'
+      height: '90px',
+      maxHeight: '90px'
     }}>
       <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
         <CGFLogo size="large" showTagline={false} showText={false} />

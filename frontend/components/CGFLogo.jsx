@@ -10,7 +10,7 @@ export default function CGFLogo({ size = 'medium', showTagline = false, showText
   const sizes = {
     small: { logoSize: 40, fontSize: 18, taglineSize: 10 },
     medium: { logoSize: 50, fontSize: 24, taglineSize: 11 },
-    large: { logoSize: 80, fontSize: 32, taglineSize: 13 },
+    large: { logoSize: 120, fontSize: 32, taglineSize: 13 },
     xlarge: { logoSize: 160, fontSize: 48, taglineSize: 15 },
     xxlarge: { logoSize: 200, fontSize: 56, taglineSize: 16 }
   };
@@ -101,10 +101,12 @@ export default function CGFLogo({ size = 'medium', showTagline = false, showText
             src={logoSrc}
             alt="CGF Srl Logo"
             style={{
-              width: '100%',
-              height: '100%',
+              width: logoSize,
+              height: logoSize,
               objectFit: 'contain',
-              display: 'block'
+              display: 'block',
+              maxWidth: 'none',
+              maxHeight: 'none'
             }}
             onError={(e) => {
               console.error('Errore caricamento logo:', e.target.src);
