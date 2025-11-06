@@ -122,7 +122,7 @@ export default function LoginPage() {
         gap: 32,
         marginBottom: 32
       }}>
-        <CGFLogo size="xxlarge" showTagline={false} showText={false} />
+        <CGFLogo size="xlarge" showTagline={false} showText={false} />
       </div>
       <form className="card" onSubmit={handleSubmit} style={{ minWidth: 320, maxWidth: 360 }}>
         <h2 style={{ textAlign: 'center', fontWeight: 600, marginBottom: 24 }}>Accedi</h2>
