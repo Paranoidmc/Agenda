@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense, useRef } from "react";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import ResourcePairing from "../../components/ResourcePairing";
@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AddFacilityPopup from "../../components/AddFacilityPopup";
 import dynamic from 'next/dynamic';
 import { useVehicleTracking } from "../../hooks/useVehicleTracking";
+import { showSuccessToast, showInfoToast } from "../../lib/toast";
 import "../../styles/map.css";
 
 // CSS per l'animazione del loading spinner
@@ -60,6 +61,9 @@ function AttivitaContent() {
   const [perPage, setPerPage] = useState(25);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
+  
+  // Ref per tracciare gli stati precedenti delle attività per rilevare cambiamenti
+  const previousActivityStates = useRef(new Map());
   
   // Stato per documenti suggeriti
   const [suggestedDocuments, setSuggestedDocuments] = useState([]);
@@ -186,19 +190,53 @@ function AttivitaContent() {
         fullResponse: data
       });
       
+      let activitiesData = [];
       if (Array.isArray(data)) {
         console.log('✅ [ATTIVITA PAGE] Dati come array, count:', data.length);
-        setAttivita(data);
+        activitiesData = data;
         setTotal(data.length);
       } else if (data && Array.isArray(data.data)) {
         console.log('✅ [ATTIVITA PAGE] Dati in data.data, count:', data.data.length, 'total:', data.total);
-        setAttivita(data.data);
+        activitiesData = data.data;
         setTotal(data.total || data.data.length);
       } else {
         console.warn('⚠️ [ATTIVITA PAGE] Formato dati non riconosciuto, imposto array vuoto');
-        setAttivita([]);
+        activitiesData = [];
         setTotal(0);
       }
+      
+      // Controlla cambiamenti di stato e mostra notifiche
+      activitiesData.forEach(activity => {
+        if (!activity.id) return;
+        
+        const prevState = previousActivityStates.current.get(activity.id);
+        const currentState = activity.status || activity.stato || 'non assegnato';
+        
+        // Se c'è uno stato precedente e è diverso da quello corrente
+        if (prevState && prevState !== currentState) {
+          const normalizedCurrent = String(currentState).toLowerCase();
+          const normalizedPrev = String(prevState).toLowerCase();
+          
+          // Notifica avvio attività (passaggio a "in corso" o "in_progress")
+          if ((normalizedCurrent === 'in corso' || normalizedCurrent === 'in_progress') && 
+              normalizedPrev !== 'in corso' && normalizedPrev !== 'in_progress') {
+            const activityDesc = activity.descrizione || `Attività #${activity.id}`;
+            showInfoToast(`🚀 Attività avviata: ${activityDesc}`);
+          }
+          
+          // Notifica completamento attività
+          if ((normalizedCurrent === 'completato' || normalizedCurrent === 'completed') && 
+              normalizedPrev !== 'completato' && normalizedPrev !== 'completed') {
+            const activityDesc = activity.descrizione || `Attività #${activity.id}`;
+            showSuccessToast(`✅ Attività completata: ${activityDesc}`);
+          }
+        }
+        
+        // Aggiorna lo stato tracciato
+        previousActivityStates.current.set(activity.id, currentState);
+      });
+      
+      setAttivita(activitiesData);
     } catch (e) {
       console.error('❌ [ATTIVITA PAGE] Errore caricamento:', e);
       setError("Errore nel caricamento delle attività: " + (e?.message || e));
