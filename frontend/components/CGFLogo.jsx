@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 export default function CGFLogo({ size = 'medium', showTagline = false, showText = false }) {
   const [logoSrc, setLogoSrc] = useState('/img/cgf-logo.png');
   const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   
   const sizes = {
     small: { logoSize: 40, fontSize: 18, taglineSize: 10 },
@@ -14,27 +16,56 @@ export default function CGFLogo({ size = 'medium', showTagline = false, showText
   
   const { logoSize, fontSize, taglineSize } = sizes[size] || sizes.medium;
   
+  // Gestione mount per SSR
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Prova diversi percorsi per il logo
   useEffect(() => {
+    if (!mounted || typeof window === 'undefined') {
+      return;
+    }
+
+    let isMounted = true;
     const testImage = new Image();
+    
     testImage.onload = () => {
-      setHasError(false);
+      if (isMounted) {
+        setHasError(false);
+        setIsLoading(false);
+      }
     };
+    
     testImage.onerror = () => {
       // Prova percorso alternativo
       const altSrc = '/cgf-logo.png';
       const testAlt = new Image();
+      
       testAlt.onload = () => {
-        setLogoSrc(altSrc);
-        setHasError(false);
+        if (isMounted) {
+          setLogoSrc(altSrc);
+          setHasError(false);
+          setIsLoading(false);
+        }
       };
+      
       testAlt.onerror = () => {
-        setHasError(true);
+        if (isMounted) {
+          setHasError(true);
+          setIsLoading(false);
+        }
       };
+      
       testAlt.src = altSrc;
     };
+    
     testImage.src = logoSrc;
-  }, [logoSrc]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [logoSrc, mounted]);
   
   // Se siamo in SSR o ancora caricando, mostra un placeholder
   if (!mounted || typeof window === 'undefined' || isLoading) {
