@@ -1028,14 +1028,22 @@ export default function AttivitaDetailPage() {
             }
           }
         }
-        // Naviga alla pagina dettaglio della nuova attività
-        router.push(`/attivita/${createdActivityId}`);
-        
-        // Emetti evento per notificare altre pagine
+        // Emetti evento PRIMA della navigazione per assicurarsi che venga catturato
         const activityEvent = new CustomEvent('activityCreated', {
-          detail: { activity_id: createdActivityId, type: 'create' }
+          detail: { activity_id: createdActivityId, type: 'create', activity: response.data }
         });
         window.dispatchEvent(activityEvent);
+        
+        // Emetti anche un evento generico per compatibilità
+        const genericEvent = new CustomEvent('activitySaved', {
+          detail: { activity_id: createdActivityId, type: 'create', activity: response.data }
+        });
+        window.dispatchEvent(genericEvent);
+        
+        // Naviga alla pagina dettaglio della nuova attività dopo un piccolo delay
+        setTimeout(() => {
+          router.push(`/attivita/${createdActivityId}`);
+        }, 100);
       } else {
         response = await api.put(`/activities/${attivitaId}`, dataToSend);
         // Auto-allega eventuali documenti pre-selezionati anche in update
