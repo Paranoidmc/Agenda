@@ -25,6 +25,9 @@ export default function DeadlineNotifications() {
         
         const startDate = today.toISOString().split('T')[0];
         const endDate = sevenDaysLater.toISOString().split('T')[0];
+        
+        // Mantieni riferimento a today per il calcolo dei giorni
+        const todayForCalculation = new Date(today);
 
         const response = await api.get('/vehicle-deadlines/all', {
           params: {
