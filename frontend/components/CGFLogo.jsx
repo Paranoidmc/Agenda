@@ -103,7 +103,7 @@ export default function CGFLogo({ size = 'medium', showTagline = false, showText
             style={{
               width: logoSize,
               height: logoSize,
-              objectFit: 'contain',
+              objectFit: 'cover',
               display: 'block',
               maxWidth: 'none',
               maxHeight: 'none'
