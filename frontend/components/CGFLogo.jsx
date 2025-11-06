@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 
-export default function CGFLogo({ size = 'medium', showTagline = true, showText = true }) {
+export default function CGFLogo({ size = 'medium', showTagline = false, showText = false }) {
   const [logoSrc, setLogoSrc] = useState('/img/cgf-logo.png');
   const [hasError, setHasError] = useState(false);
   
