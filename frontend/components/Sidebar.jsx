@@ -93,9 +93,9 @@ export default function Sidebar() {
     }}>
       {/* Logo in alto */}
       <div style={{
-        padding: '0.25em 0.5em',
+        padding: '0.1em 0.5em',
         borderBottom: '1px solid #e5e5ea',
-        marginBottom: '0.25em',
+        marginBottom: '0.1em',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center'

@@ -19,13 +19,9 @@ export default function Header() {
       alignItems: 'center',
       justifyContent: 'flex-end',
       boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
-      position: 'fixed',
-      top: 0,
-      left: '220px',
-      right: 0,
-      zIndex: 20,
       height: '60px',
-      maxHeight: '60px'
+      maxHeight: '60px',
+      marginLeft: '220px'
     }}>
       <div>
         {showLogout && (
