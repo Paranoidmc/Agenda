@@ -84,7 +84,8 @@ class DriverActivityController extends Controller
                         'data_fine' => $activity->data_fine,
                         'data_consegna' => $activity->created_at->format('Y-m-d'),
                         'ddt_url' => null, // TODO: implementare gestione DDT
-                        'stato' => $activity->status ?? 'planned',
+                        'stato' => $this->normalizeStatus($activity->status ?? 'planned'),
+                        'status' => $this->normalizeStatus($activity->status ?? 'planned'),
                         'autista' => $driver->name . ' ' . $driver->surname,
                         'veicolo' => $this->getVehicleFromResources($activity),
                         'veicolo_dettagli' => $this->getVehicleDetailsFromResources($activity),
