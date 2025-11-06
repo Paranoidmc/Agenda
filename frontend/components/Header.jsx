@@ -21,11 +21,11 @@ export default function Header() {
       boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
       position: 'relative',
       zIndex: 20,
-      height: '60px',
-      maxHeight: '60px'
+      height: '70px',
+      maxHeight: '70px'
     }}>
       <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-        <CGFLogo size="medium" showTagline={false} showText={false} />
+        <CGFLogo size="large" showTagline={false} showText={false} />
       </Link>
       <div>
         {showLogout && (
