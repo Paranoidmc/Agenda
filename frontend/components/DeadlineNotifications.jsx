@@ -68,10 +68,11 @@ export default function DeadlineNotifications() {
           upcomingDeadlines.forEach((deadline, index) => {
             setTimeout(() => {
               const deadlineDate = new Date(deadline.expiry_date || deadline.data_scadenza);
+              deadlineDate.setHours(0, 0, 0, 0); // Imposta le ore a 0 per confronto corretto
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               const diffTime = deadlineDate - today;
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Usa Math.floor invece di Math.ceil
               
               const vehicleName = deadline.vehicle?.targa || deadline.vehicle?.plate || 
                                  deadline.targa || `Veicolo ${deadline.vehicle_id || 'N/D'}`;
