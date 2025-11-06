@@ -262,8 +262,8 @@ export default function AutistiPage() {
         data={autisti}
         columns={[
           { key: "codice_arca", label: "Codice Arca" },
-          { key: "nome", label: "Nome" },
-          { key: "cognome", label: "Cognome" },
+          { key: "nome", label: "Cognome" },
+          { key: "cognome", label: "Nome" },
           { key: "telefono", label: "Telefono" },
           { key: "email", label: "Email" },
           { key: "patente", label: "Patente" },
