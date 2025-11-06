@@ -283,14 +283,16 @@ function AttivitaContent() {
           const normalizedCurrent = String(currentState).toLowerCase();
           
           // Notifica avvio attività se è stata modificata di recente e lo stato è "in corso"
-          if (normalizedCurrent === 'in corso' && prevState !== 'in corso') {
+          // (anche se lo stato era già "in corso", significa che è stata appena avviata/modificata)
+          if (normalizedCurrent === 'in corso') {
             const activityDesc = activity.descrizione || `Attività #${activity.id}`;
             console.log(`[ATTIVITA PAGE] 🚀 Mostrando notifica avvio attività (modifica recente): ${activityDesc}`);
             showInfoToast(`🚀 Attività avviata: ${activityDesc}`);
           }
           
           // Notifica completamento attività se è stata modificata di recente e lo stato è "completato"
-          if (normalizedCurrent === 'completato' && prevState !== 'completato') {
+          // (anche se lo stato era già "completato", significa che è stata appena completata/modificata)
+          if (normalizedCurrent === 'completato') {
             const activityDesc = activity.descrizione || `Attività #${activity.id}`;
             console.log(`[ATTIVITA PAGE] ✅ Mostrando notifica completamento attività (modifica recente): ${activityDesc}`);
             showSuccessToast(`✅ Attività completata: ${activityDesc}`);
