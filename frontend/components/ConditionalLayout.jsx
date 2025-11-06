@@ -42,7 +42,7 @@ export default function ConditionalLayout({ children }) {
     <>
       <Sidebar protectedPaths={protectedPaths} />
       <Header />
-      <main style={{ flex: 1, marginLeft: '240px', padding: '1em 2em' }}>{children}</main>
+      <main style={{ flex: 1, marginLeft: '260px', padding: '1em 2em' }}>{children}</main>
     </>
   );
 }
