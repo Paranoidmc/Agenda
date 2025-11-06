@@ -80,7 +80,7 @@ export default function Sidebar() {
       minWidth: 220,
       background: '#fff',
       borderRight: '1px solid #e5e5ea',
-      padding: '1em 0.5em',
+      padding: '0.5em 0.5em',
       height: '100vh',
       position: 'fixed',
       top: 0,
@@ -88,14 +88,14 @@ export default function Sidebar() {
       zIndex: 10,
       display: 'flex',
       flexDirection: 'column',
-      gap: 8,
+      gap: 4,
       overflowY: 'auto'
     }}>
       {/* Logo in alto */}
       <div style={{
-        padding: '1em',
+        padding: '0.5em',
         borderBottom: '1px solid #e5e5ea',
-        marginBottom: '1em',
+        marginBottom: '0.5em',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center'

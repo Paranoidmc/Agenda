@@ -10,9 +10,9 @@ export default function CGFLogo({ size = 'medium', showTagline = false, showText
   const sizes = {
     small: { logoSize: 40, fontSize: 18, taglineSize: 10 },
     medium: { logoSize: 50, fontSize: 24, taglineSize: 11 },
-    large: { logoSize: 140, fontSize: 32, taglineSize: 13 },
+    large: { logoSize: 180, fontSize: 32, taglineSize: 13 },
     xlarge: { logoSize: 180, fontSize: 48, taglineSize: 15 },
-    xxlarge: { logoSize: 300, fontSize: 56, taglineSize: 16 }
+    xxlarge: { logoSize: 400, fontSize: 56, taglineSize: 16 }
   };
   
   const { logoSize, fontSize, taglineSize } = sizes[size] || sizes.medium;
