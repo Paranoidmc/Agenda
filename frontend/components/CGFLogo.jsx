@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 
-export default function CGFLogo({ size = 'medium', showTagline = true }) {
+export default function CGFLogo({ size = 'medium', showTagline = true, showText = true }) {
   const [logoSrc, setLogoSrc] = useState('/img/cgf-logo.png');
   const [hasError, setHasError] = useState(false);
   
@@ -71,57 +71,59 @@ export default function CGFLogo({ size = 'medium', showTagline = true }) {
         </div>
       )}
       
-      {/* Separatore verticale */}
-      {!hasError && (
-        <div style={{
-          width: 1,
-          height: logoSize * 0.7,
-          background: '#888',
-          flexShrink: 0
-        }} />
-      )}
-      
-      {/* Testo */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: 6
-        }}>
-          <span style={{
-            fontSize: fontSize,
-            fontWeight: 700,
-            color: '#66CC00',
-            letterSpacing: 1
-          }}>
-            CGF
-          </span>
-          <span style={{
-            fontSize: fontSize * 0.6,
-            fontWeight: 400,
-            color: '#66CC00',
-            marginLeft: 2
-          }}>
-            srl
-          </span>
-        </div>
-        {showTagline && (
+      {/* Separatore verticale e testo - mostrati solo se showText è true */}
+      {showText && !hasError && (
+        <>
           <div style={{
-            fontSize: taglineSize,
-            fontWeight: 400,
-            color: '#66CC00',
-            letterSpacing: 0.5,
-            textTransform: 'uppercase',
-            marginTop: 2
+            width: 1,
+            height: logoSize * 0.7,
+            background: '#888',
+            flexShrink: 0
+          }} />
+          
+          {/* Testo */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2
           }}>
-            SERVIZI PER L'EDILIZIA E PER L'AMBIENTE
+            <div style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 6
+            }}>
+              <span style={{
+                fontSize: fontSize,
+                fontWeight: 700,
+                color: '#66CC00',
+                letterSpacing: 1
+              }}>
+                CGF
+              </span>
+              <span style={{
+                fontSize: fontSize * 0.6,
+                fontWeight: 400,
+                color: '#66CC00',
+                marginLeft: 2
+              }}>
+                srl
+              </span>
+            </div>
+            {showTagline && (
+              <div style={{
+                fontSize: taglineSize,
+                fontWeight: 400,
+                color: '#66CC00',
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+                marginTop: 2
+              }}>
+                SERVIZI PER L'EDILIZIA E PER L'AMBIENTE
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
