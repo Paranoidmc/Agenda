@@ -283,19 +283,44 @@ class DriverActivityController extends Controller
     }
 
     /**
+     * Normalizza lo stato dell'attività da inglese a italiano
+     */
+    private function normalizeStatus($status): string
+    {
+        if (!$status) {
+            return 'non assegnato';
+        }
+        
+        $statusMap = [
+            'planned' => 'programmato',
+            'in_progress' => 'in corso',
+            'in progress' => 'in corso',
+            'completed' => 'completato',
+            'cancelled' => 'annullato',
+            'doc_issued' => 'doc emesso',
+            'doc issued' => 'doc emesso',
+            'assigned' => 'assegnato',
+            'not assigned' => 'non assegnato',
+        ];
+        
+        $normalized = strtolower(trim($status));
+        return $statusMap[$normalized] ?? $status;
+    }
+    
+    /**
      * Calcola lo stato dell'attività
      */
     private function calculateStatus($activity): string
     {
         if ($activity->data_fine) {
-            return 'completed';
+            return 'completato';
         }
         
         if ($activity->data_inizio) {
-            return 'in_progress';
+            return 'in corso';
         }
         
-        return 'planned';
+        return 'programmato';
     }
 
     /**
