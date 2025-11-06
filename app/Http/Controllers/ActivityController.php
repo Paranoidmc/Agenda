@@ -143,8 +143,31 @@ class ActivityController extends Controller
             ]);
         }
 
+        // Funzione per normalizzare lo stato
+        $normalizeStatus = function($status) {
+            if (!$status) return 'non assegnato';
+            $statusMap = [
+                'planned' => 'programmato',
+                'in_progress' => 'in corso',
+                'in progress' => 'in corso',
+                'completed' => 'completato',
+                'cancelled' => 'annullato',
+                'doc_issued' => 'doc emesso',
+                'doc issued' => 'doc emesso',
+                'assigned' => 'assegnato',
+                'not assigned' => 'non assegnato',
+            ];
+            $normalized = strtolower(trim($status));
+            return $statusMap[$normalized] ?? $status;
+        };
+        
         // Aggiungiamo i campi in italiano per ogni attività
-        $activities->getCollection()->transform(function ($activity) {
+        $activities->getCollection()->transform(function ($activity) use ($normalizeStatus) {
+            // Normalizza lo stato prima di tutto
+            $normalizedStatus = $normalizeStatus($activity->status);
+            $activity->status = $normalizedStatus;
+            $activity->stato = $normalizedStatus;
+            
             // Serializza data_inizio e data_fine
             if ($activity->data_inizio) {
                 $activity->data_inizio = $activity->data_inizio instanceof \Carbon\Carbon
@@ -497,8 +520,31 @@ class ActivityController extends Controller
      */
     private function formatActivitiesResponse($activities)
     {
+        // Funzione per normalizzare lo stato
+        $normalizeStatus = function($status) {
+            if (!$status) return 'non assegnato';
+            $statusMap = [
+                'planned' => 'programmato',
+                'in_progress' => 'in corso',
+                'in progress' => 'in corso',
+                'completed' => 'completato',
+                'cancelled' => 'annullato',
+                'doc_issued' => 'doc emesso',
+                'doc issued' => 'doc emesso',
+                'assigned' => 'assegnato',
+                'not assigned' => 'non assegnato',
+            ];
+            $normalized = strtolower(trim($status));
+            return $statusMap[$normalized] ?? $status;
+        };
+        
         // Aggiungiamo i campi in italiano per ogni attività
-        $activities = $activities->map(function ($activity) {
+        $activities = $activities->map(function ($activity) use ($normalizeStatus) {
+            // Normalizza lo stato prima di tutto
+            $normalizedStatus = $normalizeStatus($activity->status);
+            $activity->status = $normalizedStatus;
+            $activity->stato = $normalizedStatus;
+            
             // Aggiungiamo i campi in italiano
             $activity->titolo = $activity->title ?? '';
             $activity->descrizione = $activity->description ?? '';
@@ -513,7 +559,6 @@ class ActivityController extends Controller
             } else {
                 $activity->data_fine = $activity->data_fine ? (string) $activity->data_fine : '';
             }
-            $activity->stato = $activity->status;
             $activity->note = $activity->notes;
             
             // Aggiungiamo i campi in italiano per il cliente
