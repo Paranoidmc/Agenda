@@ -23,7 +23,7 @@ export default function Header() {
       zIndex: 20
     }}>
       <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-        <CGFLogo size="xlarge" showTagline={false} showText={false} />
+        <CGFLogo size="medium" showTagline={false} showText={false} />
       </Link>
       <div>
         {showLogout && (
