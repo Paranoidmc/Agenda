@@ -76,9 +76,24 @@ export default function DashboardPage() {
     // Carica i dati
     loadData();
     
+    // Listener per eventi attività per aggiornamenti automatici
+    const handleActivityEvent = (event) => {
+      console.log('[DASHBOARD] Ricevuto evento attività:', event.type, event.detail);
+      // Ricarica i dati quando vengono create, modificate o eliminate attività
+      setTimeout(() => {
+        loadData();
+      }, 500);
+    };
+    
+    window.addEventListener('activityCreated', handleActivityEvent);
+    window.addEventListener('activityUpdated', handleActivityEvent);
+    window.addEventListener('activitySaved', handleActivityEvent);
+    window.addEventListener('activityDeleted', handleActivityEvent);
+    window.addEventListener('activityCompleted', handleActivityEvent);
+    
     // Polling periodico per rilevare cambiamenti di stato attività (ogni 30 secondi)
     const pollingInterval = setInterval(() => {
-      if (!loading && user) {
+      if (!loading && user && !fetching) {
         loadData();
       }
     }, 30000); // 30 secondi
@@ -86,9 +101,14 @@ export default function DashboardPage() {
     console.groupEnd();
     
     return () => {
+      window.removeEventListener('activityCreated', handleActivityEvent);
+      window.removeEventListener('activityUpdated', handleActivityEvent);
+      window.removeEventListener('activitySaved', handleActivityEvent);
+      window.removeEventListener('activityDeleted', handleActivityEvent);
+      window.removeEventListener('activityCompleted', handleActivityEvent);
       clearInterval(pollingInterval);
     };
-  }, [user, loading, router]);
+  }, [user, loading, router, fetching]);
   
   const handleDateChange = (dates) => {
     const [start, end] = dates;

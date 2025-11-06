@@ -1054,16 +1054,16 @@ export default function AttivitaDetailPage() {
         
         // Emetti evento per notificare altre pagine
         const activityEvent = new CustomEvent('activityUpdated', {
-          detail: { activity_id: attivitaId, type: 'update' }
+          detail: { activity_id: attivitaId, type: 'update', activity: response.data }
         });
         window.dispatchEvent(activityEvent);
+        
+        // Emetti anche un evento generico per compatibilità
+        const genericEvent = new CustomEvent('activitySaved', {
+          detail: { activity_id: attivitaId, type: 'update', activity: response.data }
+        });
+        window.dispatchEvent(genericEvent);
       }
-      
-      // Emetti anche un evento generico per compatibilità
-      const genericEvent = new CustomEvent('activitySaved', {
-        detail: { activity_id: isNew ? createdActivityId : attivitaId, type: isNew ? 'create' : 'update', activity: response.data }
-      });
-      window.dispatchEvent(genericEvent);
       
       // Se l'attività è stata completata, mostra una notifica toast
       const activityStatus = dataToSend.status || dataToSend.stato || attivita?.status || attivita?.stato;

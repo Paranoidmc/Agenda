@@ -262,7 +262,10 @@ function AttivitaContent() {
     const handleActivityEvent = (event) => {
       console.log('🔄 Ricevuto evento attività:', event.type, event.detail);
       // Ricarica le attività quando vengono create, modificate o eliminate
-      load({ page: currentPage, take: perPage });
+      // Piccolo delay per assicurarsi che il server abbia processato la richiesta
+      setTimeout(() => {
+        load({ page: currentPage, take: perPage });
+      }, 500);
     };
 
     // Listener per sincronizzazione documenti, clienti, autisti, sedi
@@ -276,6 +279,14 @@ function AttivitaContent() {
     window.addEventListener('activityUpdated', handleActivityEvent);
     window.addEventListener('activitySaved', handleActivityEvent);
     window.addEventListener('activityDeleted', handleActivityEvent);
+    window.addEventListener('activityCompleted', handleActivityEvent);
+
+    // Polling periodico per aggiornamenti automatici (ogni 30 secondi)
+    const pollingInterval = setInterval(() => {
+      if (!loading && user && !fetching) {
+        load({ page: currentPage, take: perPage });
+      }
+    }, 30000); // 30 secondi
 
     return () => {
       window.removeEventListener('documentsSync', handleSyncEvent);
@@ -286,8 +297,10 @@ function AttivitaContent() {
       window.removeEventListener('activityUpdated', handleActivityEvent);
       window.removeEventListener('activitySaved', handleActivityEvent);
       window.removeEventListener('activityDeleted', handleActivityEvent);
+      window.removeEventListener('activityCompleted', handleActivityEvent);
+      clearInterval(pollingInterval);
     };
-  }, [currentPage, perPage]);
+  }, [currentPage, perPage, loading, user, fetching]);
 
   const handleRowClick = (item) => {
     if (item?.id) router.push(`/attivita/${item.id}`);
