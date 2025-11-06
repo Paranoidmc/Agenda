@@ -279,7 +279,8 @@ function AttivitaContent() {
         } 
         // Se lo stato è uguale ma l'attività è stata modificata di recente e lo stato è "in corso" o "completato"
         // e non abbiamo ancora tracciato questo timestamp, mostra la notifica
-        else if (prevState === currentState && recentlyUpdated && prevTimestamp !== activityTimestamp) {
+        // IMPORTANTE: controlla che ci sia già un timestamp tracciato per evitare notifiche al primo caricamento
+        else if (prevState === currentState && recentlyUpdated && prevTimestamp && prevTimestamp !== activityTimestamp) {
           const normalizedCurrent = String(currentState).toLowerCase();
           
           // Notifica avvio attività se è stata modificata di recente e lo stato è "in corso"
