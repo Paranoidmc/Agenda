@@ -19,7 +19,8 @@ export default function DeadlineNotifications() {
     const checkDeadlines = async () => {
       try {
         const today = new Date();
-        const sevenDaysLater = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sevenDaysLater = new Date(today);
         sevenDaysLater.setDate(today.getDate() + 7);
         
         const startDate = today.toISOString().split('T')[0];
@@ -36,6 +37,7 @@ export default function DeadlineNotifications() {
         const allDeadlines = response.data || [];
         
         // Filtra solo le scadenze non pagate nei prossimi 7 giorni
+        const todayStr = today.toISOString().split('T')[0];
         const upcomingDeadlines = allDeadlines.filter(deadline => {
           if (deadline.pagato === 1 || deadline.pagato === true) return false;
           
@@ -43,7 +45,6 @@ export default function DeadlineNotifications() {
           if (!deadlineDate) return false;
           
           const deadlineDateStr = deadlineDate.substring(0, 10);
-          const todayStr = today.toISOString().split('T')[0];
           
           return deadlineDateStr >= todayStr && deadlineDateStr <= endDate;
         });
