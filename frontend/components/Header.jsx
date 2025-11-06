@@ -21,7 +21,8 @@ export default function Header() {
       boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
       height: '60px',
       maxHeight: '60px',
-      marginLeft: '260px'
+      marginLeft: '220px',
+      width: 'calc(100% - 220px)'
     }}>
       <div>
         {showLogout && (

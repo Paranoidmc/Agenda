@@ -37,12 +37,12 @@ export default function ConditionalLayout({ children }) {
     return <>{children}</>;
   }
   
-  // Pagine normali: sidebar sopra e header sotto
+  // Pagine normali: sidebar sopra e header sotto che continua per tutta la larghezza
   return (
     <>
       <Sidebar protectedPaths={protectedPaths} />
       <Header />
-      <main style={{ flex: 1, marginLeft: '260px', padding: '1em 2em' }}>{children}</main>
+      <main style={{ flex: 1, marginLeft: '220px', padding: '1em 2em' }}>{children}</main>
     </>
   );
 }
