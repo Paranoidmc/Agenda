@@ -271,25 +271,40 @@ export default function DashboardPage() {
           const rawState = activity.status || activity.stato || 'non assegnato';
           const currentState = normalizeStatus(rawState);
           
+          console.log(`[DASHBOARD] Attività ${activity.id}:`, {
+            prevState,
+            rawState,
+            currentState,
+            hasPrevState: !!prevState,
+            statesDiffer: prevState !== currentState
+          });
+          
           // Se c'è uno stato precedente e è diverso da quello corrente
           if (prevState && prevState !== currentState) {
             const normalizedCurrent = String(currentState).toLowerCase();
             const normalizedPrev = String(prevState).toLowerCase();
             
+            console.log(`[DASHBOARD] Rilevato cambiamento stato per attività ${activity.id}:`, {
+              from: normalizedPrev,
+              to: normalizedCurrent
+            });
+            
             // Notifica avvio attività (passaggio a "in corso")
             if (normalizedCurrent === 'in corso' && normalizedPrev !== 'in corso') {
               const activityDesc = activity.descrizione || `Attività #${activity.id}`;
+              console.log(`[DASHBOARD] 🚀 Mostrando notifica avvio attività: ${activityDesc}`);
               showInfoToast(`🚀 Attività avviata: ${activityDesc}`);
             }
             
             // Notifica completamento attività
             if (normalizedCurrent === 'completato' && normalizedPrev !== 'completato') {
               const activityDesc = activity.descrizione || `Attività #${activity.id}`;
+              console.log(`[DASHBOARD] ✅ Mostrando notifica completamento attività: ${activityDesc}`);
               showSuccessToast(`✅ Attività completata: ${activityDesc}`);
             }
           }
           
-          // Aggiorna lo stato tracciato (normalizzato)
+          // Aggiorna lo stato tracciato (normalizzato) - SEMPRE, anche se non c'è prevState
           previousActivityStates.current.set(activity.id, currentState);
         });
         
