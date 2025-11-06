@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 
@@ -18,6 +19,17 @@ const protectedPaths = [
 
 export default function ConditionalLayout({ children }) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // Durante SSR, mostra sempre il layout completo per evitare errori
+  if (!mounted) {
+    return <>{children}</>;
+  }
+  
   const isLoginPage = pathname === '/login';
   
   if (isLoginPage) {

@@ -36,6 +36,17 @@ export default function CGFLogo({ size = 'medium', showTagline = false, showText
     testImage.src = logoSrc;
   }, [logoSrc]);
   
+  // Se siamo in SSR o ancora caricando, mostra un placeholder
+  if (!mounted || typeof window === 'undefined' || isLoading) {
+    return (
+      <div style={{
+        width: logoSize,
+        height: logoSize,
+        flexShrink: 0
+      }} />
+    );
+  }
+
   return (
     <div style={{
       display: 'flex',
