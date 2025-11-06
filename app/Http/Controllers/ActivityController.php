@@ -257,6 +257,11 @@ class ActivityController extends Controller
             } elseif (!isset($activity->stato) && isset($activity->status)) {
                 $activity->stato = $activity->status;
             }
+            
+            // Normalizza lo stato se necessario
+            $normalizedStatus = $normalizeStatus($activity->status);
+            $activity->status = $normalizedStatus;
+            $activity->stato = $normalizedStatus;
 
             return $activity;
         });
