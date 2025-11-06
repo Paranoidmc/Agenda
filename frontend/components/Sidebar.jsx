@@ -80,7 +80,7 @@ export default function Sidebar() {
       minWidth: 220,
       background: '#fff',
       borderRight: '1px solid #e5e5ea',
-      padding: '0.5em 0.5em',
+      padding: '0.25em 0.5em',
       height: '100vh',
       position: 'fixed',
       top: 0,
@@ -93,9 +93,9 @@ export default function Sidebar() {
     }}>
       {/* Logo in alto */}
       <div style={{
-        padding: '0.5em',
+        padding: '0.25em 0.5em',
         borderBottom: '1px solid #e5e5ea',
-        marginBottom: '0.5em',
+        marginBottom: '0.25em',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center'
