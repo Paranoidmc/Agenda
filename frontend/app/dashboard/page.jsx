@@ -108,7 +108,7 @@ export default function DashboardPage() {
       window.removeEventListener('activityCompleted', handleActivityEvent);
       clearInterval(pollingInterval);
     };
-  }, [user, loading, router, fetching]);
+  }, [user, loading, router]);
   
   const handleDateChange = (dates) => {
     const [start, end] = dates;

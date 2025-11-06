@@ -205,34 +205,51 @@ function AttivitaContent() {
         setTotal(0);
       }
       
+      // Funzione per normalizzare lo stato
+      const normalizeStatus = (status) => {
+        if (!status) return 'non assegnato';
+        const statusMap = {
+          'planned': 'programmato',
+          'in_progress': 'in corso',
+          'in progress': 'in corso',
+          'completed': 'completato',
+          'cancelled': 'annullato',
+          'doc_issued': 'doc emesso',
+          'doc issued': 'doc emesso',
+          'assigned': 'assegnato',
+          'not assigned': 'non assegnato',
+        };
+        const normalized = String(status).toLowerCase().trim();
+        return statusMap[normalized] || normalized;
+      };
+      
       // Controlla cambiamenti di stato e mostra notifiche
       activitiesData.forEach(activity => {
         if (!activity.id) return;
         
         const prevState = previousActivityStates.current.get(activity.id);
-        const currentState = activity.status || activity.stato || 'non assegnato';
+        const rawState = activity.status || activity.stato || 'non assegnato';
+        const currentState = normalizeStatus(rawState);
         
         // Se c'è uno stato precedente e è diverso da quello corrente
         if (prevState && prevState !== currentState) {
           const normalizedCurrent = String(currentState).toLowerCase();
           const normalizedPrev = String(prevState).toLowerCase();
           
-          // Notifica avvio attività (passaggio a "in corso" o "in_progress")
-          if ((normalizedCurrent === 'in corso' || normalizedCurrent === 'in_progress') && 
-              normalizedPrev !== 'in corso' && normalizedPrev !== 'in_progress') {
+          // Notifica avvio attività (passaggio a "in corso")
+          if (normalizedCurrent === 'in corso' && normalizedPrev !== 'in corso') {
             const activityDesc = activity.descrizione || `Attività #${activity.id}`;
             showInfoToast(`🚀 Attività avviata: ${activityDesc}`);
           }
           
           // Notifica completamento attività
-          if ((normalizedCurrent === 'completato' || normalizedCurrent === 'completed') && 
-              normalizedPrev !== 'completato' && normalizedPrev !== 'completed') {
+          if (normalizedCurrent === 'completato' && normalizedPrev !== 'completato') {
             const activityDesc = activity.descrizione || `Attività #${activity.id}`;
             showSuccessToast(`✅ Attività completata: ${activityDesc}`);
           }
         }
         
-        // Aggiorna lo stato tracciato
+        // Aggiorna lo stato tracciato (normalizzato)
         previousActivityStates.current.set(activity.id, currentState);
       });
       

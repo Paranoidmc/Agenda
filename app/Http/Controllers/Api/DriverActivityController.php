@@ -211,7 +211,7 @@ class DriverActivityController extends Controller
             // Aggiorna data inizio e stato
             $activity->update([
                 'data_inizio' => $request->started_at ?? now(),
-                'status' => 'in_progress'
+                'status' => 'in corso' // Usa lo stato italiano invece di 'in_progress'
             ]);
             
             return response()->json([
@@ -220,7 +220,8 @@ class DriverActivityController extends Controller
                 'activity' => [
                     'id' => $activity->id,
                     'data_inizio' => $activity->data_inizio,
-                    'stato' => $activity->status
+                    'status' => 'in corso',
+                    'stato' => 'in corso'
                 ]
             ]);
         } catch (\Exception $e) {
@@ -258,7 +259,7 @@ class DriverActivityController extends Controller
             // Aggiorna data fine e stato
             $activity->update([
                 'data_fine' => $request->ended_at ?? now(),
-                'status' => 'completed',
+                'status' => 'completato', // Usa lo stato italiano invece di 'completed'
                 'completed_at' => now()
             ]);
             
@@ -268,7 +269,8 @@ class DriverActivityController extends Controller
                 'activity' => [
                     'id' => $activity->id,
                     'data_fine' => $activity->data_fine,
-                    'stato' => $activity->status
+                    'status' => 'completato',
+                    'stato' => 'completato'
                 ]
             ]);
         } catch (\Exception $e) {
