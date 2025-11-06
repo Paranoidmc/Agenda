@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
+import CGFLogo from "./CGFLogo";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -79,7 +80,7 @@ export default function Sidebar() {
       minWidth: 220,
       background: '#fff',
       borderRight: '1px solid #e5e5ea',
-      padding: '2em 0.5em',
+      padding: '1em 0.5em',
       height: '100vh',
       position: 'fixed',
       top: 0,
@@ -88,9 +89,22 @@ export default function Sidebar() {
       display: 'flex',
       flexDirection: 'column',
       gap: 8,
-      overflowY: 'auto',
-      paddingTop: '80px' // Aggiunto padding-top per spostare il menu più in basso
+      overflowY: 'auto'
     }}>
+      {/* Logo in alto */}
+      <div style={{
+        padding: '1em',
+        borderBottom: '1px solid #e5e5ea',
+        marginBottom: '1em',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+          <CGFLogo size="large" showTagline={false} showText={false} />
+        </Link>
+      </div>
+      
       {/* NavItems principali */}
       {navItems.map((item, index) => {
         // Nasconde 'Anagrafiche' per gli utenti non-admin

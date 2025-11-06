@@ -37,14 +37,12 @@ export default function ConditionalLayout({ children }) {
     return <>{children}</>;
   }
   
-  // Pagine normali: header e sidebar
+  // Pagine normali: sidebar sopra e header sotto
   return (
     <>
+      <Sidebar protectedPaths={protectedPaths} />
       <Header />
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <Sidebar protectedPaths={protectedPaths} />
-        <main style={{ flex: 1, marginLeft: 220 }}>{children}</main>
-      </div>
+      <main style={{ flex: 1, marginLeft: 220, marginTop: 60 }}>{children}</main>
     </>
   );
 }

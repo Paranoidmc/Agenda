@@ -17,17 +17,16 @@ export default function Header() {
       padding: '0.5em 2em',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
       boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
-      position: 'relative',
+      position: 'fixed',
+      top: 0,
+      left: '220px',
+      right: 0,
       zIndex: 20,
-      height: '80px',
-      maxHeight: '80px',
-      marginLeft: '220px'
+      height: '60px',
+      maxHeight: '60px'
     }}>
-      <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-        <CGFLogo size="large" showTagline={false} showText={false} />
-      </Link>
       <div>
         {showLogout && (
           <button 
