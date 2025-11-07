@@ -192,9 +192,9 @@ class ArcaSyncDocumenti extends Command
                 continue;
             }
             
-            // Trova associazioni
-            $clientRow = DB::table('clients')->where('codice_arca', $doc['codiceCliente'] ?? '')->first();
-            $siteRow = DB::table('sites')->where('codice_arca', $doc['codiceDestinazione'] ?? '')->first();
+            // Assicurati che cliente e destinazione esistano
+            $clientRow = $this->ensureClientFromDocument($doc);
+            $siteRow = $this->ensureSiteFromDocument($doc, $clientRow);
             $driverRow = DB::table('drivers')->where('codice_arca', $doc['agente1'] ?? '')->first();
             
             // Verifica se il documento esiste già
@@ -304,5 +304,159 @@ class ArcaSyncDocumenti extends Command
             'documenti' => $documentiSincronizzati,
             'righe' => $righeSincronizzate
         ];
+    }
+
+    private function ensureClientFromDocument(array $doc)
+    {
+        $codiceCliente = $this->extractValue($doc, ['codiceCliente', 'clienteCodice', 'clientCode']);
+        if (!$codiceCliente) {
+            return null;
+        }
+
+        $codiceCliente = trim((string)$codiceCliente);
+        if ($codiceCliente === '') {
+            return null;
+        }
+
+        $existing = DB::table('clients')->where('codice_arca', $codiceCliente)->first();
+
+        $name = $this->extractValue($doc, [
+            'nomeCliente', 'clienteNome', 'descrizioneCliente', 'ragioneSocialeCliente', 'clienteDescrizione', 'cliente'
+        ]) ?? ('Cliente ' . $codiceCliente);
+
+        $data = [
+            'name' => $name,
+            'address' => $this->extractValue($doc, ['indirizzoCliente', 'clienteIndirizzo', 'addressCliente']),
+            'city' => $this->extractValue($doc, ['localitaCliente', 'clienteLocalita', 'clienteCitta', 'cittaCliente']),
+            'postal_code' => $this->extractValue($doc, ['capCliente', 'clienteCap']),
+            'province' => $this->extractValue($doc, ['provinciaCliente', 'clienteProvincia']),
+            'vat_number' => $this->extractValue($doc, ['partitaIvaCliente', 'pivaCliente', 'vatCliente']),
+            'fiscal_code' => $this->extractValue($doc, ['cfCliente', 'clienteCf', 'fiscalCodeCliente']),
+            'updated_at' => now(),
+        ];
+
+        if ($existing) {
+            DB::table('clients')->where('id', $existing->id)->update(array_filter($data, fn($value) => $value !== null));
+            return DB::table('clients')->where('id', $existing->id)->first();
+        }
+
+        $data['codice_arca'] = $codiceCliente;
+        $data['created_at'] = now();
+
+        $clientId = DB::table('clients')->insertGetId(array_filter($data, fn($value) => $value !== null));
+        Log::info('ArcaSyncDocumenti: creato cliente da documento', [
+            'codice_arca' => $codiceCliente,
+            'client_id' => $clientId,
+            'name' => $name
+        ]);
+
+        return DB::table('clients')->where('id', $clientId)->first();
+    }
+
+    private function ensureSiteFromDocument(array $doc, $clientRow = null)
+    {
+        $codiceDestinazione = $this->extractValue($doc, ['codiceDestinazione', 'destinazioneCodice', 'codiceDest']);
+
+        // Estraggo comunque i dati di indirizzo
+        $name = $this->extractValue($doc, [
+            'nomeDestinazione', 'destinazioneNome', 'destinazione', 'nomeSede', 'descrizioneDestinazione', 'ragioneSocialeDestinazione'
+        ]);
+        $address = $this->extractValue($doc, ['indirizzoDestinazione', 'destinazioneIndirizzo', 'indirizzo']);
+        $city = $this->extractValue($doc, ['localitaDestinazione', 'destinazioneLocalita', 'cittaDestinazione']);
+        $postalCode = $this->extractValue($doc, ['capDestinazione', 'destinazioneCap']);
+        $province = $this->extractValue($doc, ['provinciaDestinazione', 'destinazioneProvincia']);
+
+        if (!$clientRow) {
+            $clientRow = $this->ensureClientFromDocument($doc);
+        }
+
+        if (!$clientRow) {
+            return null;
+        }
+
+        $data = [
+            'name' => $name ?? ('Destinazione ' . ($codiceDestinazione ?: 'Senza Codice')),
+            'address' => $address,
+            'city' => $city,
+            'postal_code' => $postalCode,
+            'province' => $province,
+            'client_id' => $clientRow->id,
+            'status' => 'active',
+            'updated_at' => now()
+        ];
+
+        // Se abbiamo un codice destinazione valido, usiamo il flusso classico
+        if ($codiceDestinazione && trim($codiceDestinazione) !== '') {
+            $codiceDestinazione = trim((string)$codiceDestinazione);
+            $existing = DB::table('sites')->where('codice_arca', $codiceDestinazione)->first();
+
+            if ($existing) {
+                DB::table('sites')->where('id', $existing->id)->update(array_filter($data, fn($value) => $value !== null));
+                return DB::table('sites')->where('id', $existing->id)->first();
+            }
+
+            $data['codice_arca'] = $codiceDestinazione;
+            $data['created_at'] = now();
+
+            $siteId = DB::table('sites')->insertGetId(array_filter($data, fn($value) => $value !== null));
+            Log::info('ArcaSyncDocumenti: creata destinazione da documento', [
+                'codice_arca' => $codiceDestinazione,
+                'site_id' => $siteId,
+                'client_id' => $clientRow->id,
+                'name' => $data['name']
+            ]);
+
+            return DB::table('sites')->where('id', $siteId)->first();
+        }
+
+        // Fallback: nessun codice, ma se abbiamo almeno indirizzo o nome creiamo una destinazione "auto"
+        $hasLocationData = $address || $city || $name;
+        if (!$hasLocationData) {
+            return null; // Non abbiamo abbastanza informazioni per creare una sede
+        }
+
+        $normalizedKey = mb_strtolower(trim(($address ?? '') . '|' . ($city ?? '') . '|' . ($postalCode ?? '') . '|' . $clientRow->id));
+
+        $existing = DB::table('sites')
+            ->where('client_id', $clientRow->id)
+            ->whereRaw('LOWER(COALESCE(address, "")) = ?', [mb_strtolower($address ?? '')])
+            ->whereRaw('LOWER(COALESCE(city, "")) = ?', [mb_strtolower($city ?? '')])
+            ->whereRaw('COALESCE(postal_code, "") = ?', [$postalCode ?? ''])
+            ->first();
+
+        if ($existing) {
+            DB::table('sites')->where('id', $existing->id)->update(array_filter($data, fn($value) => $value !== null));
+            return DB::table('sites')->where('id', $existing->id)->first();
+        }
+
+        $generatedCode = 'AUTO-' . strtoupper(substr(hash('sha256', $normalizedKey ?: uniqid()), 0, 12));
+        $data['codice_arca'] = $generatedCode;
+        $data['created_at'] = now();
+
+        $siteId = DB::table('sites')->insertGetId(array_filter($data, fn($value) => $value !== null));
+        Log::info('ArcaSyncDocumenti: creata destinazione da documento (fallback senza codice)', [
+            'codice_generato' => $generatedCode,
+            'site_id' => $siteId,
+            'client_id' => $clientRow->id,
+            'name' => $data['name'],
+            'address' => $address,
+            'city' => $city,
+            'postal_code' => $postalCode
+        ]);
+
+        return DB::table('sites')->where('id', $siteId)->first();
+    }
+
+    private function extractValue(array $doc, array $keys)
+    {
+        foreach ($keys as $key) {
+            if (isset($doc[$key]) && $doc[$key] !== null && $doc[$key] !== '') {
+                $value = trim((string)$doc[$key]);
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+        }
+        return null;
     }
 }
