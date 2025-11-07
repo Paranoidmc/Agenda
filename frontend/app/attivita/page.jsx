@@ -328,17 +328,18 @@ function AttivitaContent() {
   useEffect(() => {
     const handleSyncEvent = (event) => {
       console.log('🔄 Ricevuto evento sincronizzazione in attività:', event.detail);
-      // Ricarica le attività
-      load({ page: currentPage, take: perPage });
+      if (!loading && !fetching) {
+        load({ page: currentPage, take: perPage });
+      }
     };
 
     const handleActivityEvent = (event) => {
       console.log('🔄 Ricevuto evento attività:', event.type, event.detail);
-      // Ricarica le attività quando vengono create, modificate o eliminate
-      // Piccolo delay per assicurarsi che il server abbia processato la richiesta
-      setTimeout(() => {
-        load({ page: currentPage, take: perPage });
-      }, 500);
+      if (!loading && !fetching) {
+        setTimeout(() => {
+          load({ page: currentPage, take: perPage });
+        }, 500);
+      }
     };
 
     // Listener per sincronizzazione documenti, clienti, autisti, sedi
@@ -365,7 +366,7 @@ function AttivitaContent() {
       window.removeEventListener('activityDeleted', handleActivityEvent);
       window.removeEventListener('activityCompleted', handleActivityEvent);
     };
-  }, [currentPage, perPage, loading, user]);
+  }, [currentPage, perPage, loading, user, fetching]);
 
   const handleRowClick = (item) => {
     if (item?.id) router.push(`/attivita/${item.id}`);
