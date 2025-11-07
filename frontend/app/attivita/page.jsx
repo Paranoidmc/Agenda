@@ -173,7 +173,19 @@ function AttivitaContent() {
   };
 
   const load = async (opts = {}) => {
-    const { searchTerm = "", page = currentPage, take = perPage } = opts;
+    const {
+      searchTerm = "",
+      page = currentPage,
+      take = perPage,
+      source = 'manual'
+    } = opts;
+
+    console.log(`[ATTIVITA PAGE] Avvio load (source=${source})`, {
+      searchTerm,
+      page,
+      take,
+      fetching
+    });
     setFetching(true);
     setError("");
     try {
@@ -327,7 +339,7 @@ function AttivitaContent() {
       return;
     }
 
-    load({ page: currentPage, take: perPage });
+    load({ page: currentPage, take: perPage, source: 'initial-effect' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, userId, currentPage, perPage]);
 
@@ -336,7 +348,7 @@ function AttivitaContent() {
     const handleSyncEvent = (event) => {
       console.log('🔄 Ricevuto evento sincronizzazione in attività:', event.detail);
       if (!loading && !fetching) {
-        load({ page: currentPage, take: perPage });
+        load({ page: currentPage, take: perPage, source: 'sync-event' });
       }
     };
 
@@ -344,7 +356,7 @@ function AttivitaContent() {
       console.log('🔄 Ricevuto evento attività:', event.type, event.detail);
       if (!loading && !fetching) {
         setTimeout(() => {
-          load({ page: currentPage, take: perPage });
+          load({ page: currentPage, take: perPage, source: `activity-event:${event.type}` });
         }, 500);
       }
     };
@@ -386,7 +398,7 @@ function AttivitaContent() {
   const handleSearchTermChange = (term) => {
     // Server-side search: riparte da pagina 1
     setCurrentPage(1);
-    load({ searchTerm: term, page: 1, take: perPage });
+    load({ searchTerm: term, page: 1, take: perPage, source: 'search-term' });
   };
 
   const formatDate = (dateString) => {
