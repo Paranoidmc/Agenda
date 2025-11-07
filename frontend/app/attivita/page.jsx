@@ -428,7 +428,7 @@ function AttivitaContent() {
     }
   };
 
-  if (loading || fetching) return <div className="centered">Caricamento...</div>;
+  if (loading || (fetching && attivita.length === 0)) return <div className="centered">Caricamento...</div>;
   if (error) return <div className="centered">{error}</div>;
 
   return (
