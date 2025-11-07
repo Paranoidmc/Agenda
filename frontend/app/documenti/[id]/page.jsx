@@ -237,47 +237,6 @@ export default function DocumentoDetailPage() {
         ]}
       />
 
-      {/* PULSANTE PDF DIRETTO PER TEST */}
-      <div style={{ 
-        marginTop: 20, 
-        padding: 15, 
-        background: '#ff0000', 
-        border: '5px solid #ff0000', 
-        borderRadius: 8,
-        textAlign: 'center',
-        position: 'relative',
-        zIndex: 9999
-      }}>
-        <button 
-          onClick={() => {
-            console.log('🚨 PULSANTE PDF CLICCATO!');
-            alert('PULSANTE PDF CLICCATO - Ora genero il PDF');
-            generaPDF(documento);
-          }}
-          disabled={isGeneratingPDF}
-          style={{
-            background: isGeneratingPDF ? '#94a3b8' : '#0ea5e9',
-            color: 'white',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: 6,
-            fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: isGeneratingPDF ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            margin: '0 auto'
-          }}
-        >
-          <FiDownload /> 
-          {isGeneratingPDF ? 'Generando PDF...' : 'GENERA PDF - TEST DIRETTO'}
-        </button>
-        <div style={{ marginTop: 8, fontSize: '14px', color: '#0369a1' }}>
-          🚀 Pulsante di test per verificare funzionalità PDF
-        </div>
-      </div>
-
       <div style={{ marginTop: 30 }}>
         {/* Sezione Informazioni Principali */}
         <div style={{ 
