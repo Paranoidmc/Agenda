@@ -214,6 +214,14 @@ class DriverActivityController extends Controller
                 'data_inizio' => $request->started_at ?? now(),
                 'status' => 'in corso' // Usa lo stato italiano invece di 'in_progress'
             ]);
+            $activity->refresh();
+
+            \Log::info('DriverActivityController: attività avviata', [
+                'activity_id' => $activity->id,
+                'status' => $activity->status,
+                'updated_at' => $activity->updated_at,
+                'driver_request' => $request->all()
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -222,7 +230,10 @@ class DriverActivityController extends Controller
                     'id' => $activity->id,
                     'data_inizio' => $activity->data_inizio,
                     'status' => 'in corso',
-                    'stato' => 'in corso'
+                    'stato' => 'in corso',
+                    'updated_at' => $activity->updated_at
+                        ? $activity->updated_at->copy()->setTimezone('Europe/Rome')->toIso8601String()
+                        : null
                 ]
             ]);
         } catch (\Exception $e) {
@@ -263,6 +274,15 @@ class DriverActivityController extends Controller
                 'status' => 'completato', // Usa lo stato italiano invece di 'completed'
                 'completed_at' => now()
             ]);
+            $activity->refresh();
+
+            \Log::info('DriverActivityController: attività completata', [
+                'activity_id' => $activity->id,
+                'status' => $activity->status,
+                'updated_at' => $activity->updated_at,
+                'completed_at' => $activity->completed_at,
+                'driver_request' => $request->all()
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -271,7 +291,13 @@ class DriverActivityController extends Controller
                     'id' => $activity->id,
                     'data_fine' => $activity->data_fine,
                     'status' => 'completato',
-                    'stato' => 'completato'
+                    'stato' => 'completato',
+                    'updated_at' => $activity->updated_at
+                        ? $activity->updated_at->copy()->setTimezone('Europe/Rome')->toIso8601String()
+                        : null,
+                    'completed_at' => $activity->completed_at
+                        ? $activity->completed_at->copy()->setTimezone('Europe/Rome')->toIso8601String()
+                        : null
                 ]
             ]);
         } catch (\Exception $e) {

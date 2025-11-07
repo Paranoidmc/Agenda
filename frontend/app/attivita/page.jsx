@@ -180,7 +180,10 @@ function AttivitaContent() {
       if (searchTerm && searchTerm.trim()) params.append("search", searchTerm.trim());
       const url = `/activities?${params.toString()}`;
       console.log('🔍 [ATTIVITA PAGE] Richiesta API:', url);
-      const { data } = await api.get(url);
+      const { data } = await api.get(url, {
+        useCache: false,
+        cacheTTL: 0
+      });
       console.log('📥 [ATTIVITA PAGE] Risposta API:', {
         isArray: Array.isArray(data),
         hasData: !!data?.data,

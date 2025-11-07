@@ -179,6 +179,15 @@ class ActivityController extends Controller
                     ? $activity->data_fine->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i')
                     : (string) $activity->data_fine;
             }
+            if ($activity->created_at instanceof \Carbon\Carbon) {
+                $activity->created_at = $activity->created_at->copy()->setTimezone('Europe/Rome')->toIso8601String();
+            }
+            if ($activity->updated_at instanceof \Carbon\Carbon) {
+                $activity->updated_at = $activity->updated_at->copy()->setTimezone('Europe/Rome')->toIso8601String();
+            }
+            if ($activity->completed_at instanceof \Carbon\Carbon) {
+                $activity->completed_at = $activity->completed_at->copy()->setTimezone('Europe/Rome')->toIso8601String();
+            }
 
             // Trasformazione dati cliente
             if ($activity->client) {
@@ -563,6 +572,15 @@ class ActivityController extends Controller
                 $activity->data_fine = $activity->data_fine->copy()->setTimezone('Europe/Rome')->format('Y-m-d\TH:i');
             } else {
                 $activity->data_fine = $activity->data_fine ? (string) $activity->data_fine : '';
+            }
+            if ($activity->created_at instanceof \Carbon\Carbon) {
+                $activity->created_at = $activity->created_at->copy()->setTimezone('Europe/Rome')->toIso8601String();
+            }
+            if ($activity->updated_at instanceof \Carbon\Carbon) {
+                $activity->updated_at = $activity->updated_at->copy()->setTimezone('Europe/Rome')->toIso8601String();
+            }
+            if ($activity->completed_at instanceof \Carbon\Carbon) {
+                $activity->completed_at = $activity->completed_at->copy()->setTimezone('Europe/Rome')->toIso8601String();
             }
             $activity->note = $activity->notes;
             

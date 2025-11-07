@@ -231,7 +231,9 @@ export default function DashboardPage() {
             perPage: 5,
             sort: 'data_inizio',
             order: 'desc'
-          }
+          },
+          useCache: false,
+          cacheTTL: 0
         });
         
         console.log("[DASHBOARD] Risposta attività:", {

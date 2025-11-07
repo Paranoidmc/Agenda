@@ -251,10 +251,12 @@ function PianificazioneInner() {
       params: {
         start_date: start,
         end_date: end,
-        per_page: 2000,
+        perPage: 2000,
         sort: 'data_inizio',
         order: 'asc',
-      }
+      },
+      useCache: false,
+      cacheTTL: 0
     })
       .then(res => {
         const list = Array.isArray(res.data.data) ? res.data.data : [];
