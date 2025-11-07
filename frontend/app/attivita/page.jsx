@@ -54,6 +54,7 @@ function AttivitaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
+  const userId = user?.id;
   const [attivita, setAttivita] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [total, setTotal] = useState(0);
@@ -319,10 +320,16 @@ function AttivitaContent() {
   };
 
   useEffect(() => {
-    if (!loading && user) load({ page: currentPage, take: perPage });
-    else if (!loading && !user) setFetching(false);
+    if (loading) return;
+
+    if (!userId) {
+      setFetching(false);
+      return;
+    }
+
+    load({ page: currentPage, take: perPage });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading, currentPage, perPage]);
+  }, [loading, userId, currentPage, perPage]);
 
   // Listener per eventi di sincronizzazione real-time
   useEffect(() => {
@@ -366,7 +373,7 @@ function AttivitaContent() {
       window.removeEventListener('activityDeleted', handleActivityEvent);
       window.removeEventListener('activityCompleted', handleActivityEvent);
     };
-  }, [currentPage, perPage, loading, user, fetching]);
+  }, [currentPage, perPage, loading, userId]);
 
   const handleRowClick = (item) => {
     if (item?.id) router.push(`/attivita/${item.id}`);
