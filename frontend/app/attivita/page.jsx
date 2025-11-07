@@ -354,13 +354,6 @@ function AttivitaContent() {
     window.addEventListener('activityDeleted', handleActivityEvent);
     window.addEventListener('activityCompleted', handleActivityEvent);
 
-    // Polling periodico per aggiornamenti automatici (ogni 30 secondi)
-    const pollingInterval = setInterval(() => {
-      if (!loading && user && !fetching) {
-        load({ page: currentPage, take: perPage });
-      }
-    }, 30000); // 30 secondi
-
     return () => {
       window.removeEventListener('documentsSync', handleSyncEvent);
       window.removeEventListener('clientsSync', handleSyncEvent);
@@ -371,9 +364,8 @@ function AttivitaContent() {
       window.removeEventListener('activitySaved', handleActivityEvent);
       window.removeEventListener('activityDeleted', handleActivityEvent);
       window.removeEventListener('activityCompleted', handleActivityEvent);
-      clearInterval(pollingInterval);
     };
-  }, [currentPage, perPage, loading, user, fetching]);
+  }, [currentPage, perPage, loading, user]);
 
   const handleRowClick = (item) => {
     if (item?.id) router.push(`/attivita/${item.id}`);
