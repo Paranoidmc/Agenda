@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 export default function DataTable({
   data = [],
@@ -55,16 +55,23 @@ export default function DataTable({
   // Per server-side, il reset è gestito dal componente padre tramite handleSearchChange
   // RIMOSSO: questo effect causava problemi di reset pagina anche in modalità server-side
   
+  // Mantiene stabile il riferimento al callback di ricerca
+  const onSearchTermChangeRef = useRef(onSearchTermChange);
+
+  useEffect(() => {
+    onSearchTermChangeRef.current = onSearchTermChange;
+  }, [onSearchTermChange]);
+
   // Debounce per la ricerca server-side
   useEffect(() => {
-    if (onSearchTermChange) {
+    if (onSearchTermChangeRef.current) {
       const timer = setTimeout(() => {
-        onSearchTermChange(internalSearchTerm);
+        onSearchTermChangeRef.current(internalSearchTerm);
       }, 500); // Aspetta 500ms dopo che l'utente smette di digitare
       
       return () => clearTimeout(timer);
     }
-  }, [internalSearchTerm, onSearchTermChange]);
+  }, [internalSearchTerm]);
   
   // Funzione per gestire la ricerca
   const handleSearch = (e) => {
