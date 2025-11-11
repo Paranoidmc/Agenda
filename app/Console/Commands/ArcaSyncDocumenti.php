@@ -320,12 +320,13 @@ class ArcaSyncDocumenti extends Command
 
         $existing = DB::table('clients')->where('codice_arca', $codiceCliente)->first();
 
-        $name = $this->extractValue($doc, [
+        $rawName = $this->extractValue($doc, [
             'nomeCliente', 'clienteNome', 'descrizioneCliente', 'ragioneSocialeCliente', 'clienteDescrizione', 'cliente'
-        ]) ?? ('Cliente ' . $codiceCliente);
+        ]);
+        $hasExplicitName = !empty($rawName);
+        $name = $hasExplicitName ? $rawName : ('Cliente ' . $codiceCliente);
 
         $data = [
-            'name' => $name,
             'address' => $this->extractValue($doc, ['indirizzoCliente', 'clienteIndirizzo', 'addressCliente']),
             'city' => $this->extractValue($doc, ['localitaCliente', 'clienteLocalita', 'clienteCitta', 'cittaCliente']),
             'postal_code' => $this->extractValue($doc, ['capCliente', 'clienteCap']),
@@ -336,14 +337,24 @@ class ArcaSyncDocumenti extends Command
         ];
 
         if ($existing) {
-            DB::table('clients')->where('id', $existing->id)->update(array_filter($data, fn($value) => $value !== null));
+            $updateData = array_filter($data, fn($value) => $value !== null);
+
+            if ($hasExplicitName) {
+                $updateData['name'] = $name;
+            }
+
+            if (!empty($updateData)) {
+                DB::table('clients')->where('id', $existing->id)->update($updateData);
+            }
             return DB::table('clients')->where('id', $existing->id)->first();
         }
 
-        $data['codice_arca'] = $codiceCliente;
-        $data['created_at'] = now();
+        $insertData = array_filter($data, fn($value) => $value !== null);
+        $insertData['codice_arca'] = $codiceCliente;
+        $insertData['created_at'] = now();
+        $insertData['name'] = $name;
 
-        $clientId = DB::table('clients')->insertGetId(array_filter($data, fn($value) => $value !== null));
+        $clientId = DB::table('clients')->insertGetId($insertData);
         Log::info('ArcaSyncDocumenti: creato cliente da documento', [
             'codice_arca' => $codiceCliente,
             'client_id' => $clientId,
