@@ -634,7 +634,7 @@ export default function AttivitaDetailPage() {
       const windowStart = centerDate ? new Date(centerDate.getTime() - wm * 60 * 1000) : toDate(`${dateOnly}T00:00:00`);
       const windowEnd = centerDate ? new Date(centerDate.getTime() + wm * 60 * 1000) : toDate(`${dateOnly}T03:00:00`);
 
-      // Filtra stati salvo toggle “includi tutti”
+      // Filtra stati salvo toggle "includi tutti"
       const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso']);
 
       const driversTmp = [];
@@ -1296,7 +1296,7 @@ export default function AttivitaDetailPage() {
                             </div>
                             <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
                               {(() => {
-                                const cliente = doc.nome_cliente || doc.client_name || doc.cliente?.name || doc.client?.name;
+                                const cliente = doc?.cliente?.name || doc.nome_cliente || doc.nomeCliente || doc.descrizioneCliente || doc.client_name;
                                 const sede = doc.nome_sede || doc.site_name || doc.sede?.name || doc.site?.name;
                                 if (cliente && sede) return `Cliente: ${cliente} • Sede: ${sede}`;
                                 if (cliente) return `Cliente: ${cliente}`;

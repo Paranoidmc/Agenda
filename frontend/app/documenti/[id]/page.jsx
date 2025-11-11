@@ -265,7 +265,7 @@ export default function DocumentoDetailPage() {
             <div>
               <h4 style={{ marginBottom: 10, color: '#374151' }}>Cliente e Destinazione</h4>
               <div style={{ display: 'grid', gap: 8 }}>
-                <div><strong>Cliente:</strong> {documento.nome_cliente || documento.codice_cliente || documento.nomeCliente || documento.codiceCliente || documento.cliente?.name || 'N/A'}</div>
+                <div><strong>Cliente:</strong> {documento?.cliente?.name || documento.nomeCliente || documento.nome_cliente || documento.descrizioneCliente || documento.descrizione_cliente || documento.client_name || documento.clientName || documento.nomeClienteDestinazione || documento.nome_destinazione || documento.codiceCliente || documento.codice_cliente || documento.codiceClienteDestinazione || documento.codice_cliente_destinazione || 'N/A'}</div>
                 <div>
                   <strong>Destinazione:</strong>
                   <div style={{ marginTop: 4, fontSize: '0.9em', color: '#6b7280' }}>
