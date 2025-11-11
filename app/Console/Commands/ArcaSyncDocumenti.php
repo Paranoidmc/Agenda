@@ -388,10 +388,37 @@ class ArcaSyncDocumenti extends Command
         // Se abbiamo un codice destinazione valido, usiamo il flusso classico
         if ($codiceDestinazione && trim($codiceDestinazione) !== '') {
             $codiceDestinazione = trim((string)$codiceDestinazione);
+
+            $existingForClient = DB::table('sites')
+                ->where('client_id', $clientRow->id)
+                ->where('codice_arca', $codiceDestinazione)
+                ->first();
+
+            if ($existingForClient) {
+                DB::table('sites')
+                    ->where('id', $existingForClient->id)
+                    ->update(array_filter($data, fn($value) => $value !== null));
+
+                return DB::table('sites')->where('id', $existingForClient->id)->first();
+            }
+
             $existing = DB::table('sites')->where('codice_arca', $codiceDestinazione)->first();
 
+            if ($existing && $existing->client_id && (int) $existing->client_id !== (int) $clientRow->id) {
+                Log::warning('ArcaSyncDocumenti: codice destinazione associato ad altro cliente, viene creata una nuova sede', [
+                    'codice_arca' => $codiceDestinazione,
+                    'existing_site_id' => $existing->id,
+                    'existing_client_id' => $existing->client_id,
+                    'new_client_id' => $clientRow->id,
+                ]);
+                $existing = null;
+            }
+
             if ($existing) {
-                DB::table('sites')->where('id', $existing->id)->update(array_filter($data, fn($value) => $value !== null));
+                DB::table('sites')
+                    ->where('id', $existing->id)
+                    ->update(array_filter($data, fn($value) => $value !== null));
+
                 return DB::table('sites')->where('id', $existing->id)->first();
             }
 
