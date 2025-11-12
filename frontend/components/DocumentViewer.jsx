@@ -2,35 +2,48 @@
 import { useState, useEffect } from 'react';
 import { FiX, FiDownload, FiFile, FiImage, FiFileText } from 'react-icons/fi';
 
-export default function DocumentViewer({ documentId, documentUrl, fileName, onClose }) {
+export default function DocumentViewer({ documentId, documentUrl, fileName, contentType, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [fileType, setFileType] = useState('');
 
   useEffect(() => {
     if (!documentUrl) {
-      setError('URL documento non valida');
+      setError('Documento non disponibile');
       setLoading(false);
       return;
     }
 
-    // Determina il tipo di file dall'estensione
-    const extension = fileName?.split('.').pop()?.toLowerCase() || '';
-    const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
-    const pdfTypes = ['pdf'];
-    
-    if (imageTypes.includes(extension)) {
-      setFileType('image');
-    } else if (pdfTypes.includes(extension)) {
-      setFileType('pdf');
-    } else {
-      setFileType('other');
+    // Determina il tipo di file in base al content-type oppure all'estensione
+    let detectedType = '';
+    const normalizedContentType = contentType?.toLowerCase() || '';
+
+    if (normalizedContentType.includes('image/')) {
+      detectedType = 'image';
+    } else if (normalizedContentType.includes('pdf')) {
+      detectedType = 'pdf';
     }
-    
+
+    if (!detectedType) {
+      const extension = fileName?.split('.').pop()?.toLowerCase() || '';
+      const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+      const pdfTypes = ['pdf'];
+
+      if (imageTypes.includes(extension)) {
+        detectedType = 'image';
+      } else if (pdfTypes.includes(extension)) {
+        detectedType = 'pdf';
+      } else {
+        detectedType = 'other';
+      }
+    }
+
+    setFileType(detectedType);
     setLoading(false);
-  }, [documentUrl, fileName]);
+  }, [documentUrl, fileName, contentType]);
 
   const handleDownload = () => {
+    if (!documentUrl) return;
     const link = document.createElement('a');
     link.href = documentUrl;
     link.download = fileName || 'documento';
