@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Exception;
 
 class DocumentoVeicoloService
@@ -72,7 +73,7 @@ class DocumentoVeicoloService
     /**
      * Restituisce il file per il download o la visualizzazione
      */
-    public function downloadDocumento(DocumentoVeicolo $documento, bool $inline = false): ?Response
+    public function downloadDocumento(DocumentoVeicolo $documento, bool $inline = false): Response|StreamedResponse|null
     {
         try {
             Log::info('Download documento richiesto', [
