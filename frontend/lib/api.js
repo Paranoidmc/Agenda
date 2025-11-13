@@ -350,7 +350,7 @@ api.documenti = {
       console.log('✅ DEBUG: Risposta ricevuta:', response);
       console.log('✅ DEBUG: Dati risposta:', response.data);
       
-      return response;
+      return response.data;
     } catch (error) {
       console.error('❌ DEBUG: Errore in syncToday:', error);
       console.error('❌ DEBUG: Dettagli errore:', error.response?.data);

@@ -78,18 +78,18 @@ export default function DocumentiPage() {
       setSyncing(true);
       setSyncMessage('🔄 Sincronizzazione documenti di oggi in corso...');
       
-      const response = await api.documenti.syncToday();
+      const data = await api.documenti.syncToday();
       
-      if (response.data.success) {
-        setSyncMessage(`✅ Sincronizzazione completata! ${response.data.data?.documenti || 0} documenti, ${response.data.data?.righe || 0} righe`);
+      if (data.success) {
+        setSyncMessage(`✅ Sincronizzazione completata! ${data.data?.documenti || 0} documenti, ${data.data?.righe || 0} righe`);
         setDataVersion(v => v + 1); // Ricarica i dati
         
         // Emetti evento per notificare altre pagine della sincronizzazione
         const syncEvent = new CustomEvent('documentsSync', {
           detail: {
             type: 'daily',
-            documenti: response.data.data?.documenti || 0,
-            righe: response.data.data?.righe || 0
+            documenti: data.data?.documenti || 0,
+            righe: data.data?.righe || 0
           }
         });
         window.dispatchEvent(syncEvent);
@@ -112,18 +112,18 @@ export default function DocumentiPage() {
       setSyncing(true);
       setSyncMessage('🔄 Sincronizzazione documenti ultimi 7 giorni in corso...');
       
-      const response = await api.documenti.sync({ giorni: 7 });
+      const data = await api.documenti.sync({ giorni: 7 });
       
-      if (response.success) {
-        setSyncMessage(`✅ Sincronizzazione settimanale completata! ${response.data?.documenti || 0} documenti, ${response.data?.righe || 0} righe`);
+      if (data.success) {
+        setSyncMessage(`✅ Sincronizzazione settimanale completata! ${data.data?.documenti || 0} documenti, ${data.data?.righe || 0} righe`);
         setDataVersion(v => v + 1); // Ricarica i dati
         
         // Emetti evento per notificare altre pagine della sincronizzazione
         const syncEvent = new CustomEvent('documentsSync', {
           detail: {
             type: 'weekly',
-            documenti: response.data?.documenti || 0,
-            righe: response.data?.righe || 0
+            documenti: data.data?.documenti || 0,
+            righe: data.data?.righe || 0
           }
         });
         window.dispatchEvent(syncEvent);
