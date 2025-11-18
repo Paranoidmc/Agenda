@@ -312,6 +312,15 @@ class ActivityController extends Controller
             
             $resourcesData = $validated['resources'] ?? [];
 
+            // Se aggiungo risorse e lo stato non è valorizzato o è "non assegnato", imposta "assegnato"
+            if (!empty($resourcesData)) {
+                $currentStatus = $activityData['status'] ?? null;
+                $normalizedStatus = $currentStatus ? strtolower(trim($currentStatus)) : null;
+                if (!$currentStatus || in_array($normalizedStatus, ['non assegnato', 'not assigned'])) {
+                    $activityData['status'] = 'assegnato';
+                }
+            }
+
             $activity = new Activity();
             $activity->syncResourcesAndSave($activityData, $resourcesData);
 
@@ -373,6 +382,15 @@ class ActivityController extends Controller
             }
             
             $resourcesData = $validated['resources'] ?? [];
+
+            // Se aggiungo risorse e lo stato non è valorizzato o è "non assegnato", imposta "assegnato"
+            if (!empty($resourcesData)) {
+                $currentStatus = $activityData['status'] ?? $activity->status ?? null;
+                $normalizedStatus = $currentStatus ? strtolower(trim($currentStatus)) : null;
+                if (!$currentStatus || in_array($normalizedStatus, ['non assegnato', 'not assigned'])) {
+                    $activityData['status'] = 'assegnato';
+                }
+            }
 
             $activity->syncResourcesAndSave($activityData, $resourcesData);
 
