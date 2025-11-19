@@ -313,9 +313,8 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
 
   // Gestisce il click su un evento
   function handleEventClick(event) {
-    
     if (event.type === 'activity' && event.data && event.data.id) {
-      router.push(`/attivita?open=${event.data.id}`);
+      router.push(`/attivita/${event.data.id}`);
     } else if (event.type === 'deadline' && event.data && event.data.id) {
       router.push(`/scadenze?id=${event.data.id}`);
     } else {
