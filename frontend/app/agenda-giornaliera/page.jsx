@@ -903,7 +903,7 @@ const activityEvents = activitiesRaw.map(activity => {
               marginLeft: 16
             }}
             onClick={() => {
-              router.push('/attivita?new=1');
+              router.push('/attivita/new');
             }}
           >
             + Nuova Attività
