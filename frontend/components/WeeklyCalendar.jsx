@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import './WeeklyCalendar.css';
 
+const WEEKLY_ORDER_STORAGE_KEY = 'weeklyCalendarOrders';
+
+const getEventStorageId = (event) => {
+  if (!event) return '';
+  return String(event?.data?.id ?? event?.id ?? event?.uuid ?? event?.title ?? '');
+};
+
+const formatStorageDate = (dateInput) => {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+  return date.toISOString().split('T')[0];
+};
+
 // Mappa stato attività → colore (come nella giornaliera)
 const statusColorMap = {
   "non assegnato": "#3b82f6", // Blu
@@ -25,6 +38,34 @@ export default function WeeklyCalendar({
 }) {
   const cellHeight = 48; // Altezza in pixel per ogni cella oraria
 
+  const [weeklyOrders, setWeeklyOrders] = useState({});
+  const [draggedMeta, setDraggedMeta] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem(WEEKLY_ORDER_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          setWeeklyOrders(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Impossibile caricare l\'ordinamento personalizzato del calendario settimanale:', error);
+    }
+  }, []);
+
+  const persistWeeklyOrders = (updater) => {
+    setWeeklyOrders((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater || {};
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(WEEKLY_ORDER_STORAGE_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
 
   // Funzione per trovare attività per cella
   function getCellEvents(row, day) {
@@ -43,6 +84,118 @@ export default function WeeklyCalendar({
     
     return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
   }
+
+  const getCellStorageKey = (row, day) => {
+    const rowIdentifier = row?.id ?? row?.name ?? row?.label ?? 'row';
+    const dayKey = formatStorageDate(day);
+    return `${viewMode}-${rowIdentifier}-${dayKey}`;
+  };
+
+  const buildBaseCellOrder = (cellKey, currentEvents) => {
+    if (!Array.isArray(currentEvents)) return [];
+    const currentIds = currentEvents.map((event) => getEventStorageId(event)).filter(Boolean);
+    const savedOrder = Array.isArray(weeklyOrders[cellKey]) ? weeklyOrders[cellKey] : [];
+    const sanitizedOrder = savedOrder.filter((id) => currentIds.includes(id));
+    const missing = currentIds.filter((id) => !sanitizedOrder.includes(id));
+    return [...sanitizedOrder, ...missing];
+  };
+
+  const orderEventsForCell = (cellEvents, cellKey) => {
+    if (!cellEvents || cellEvents.length === 0) return cellEvents;
+
+    const savedOrder = weeklyOrders[cellKey];
+    if (!savedOrder || savedOrder.length === 0) {
+      return cellEvents;
+    }
+
+    const orderedIds = buildBaseCellOrder(cellKey, cellEvents);
+    const orderMap = new Map(orderedIds.map((id, idx) => [id, idx]));
+
+    const fallbackSort = (a, b) => {
+      const startA = new Date(a.start).getTime() || 0;
+      const startB = new Date(b.start).getTime() || 0;
+      return startA - startB;
+    };
+
+    return [...cellEvents].sort((a, b) => {
+      const idA = getEventStorageId(a);
+      const idB = getEventStorageId(b);
+      const idxA = orderMap.has(idA) ? orderMap.get(idA) : null;
+      const idxB = orderMap.has(idB) ? orderMap.get(idB) : null;
+
+      if (idxA !== null && idxB !== null) return idxA - idxB;
+      if (idxA !== null) return -1;
+      if (idxB !== null) return 1;
+      return fallbackSort(a, b);
+    });
+  };
+
+  const reorderCellEvents = (currentEvents, cellKey, draggedId, targetId = null) => {
+    if (!draggedId || !cellKey || !Array.isArray(currentEvents) || currentEvents.length === 0) return;
+    persistWeeklyOrders((prev) => {
+      const baseOrder = buildBaseCellOrder(cellKey, currentEvents);
+      const draggedIndex = baseOrder.indexOf(draggedId);
+      if (draggedIndex === -1) return prev;
+      baseOrder.splice(draggedIndex, 1);
+
+      if (targetId) {
+        const targetIndex = baseOrder.indexOf(targetId);
+        if (targetIndex === -1) {
+          baseOrder.push(draggedId);
+        } else {
+          baseOrder.splice(targetIndex, 0, draggedId);
+        }
+      } else {
+        baseOrder.push(draggedId);
+      }
+
+      return {
+        ...prev,
+        [cellKey]: baseOrder
+      };
+    });
+  };
+
+  const handleWeeklyDragStart = (eventObj, row, day) => (e) => {
+    const cellKey = getCellStorageKey(row, day);
+    setDraggedMeta({
+      eventId: getEventStorageId(eventObj),
+      cellKey
+    });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleWeeklyDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleWeeklyDropOnEvent = (eventObj, row, day, orderedEvents) => (e) => {
+    e.preventDefault();
+    if (!draggedMeta) return;
+    const cellKey = getCellStorageKey(row, day);
+    if (cellKey !== draggedMeta.cellKey) {
+      setDraggedMeta(null);
+      return;
+    }
+    reorderCellEvents(orderedEvents, cellKey, draggedMeta.eventId, getEventStorageId(eventObj));
+    setDraggedMeta(null);
+  };
+
+  const handleWeeklyDropOnCellEnd = (row, day, orderedEvents) => (e) => {
+    e.preventDefault();
+    if (!draggedMeta) return;
+    const cellKey = getCellStorageKey(row, day);
+    if (cellKey !== draggedMeta.cellKey) {
+      setDraggedMeta(null);
+      return;
+    }
+    reorderCellEvents(orderedEvents, cellKey, draggedMeta.eventId, null);
+    setDraggedMeta(null);
+  };
+
+  const handleWeeklyDragEnd = () => {
+    setDraggedMeta(null);
+  };
 
   const [timeSlots, setTimeSlots] = useState([]);
   const [visibleHours, setVisibleHours] = useState({ start: 8, end: 18 });
@@ -178,16 +331,20 @@ export default function WeeklyCalendar({
               ? (() => {
                   const day = new Date(selectedDate);
                   const cellEvents = getCellEvents(row, day);
+                  const cellKey = getCellStorageKey(row, day);
+                  const orderedEvents = orderEventsForCell(cellEvents, cellKey);
                   return (
                     <div
                       key={`${rowIndex}-selected`}
                       className="calendar-cell"
                       style={{ display: 'flex', flexDirection: 'column', minHeight: 60 }}
+                      onDragOver={handleWeeklyDragOver}
+                      onDrop={handleWeeklyDropOnCellEnd(row, day, orderedEvents)}
                     >
-                      {cellEvents.length === 0 ? (
+                      {orderedEvents.length === 0 ? (
                         <span className="no-activity-text">Nessuna attività</span>
                       ) : (
-                        cellEvents.map((event, eventIndex) => {
+                        orderedEvents.map((event, eventIndex) => {
                           let statusKey = event.status || event.stato || event.data?.status || event.data?.stato;
                           let backgroundColor = statusColorMap[statusKey] || '#6b7280'; // Grigio scuro fallback
                           const textColor = getContrastColor(backgroundColor);
@@ -200,6 +357,11 @@ export default function WeeklyCalendar({
                                 color: textColor,
                                 borderLeft: `4px solid ${backgroundColor}`
                               }}
+                              draggable
+                              onDragStart={handleWeeklyDragStart(event, row, day)}
+                              onDragOver={handleWeeklyDragOver}
+                              onDrop={handleWeeklyDropOnEvent(event, row, day, orderedEvents)}
+                              onDragEnd={handleWeeklyDragEnd}
                               onClick={() => onEventClick?.(event)}
                               title={event.data?.descrizione || event.data?.description || event.description || ''}
                             >
@@ -244,6 +406,8 @@ export default function WeeklyCalendar({
                            eventDate.getMonth() === day.getMonth() && 
                            eventDate.getDate() === day.getDate();
                   });
+                  const cellKey = getCellStorageKey(row, day);
+                  const orderedEvents = orderEventsForCell(cellEvents, cellKey);
                   
                   
                   return (
@@ -251,11 +415,13 @@ export default function WeeklyCalendar({
                       key={`${rowIndex}-${dayIndex}`}
                       className="calendar-cell"
                       style={{ display: 'flex', flexDirection: 'column', minHeight: 60 }}
+                      onDragOver={handleWeeklyDragOver}
+                      onDrop={handleWeeklyDropOnCellEnd(row, day, orderedEvents)}
                     >
-                      {cellEvents.length === 0 ? (
+                      {orderedEvents.length === 0 ? (
                         <span className="no-activity-text">Nessuna attività</span>
                       ) : (
-                        cellEvents.map((event, eventIndex) => {
+                        orderedEvents.map((event, eventIndex) => {
                           let statusKey = event.status || event.stato || event.data?.status || event.data?.stato;
                           let backgroundColor = statusColorMap[statusKey] || '#6b7280'; // Grigio scuro fallback
                           const textColor = getContrastColor(backgroundColor);
@@ -269,6 +435,11 @@ export default function WeeklyCalendar({
                                 color: textColor,
                                 borderLeft: `4px solid ${(event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor}`
                               }}
+                              draggable
+                              onDragStart={handleWeeklyDragStart(event, row, day)}
+                              onDragOver={handleWeeklyDragOver}
+                              onDrop={handleWeeklyDropOnEvent(event, row, day, orderedEvents)}
+                              onDragEnd={handleWeeklyDragEnd}
                               onClick={() => onEventClick?.(event)}
                               title={event.data?.descrizione || event.data?.description || event.description || ''}
                             >

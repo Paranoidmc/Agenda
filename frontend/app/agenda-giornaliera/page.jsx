@@ -14,6 +14,13 @@ import { exportCalendarToHTML } from "../../lib/htmlExport";
 import "../pianificazione/page.css";
 import "./page.css";
 
+const DAILY_ORDER_STORAGE_KEY = 'agendaDailyOrders';
+
+const getCalendarEventKey = (event) => {
+  if (!event) return '';
+  return String(event?.data?.id ?? event?.id ?? event?.uuid ?? event?.title ?? '');
+};
+
 
 /**
  * Pagina dell'agenda giornaliera che mostra le attività di un singolo giorno
@@ -159,6 +166,34 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
   const [sitesLoading, setSitesLoading] = useState(true);
   const [activityTypes, setActivityTypes] = useState([]);
   const [activityTypesLoading, setActivityTypesLoading] = useState(true);
+  const [dailyOrders, setDailyOrders] = useState({});
+  const [draggedEventId, setDraggedEventId] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem(DAILY_ORDER_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          setDailyOrders(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Impossibile caricare l\'ordinamento personalizzato dell\'agenda giornaliera:', error);
+    }
+  }, []);
+
+  const persistDailyOrders = (updater) => {
+    setDailyOrders((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater || {};
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DAILY_ORDER_STORAGE_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+  const currentDateKey = React.useMemo(() => formatDateISO(currentDate), [currentDate]);
 
   // --- Utility Functions ---
   // Mappa stato attività → colore
@@ -249,6 +284,127 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
   function formatDateISO(date) {
     return date.toISOString().split('T')[0];
   }
+
+  const getDailyBaseOrder = (currentList) => {
+    if (!Array.isArray(currentList)) return [];
+    const currentIds = currentList.map(event => getCalendarEventKey(event)).filter(Boolean);
+    const savedOrder = Array.isArray(dailyOrders[currentDateKey]) ? dailyOrders[currentDateKey] : [];
+    const sanitized = savedOrder.filter(id => currentIds.includes(id));
+    const missing = currentIds.filter(id => !sanitized.includes(id));
+    return [...sanitized, ...missing];
+  };
+
+  const compareByTime = (a, b) => {
+    const timeA = a.data?.data_inizio || '';
+    const timeB = b.data?.data_inizio || '';
+    return timeA.localeCompare(timeB);
+  };
+
+  const sortDailyEventsList = (eventsList) => {
+    if (!Array.isArray(eventsList)) return [];
+    const list = [...eventsList];
+
+    const compareBySite = (a, b) => {
+      const siteA = a.data?.site?.nome || a.data?.site?.name || a.siteName || '';
+      const siteB = b.data?.site?.nome || b.data?.site?.name || b.siteName || '';
+      return siteA.localeCompare(siteB);
+    };
+
+    const compareByActivityType = (a, b) => {
+      const typeA = a.data?.activityType?.nome || a.data?.activityType?.name || a.activityTypeName || '';
+      const typeB = b.data?.activityType?.nome || b.data?.activityType?.name || b.activityTypeName || '';
+      return typeA.localeCompare(typeB);
+    };
+
+    if (sortBy === 'site') {
+      return list.sort(compareBySite);
+    }
+
+    if (sortBy === 'activityType') {
+      return list.sort(compareByActivityType);
+    }
+
+    if (sortBy === 'custom') {
+      const savedOrder = Array.isArray(dailyOrders[currentDateKey]) ? dailyOrders[currentDateKey] : [];
+      if (!savedOrder.length) {
+        return list.sort(compareByTime);
+      }
+      const baseOrder = getDailyBaseOrder(list);
+      const orderMap = new Map(baseOrder.map((id, idx) => [id, idx]));
+      return list.sort((a, b) => {
+        const idA = getCalendarEventKey(a);
+        const idB = getCalendarEventKey(b);
+        const idxA = orderMap.has(idA) ? orderMap.get(idA) : null;
+        const idxB = orderMap.has(idB) ? orderMap.get(idB) : null;
+        if (idxA !== null && idxB !== null) return idxA - idxB;
+        if (idxA !== null) return -1;
+        if (idxB !== null) return 1;
+        return compareByTime(a, b);
+      });
+    }
+
+    return list.sort(compareByTime);
+  };
+
+  const reorderDailyEvents = (currentList, draggedId, targetId = null) => {
+    if (!draggedId || !Array.isArray(currentList) || currentList.length === 0) return;
+    const newOrder = getDailyBaseOrder(currentList);
+    const dragIndex = newOrder.indexOf(draggedId);
+    if (dragIndex === -1) return;
+    newOrder.splice(dragIndex, 1);
+
+    if (targetId) {
+      const targetIndex = newOrder.indexOf(targetId);
+      if (targetIndex === -1) {
+        newOrder.push(draggedId);
+      } else {
+        newOrder.splice(targetIndex, 0, draggedId);
+      }
+    } else {
+      newOrder.push(draggedId);
+    }
+
+    persistDailyOrders(prev => ({
+      ...prev,
+      [currentDateKey]: newOrder
+    }));
+    setSortBy('custom');
+  };
+
+  const handleDailyDragStart = (e, eventId) => {
+    setDraggedEventId(eventId);
+    if (e?.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  };
+
+  const handleDailyDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDailyDropOnEvent = (e, targetEventId, currentList) => {
+    e.preventDefault();
+    if (!draggedEventId || draggedEventId === targetEventId) {
+      setDraggedEventId(null);
+      return;
+    }
+    reorderDailyEvents(currentList, draggedEventId, targetEventId);
+    setDraggedEventId(null);
+  };
+
+  const handleDailyDropOnContainer = (e, currentList) => {
+    e.preventDefault();
+    if (!draggedEventId) return;
+    if (e.target && e.target.closest && e.target.closest('.daily-event')) {
+      return;
+    }
+    reorderDailyEvents(currentList, draggedEventId, null);
+    setDraggedEventId(null);
+  };
+
+  const handleDailyDragEnd = () => {
+    setDraggedEventId(null);
+  };
 
   // Funzione per ottenere il colore della scadenza
   function getDeadlineColor(deadline) {
@@ -816,6 +972,9 @@ const activityEvents = activitiesRaw.map(activity => {
     return date.toLocaleDateString('it-IT', options);
   };
 
+  const rowsForDailyList = getRows();
+  const displayedDailyEvents = sortDailyEventsList(rowsForDailyList[0]?.events ?? []);
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="page-header">
@@ -1025,6 +1184,7 @@ const activityEvents = activitiesRaw.map(activity => {
               <option value="time">Ora</option>
               <option value="site">Cantiere</option>
               <option value="activityType">Tipo Attività</option>
+              <option value="custom">Ordine personalizzato</option>
             </select>
           </div>
           
@@ -1057,27 +1217,13 @@ const activityEvents = activitiesRaw.map(activity => {
         {fetching ? (
           <div className="loading">Caricamento in corso...</div>
         ) : (
-           <div className="daily-events">
-             {getRows()[0]?.events
-  ?.slice()
-  .sort((a, b) => {
-    switch (sortBy) {
-      case 'site':
-        const siteA = a.data?.site?.nome || a.siteName || '';
-        const siteB = b.data?.site?.nome || b.siteName || '';
-        return siteA.localeCompare(siteB);
-      case 'activityType':
-        const typeA = a.data?.activityType?.nome || a.activityTypeName || '';
-        const typeB = b.data?.activityType?.nome || b.activityTypeName || '';
-        return typeA.localeCompare(typeB);
-      case 'time':
-      default:
-        const timeA = a.data?.data_inizio || '';
-        const timeB = b.data?.data_inizio || '';
-        return timeA.localeCompare(timeB);
-    }
-  })
-  .map(event => {
+           <div
+             className="daily-events"
+             onDragOver={handleDailyDragOver}
+             onDrop={(e) => handleDailyDropOnContainer(e, displayedDailyEvents)}
+           >
+             {displayedDailyEvents.map(event => {
+    const eventKey = getCalendarEventKey(event);
     // Orario compatto (inizio - fine)
     const orario = event.data?.data_inizio
       ? `${new Date(event.data.data_inizio).toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Rome'})}
@@ -1125,6 +1271,11 @@ const activityEvents = activitiesRaw.map(activity => {
             boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
           };
         })()}
+        draggable
+        onDragStart={(e) => handleDailyDragStart(e, eventKey)}
+        onDragOver={handleDailyDragOver}
+        onDrop={(e) => handleDailyDropOnEvent(e, eventKey, displayedDailyEvents)}
+        onDragEnd={handleDailyDragEnd}
         onClick={() => handleEventClick(event)}
       >
         <div style={{display:'flex',flexWrap:'wrap',gap:'12px',alignItems:'center'}}>
