@@ -168,6 +168,8 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
   const [activityTypesLoading, setActivityTypesLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState({});
   const [draggedEventId, setDraggedEventId] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [orderUpdateTrigger, setOrderUpdateTrigger] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -346,64 +348,125 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
     return list.sort(compareByTime);
   };
 
-  const reorderDailyEvents = (currentList, draggedId, targetId = null) => {
+  const reorderDailyEvents = (currentList, draggedId, targetId = null, insertAfter = false) => {
     if (!draggedId || !Array.isArray(currentList) || currentList.length === 0) return;
+    
+    // Costruisci l'ordine base
     const newOrder = getDailyBaseOrder(currentList);
     const dragIndex = newOrder.indexOf(draggedId);
-    if (dragIndex === -1) return;
-    newOrder.splice(dragIndex, 1);
+    if (dragIndex === -1) {
+      // Se l'elemento trascinato non è nell'ordine, aggiungilo
+      newOrder.push(draggedId);
+    } else {
+      // Rimuovi l'elemento dalla posizione corrente
+      newOrder.splice(dragIndex, 1);
+    }
 
     if (targetId) {
       const targetIndex = newOrder.indexOf(targetId);
       if (targetIndex === -1) {
+        // Se il target non è nell'ordine, aggiungi alla fine
         newOrder.push(draggedId);
       } else {
-        newOrder.splice(targetIndex, 0, draggedId);
+        // Inserisci nella posizione corretta
+        const insertIndex = insertAfter ? targetIndex + 1 : targetIndex;
+        newOrder.splice(insertIndex, 0, draggedId);
       }
     } else {
+      // Se non c'è target, aggiungi alla fine
       newOrder.push(draggedId);
     }
 
+    // Salva l'ordine
     persistDailyOrders(prev => ({
       ...prev,
       [currentDateKey]: newOrder
     }));
+    
+    // Forza il riordinamento
     setSortBy('custom');
+    setOrderUpdateTrigger(prev => prev + 1);
   };
 
   const handleDailyDragStart = (e, eventId) => {
     setDraggedEventId(eventId);
+    setDragOverIndex(null);
     if (e?.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', eventId);
+    }
+    // Aggiungi classe per feedback visivo
+    if (e.target) {
+      e.target.style.opacity = '0.5';
     }
   };
 
   const handleDailyDragOver = (e) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDailyDropOnEvent = (e, targetEventId, currentList) => {
+  const handleDailyDragEnter = (e, index) => {
     e.preventDefault();
+    if (draggedEventId) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDailyDragLeave = (e) => {
+    // Solo se si esce completamente dall'elemento
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDailyDropOnEvent = (e, targetEventId, currentList, targetIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!draggedEventId || draggedEventId === targetEventId) {
       setDraggedEventId(null);
+      setDragOverIndex(null);
       return;
     }
-    reorderDailyEvents(currentList, draggedEventId, targetEventId);
+    
+    // Determina se inserire prima o dopo in base alla posizione del mouse
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const insertAfter = e.clientY > midpoint;
+    
+    reorderDailyEvents(currentList, draggedEventId, targetEventId, insertAfter);
     setDraggedEventId(null);
+    setDragOverIndex(null);
   };
 
   const handleDailyDropOnContainer = (e, currentList) => {
     e.preventDefault();
-    if (!draggedEventId) return;
+    e.stopPropagation();
+    
+    if (!draggedEventId) {
+      setDragOverIndex(null);
+      return;
+    }
+    
+    // Se il drop è su un evento, non fare nulla (gestito da handleDailyDropOnEvent)
     if (e.target && e.target.closest && e.target.closest('.daily-event')) {
       return;
     }
+    
+    // Sposta alla fine
     reorderDailyEvents(currentList, draggedEventId, null);
     setDraggedEventId(null);
+    setDragOverIndex(null);
   };
 
-  const handleDailyDragEnd = () => {
+  const handleDailyDragEnd = (e) => {
+    // Ripristina opacità
+    if (e.target) {
+      e.target.style.opacity = '1';
+    }
     setDraggedEventId(null);
+    setDragOverIndex(null);
   };
 
   // Funzione per ottenere il colore della scadenza
@@ -973,7 +1036,10 @@ const activityEvents = activitiesRaw.map(activity => {
   };
 
   const rowsForDailyList = getRows();
-  const displayedDailyEvents = sortDailyEventsList(rowsForDailyList[0]?.events ?? []);
+  // Usa orderUpdateTrigger per forzare il riordinamento quando cambia
+  const displayedDailyEvents = React.useMemo(() => {
+    return sortDailyEventsList(rowsForDailyList[0]?.events ?? []);
+  }, [rowsForDailyList, sortBy, dailyOrders, currentDateKey, orderUpdateTrigger]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -1222,8 +1288,10 @@ const activityEvents = activitiesRaw.map(activity => {
              onDragOver={handleDailyDragOver}
              onDrop={(e) => handleDailyDropOnContainer(e, displayedDailyEvents)}
            >
-             {displayedDailyEvents.map(event => {
+             {displayedDailyEvents.map((event, index) => {
     const eventKey = getCalendarEventKey(event);
+    const isDragging = draggedEventId === eventKey;
+    const isDragOver = dragOverIndex === index && draggedEventId && draggedEventId !== eventKey;
     // Orario compatto (inizio - fine)
     const orario = event.data?.data_inizio
       ? `${new Date(event.data.data_inizio).toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Rome'})}
@@ -1239,42 +1307,48 @@ const activityEvents = activitiesRaw.map(activity => {
     const veicoli = Array.isArray(event.vehicleList) && event.vehicleList.length > 0 ? event.vehicleList.join(', ') : 'N/D';
     const tipologia = event.data?.activity_type?.name || 'N/D';
     const stato = normalizeStatus(event.data?.status || event.data?.stato);
+    
+    const normalizedStatus = normalizeStatus(event.data?.status || event.data?.stato);
+    const backgroundColor = statusColorMap[normalizedStatus] || '#f3f4f6';
+    const darkBackgrounds = [
+      statusColorMap['non assegnato'],
+      statusColorMap['doc emesso'],
+      statusColorMap['programmato'],
+      statusColorMap['in corso'],
+      statusColorMap['completato'],
+      statusColorMap['annullato']
+    ];
+    const color = darkBackgrounds.includes(backgroundColor) ? '#ffffff' : '#111827';
+    
     return (
       <div
-        key={event.id}
+        key={event.id || eventKey}
         className="daily-event"
-        style={(() => {
-          const normalizedStatus = normalizeStatus(event.data?.status || event.data?.stato);
-          const backgroundColor = statusColorMap[normalizedStatus] || '#f3f4f6'; // Grigio chiaro di default
-
-          // Sfondi scuri che necessitano di testo bianco
-          const darkBackgrounds = [
-            statusColorMap['non assegnato'],
-            statusColorMap['doc emesso'],
-            statusColorMap['programmato'],
-            statusColorMap['in corso'],
-            statusColorMap['completato'],
-            statusColorMap['annullato']
-          ];
-
-          const color = darkBackgrounds.includes(backgroundColor) ? '#ffffff' : '#111827';
-
-          return {
-            background: backgroundColor,
-            color: color,
-            borderRadius: '8px',
-            padding: '12px 16px',
-            marginBottom: '8px',
-            display: 'flex',
-            flexDirection: 'column',
-            cursor: 'pointer',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-          };
-        })()}
+        style={{
+          background: backgroundColor,
+          color: color,
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          boxShadow: isDragOver ? '0 4px 8px rgba(0,0,0,0.2)' : '0 2px 4px rgba(0,0,0,0.05)',
+          opacity: isDragging ? 0.5 : 1,
+          border: isDragOver ? '2px dashed #007aff' : 'none',
+          transform: isDragOver ? 'scale(1.02)' : 'scale(1)',
+          transition: 'all 0.2s ease'
+        }}
         draggable
         onDragStart={(e) => handleDailyDragStart(e, eventKey)}
-        onDragOver={handleDailyDragOver}
-        onDrop={(e) => handleDailyDropOnEvent(e, eventKey, displayedDailyEvents)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          handleDailyDragOver(e);
+          handleDailyDragEnter(e, index);
+        }}
+        onDragEnter={(e) => handleDailyDragEnter(e, index)}
+        onDragLeave={handleDailyDragLeave}
+        onDrop={(e) => handleDailyDropOnEvent(e, eventKey, displayedDailyEvents, index)}
         onDragEnd={handleDailyDragEnd}
         onClick={() => handleEventClick(event)}
       >

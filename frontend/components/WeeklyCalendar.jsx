@@ -40,6 +40,8 @@ export default function WeeklyCalendar({
 
   const [weeklyOrders, setWeeklyOrders] = useState({});
   const [draggedMeta, setDraggedMeta] = useState(null);
+  const [dragOverEventId, setDragOverEventId] = useState(null);
+  const [orderUpdateTrigger, setOrderUpdateTrigger] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -100,7 +102,7 @@ export default function WeeklyCalendar({
     return [...sanitizedOrder, ...missing];
   };
 
-  const orderEventsForCell = (cellEvents, cellKey) => {
+  const orderEventsForCell = React.useCallback((cellEvents, cellKey) => {
     if (!cellEvents || cellEvents.length === 0) return cellEvents;
 
     const savedOrder = weeklyOrders[cellKey];
@@ -128,73 +130,149 @@ export default function WeeklyCalendar({
       if (idxB !== null) return 1;
       return fallbackSort(a, b);
     });
-  };
+  }, [weeklyOrders, orderUpdateTrigger]);
 
-  const reorderCellEvents = (currentEvents, cellKey, draggedId, targetId = null) => {
+  const reorderCellEvents = (currentEvents, cellKey, draggedId, targetId = null, insertAfter = false) => {
     if (!draggedId || !cellKey || !Array.isArray(currentEvents) || currentEvents.length === 0) return;
+    
     persistWeeklyOrders((prev) => {
       const baseOrder = buildBaseCellOrder(cellKey, currentEvents);
       const draggedIndex = baseOrder.indexOf(draggedId);
-      if (draggedIndex === -1) return prev;
-      baseOrder.splice(draggedIndex, 1);
+      
+      if (draggedIndex === -1) {
+        // Se l'elemento trascinato non è nell'ordine, aggiungilo
+        baseOrder.push(draggedId);
+      } else {
+        // Rimuovi l'elemento dalla posizione corrente
+        baseOrder.splice(draggedIndex, 1);
+      }
 
       if (targetId) {
         const targetIndex = baseOrder.indexOf(targetId);
         if (targetIndex === -1) {
           baseOrder.push(draggedId);
         } else {
-          baseOrder.splice(targetIndex, 0, draggedId);
+          // Inserisci nella posizione corretta
+          const insertIndex = insertAfter ? targetIndex + 1 : targetIndex;
+          baseOrder.splice(insertIndex, 0, draggedId);
         }
       } else {
         baseOrder.push(draggedId);
       }
 
-      return {
+      const newOrders = {
         ...prev,
         [cellKey]: baseOrder
       };
+      
+      // Forza aggiornamento
+      setOrderUpdateTrigger(prev => prev + 1);
+      
+      return newOrders;
     });
   };
 
   const handleWeeklyDragStart = (eventObj, row, day) => (e) => {
     const cellKey = getCellStorageKey(row, day);
+    const eventId = getEventStorageId(eventObj);
     setDraggedMeta({
-      eventId: getEventStorageId(eventObj),
+      eventId,
       cellKey
     });
-    e.dataTransfer.effectAllowed = 'move';
+    setDragOverEventId(null);
+    if (e?.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', eventId);
+    }
+    // Feedback visivo
+    if (e.target) {
+      e.target.style.opacity = '0.5';
+    }
   };
 
   const handleWeeklyDragOver = (e) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleWeeklyDragEnter = (eventId) => {
+    if (draggedMeta) {
+      setDragOverEventId(eventId);
+    }
+  };
+
+  const handleWeeklyDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverEventId(null);
+    }
   };
 
   const handleWeeklyDropOnEvent = (eventObj, row, day, orderedEvents) => (e) => {
     e.preventDefault();
-    if (!draggedMeta) return;
+    e.stopPropagation();
+    
+    if (!draggedMeta) {
+      setDragOverEventId(null);
+      return;
+    }
+    
     const cellKey = getCellStorageKey(row, day);
     if (cellKey !== draggedMeta.cellKey) {
       setDraggedMeta(null);
+      setDragOverEventId(null);
       return;
     }
-    reorderCellEvents(orderedEvents, cellKey, draggedMeta.eventId, getEventStorageId(eventObj));
+    
+    const targetId = getEventStorageId(eventObj);
+    if (draggedMeta.eventId === targetId) {
+      setDraggedMeta(null);
+      setDragOverEventId(null);
+      return;
+    }
+    
+    // Determina se inserire prima o dopo in base alla posizione del mouse
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const insertAfter = e.clientY > midpoint;
+    
+    reorderCellEvents(orderedEvents, cellKey, draggedMeta.eventId, targetId, insertAfter);
     setDraggedMeta(null);
+    setDragOverEventId(null);
   };
 
   const handleWeeklyDropOnCellEnd = (row, day, orderedEvents) => (e) => {
     e.preventDefault();
-    if (!draggedMeta) return;
+    e.stopPropagation();
+    
+    if (!draggedMeta) {
+      setDragOverEventId(null);
+      return;
+    }
+    
     const cellKey = getCellStorageKey(row, day);
     if (cellKey !== draggedMeta.cellKey) {
       setDraggedMeta(null);
+      setDragOverEventId(null);
       return;
     }
+    
+    // Se il drop è su un evento, non fare nulla (gestito da handleWeeklyDropOnEvent)
+    if (e.target && e.target.closest && e.target.closest('.event-card')) {
+      return;
+    }
+    
     reorderCellEvents(orderedEvents, cellKey, draggedMeta.eventId, null);
     setDraggedMeta(null);
+    setDragOverEventId(null);
   };
 
-  const handleWeeklyDragEnd = () => {
+  const handleWeeklyDragEnd = (e) => {
+    // Ripristina opacità
+    if (e.target) {
+      e.target.style.opacity = '1';
+    }
     setDraggedMeta(null);
+    setDragOverEventId(null);
   };
 
   const [timeSlots, setTimeSlots] = useState([]);
@@ -348,6 +426,10 @@ export default function WeeklyCalendar({
                           let statusKey = event.status || event.stato || event.data?.status || event.data?.stato;
                           let backgroundColor = statusColorMap[statusKey] || '#6b7280'; // Grigio scuro fallback
                           const textColor = getContrastColor(backgroundColor);
+                          const eventId = getEventStorageId(event);
+                          const isDragging = draggedMeta?.eventId === eventId && draggedMeta?.cellKey === getCellStorageKey(row, day);
+                          const isDragOver = dragOverEventId === eventId && draggedMeta && draggedMeta.eventId !== eventId;
+                          
                           return (
                             <div
                               key={`${event.id}-${eventIndex}`}
@@ -355,11 +437,23 @@ export default function WeeklyCalendar({
                               style={{
                                 backgroundColor: backgroundColor,
                                 color: textColor,
-                                borderLeft: `4px solid ${backgroundColor}`
+                                borderLeft: `4px solid ${backgroundColor}`,
+                                cursor: isDragging ? 'grabbing' : 'grab',
+                                opacity: isDragging ? 0.5 : 1,
+                                border: isDragOver ? '2px dashed #007aff' : 'none',
+                                transform: isDragOver ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'all 0.2s ease',
+                                boxShadow: isDragOver ? '0 4px 8px rgba(0,0,0,0.2)' : '0 2px 4px rgba(0,0,0,0.1)'
                               }}
                               draggable
                               onDragStart={handleWeeklyDragStart(event, row, day)}
-                              onDragOver={handleWeeklyDragOver}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                handleWeeklyDragOver(e);
+                                handleWeeklyDragEnter(eventId);
+                              }}
+                              onDragEnter={() => handleWeeklyDragEnter(eventId)}
+                              onDragLeave={handleWeeklyDragLeave}
                               onDrop={handleWeeklyDropOnEvent(event, row, day, orderedEvents)}
                               onDragEnd={handleWeeklyDragEnd}
                               onClick={() => onEventClick?.(event)}
@@ -425,19 +519,34 @@ export default function WeeklyCalendar({
                           let statusKey = event.status || event.stato || event.data?.status || event.data?.stato;
                           let backgroundColor = statusColorMap[statusKey] || '#6b7280'; // Grigio scuro fallback
                           const textColor = getContrastColor(backgroundColor);
+                          const eventId = getEventStorageId(event);
+                          const isDragging = draggedMeta?.eventId === eventId && draggedMeta?.cellKey === getCellStorageKey(row, day);
+                          const isDragOver = dragOverEventId === eventId && draggedMeta && draggedMeta.eventId !== eventId;
+                          
                           return (
                             <div
                               key={`${event.id}-${eventIndex}`}
                               className="event-card"
                               style={{
                                 backgroundColor: backgroundColor,
-                                backgroundColor: (event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor,
                                 color: textColor,
-                                borderLeft: `4px solid ${(event.type === 'activity' && event.data && (event.data.status || event.data.stato) && statusColorMap[event.data.status || event.data.stato]) ? statusColorMap[event.data.status || event.data.stato] : backgroundColor}`
+                                borderLeft: `4px solid ${backgroundColor}`,
+                                cursor: isDragging ? 'grabbing' : 'grab',
+                                opacity: isDragging ? 0.5 : 1,
+                                border: isDragOver ? '2px dashed #007aff' : 'none',
+                                transform: isDragOver ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'all 0.2s ease',
+                                boxShadow: isDragOver ? '0 4px 8px rgba(0,0,0,0.2)' : '0 2px 4px rgba(0,0,0,0.1)'
                               }}
                               draggable
                               onDragStart={handleWeeklyDragStart(event, row, day)}
-                              onDragOver={handleWeeklyDragOver}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                handleWeeklyDragOver(e);
+                                handleWeeklyDragEnter(eventId);
+                              }}
+                              onDragEnter={() => handleWeeklyDragEnter(eventId)}
+                              onDragLeave={handleWeeklyDragLeave}
                               onDrop={handleWeeklyDropOnEvent(event, row, day, orderedEvents)}
                               onDragEnd={handleWeeklyDragEnd}
                               onClick={() => onEventClick?.(event)}
