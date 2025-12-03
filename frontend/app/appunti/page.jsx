@@ -4,8 +4,11 @@ import api from "../../lib/api";
 import PageHeader from "../../components/PageHeader";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const generateId = () => `appunto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 const emptyRow = () => ({
+  id: generateId(),
+  data: todayISO(),
   cliente: "",
   luogo: "",
   ora: "",
@@ -15,7 +18,6 @@ const emptyRow = () => ({
 });
 
 export default function AppuntiPage() {
-  const [date, setDate] = useState(todayISO());
   const [rows, setRows] = useState([emptyRow()]);
   const [clients, setClients] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -57,23 +59,32 @@ export default function AppuntiPage() {
     };
   }, []);
 
-  // Persistenza locale per giorno
-  const storageKey = useMemo(() => `appunti:${date}`, [date]);
+  // Persistenza locale globale (tutti gli appunti)
+  const storageKey = 'appunti:all';
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) setRows(parsed);
-        else setRows([emptyRow()]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Assicurati che ogni riga abbia una data e un ID (migrazione da vecchio formato)
+          const migrated = parsed.map(r => ({
+            ...r,
+            id: r.id || generateId(),
+            data: r.data || todayISO()
+          }));
+          setRows(migrated);
+        } else {
+          setRows([emptyRow()]);
+        }
       } else {
         setRows([emptyRow()]);
       }
     } catch {
       setRows([emptyRow()]);
     }
-  }, [storageKey]);
+  }, []);
 
   const saveLocal = () => {
     setSaving(true);
@@ -96,19 +107,19 @@ export default function AppuntiPage() {
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, date]);
+  }, [rows]);
 
   const addRow = () => setRows(prev => [...prev, emptyRow()]);
   const clearRows = () => setRows([emptyRow()]);
-  const deleteRow = (idx) => {
+  const deleteRow = (id) => {
     setRows(prev => {
-      const next = prev.filter((_, i) => i !== idx);
+      const next = prev.filter(r => r.id !== id);
       return next.length ? next : [emptyRow()];
     });
   };
 
-  const handleDeleteRowClick = (idx) => {
-    setRowToDelete(idx);
+  const handleDeleteRowClick = (id) => {
+    setRowToDelete(id);
     setShowDeleteRowModal(true);
   };
 
@@ -138,9 +149,18 @@ export default function AppuntiPage() {
     setShowConfirmModal(false);
   };
 
-  const updateCell = (idx, key, value) => {
-    setRows(prev => prev.map((r, i) => (i === idx ? { ...r, [key]: value } : r)));
+  const updateCell = (id, key, value) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, [key]: value } : r)));
   };
+
+  // Ordina le righe per data (più recenti prima)
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const dateA = a.data || todayISO();
+      const dateB = b.data || todayISO();
+      return dateB.localeCompare(dateA); // Decrescente (più recenti prima)
+    });
+  }, [rows]);
 
   const suggestionsClients = useMemo(
     () => clients.map(c => c.nome || c.name || "").filter(Boolean),
@@ -179,19 +199,18 @@ export default function AppuntiPage() {
       <PageHeader title="Appunti" showBackButton={true} onBackClick={() => history.back()} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <label style={{ fontWeight: 600 }}>Giorno:</label>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={dateInputStyle} />
         <button onClick={saveLocal} disabled={saving} style={btnPrimary}>
           {saving ? "Salvataggio..." : "Salva ora"}
         </button>
-        <button onClick={addRow} style={btnLight}>+ Riga</button>
-        <button onClick={handleClearClick} style={btnLight}>Svuota</button>
+        <button onClick={addRow} style={btnLight}>+ Nuovo Appunto</button>
+        <button onClick={handleClearClick} style={btnLight}>Svuota Tutto</button>
       </div>
 
       <div style={{ overflowX: "auto" }}>
         <table style={tableStyle}>
           <thead>
             <tr>
+              <th style={thStyle}>Data</th>
               <th style={thStyle}>Cliente</th>
               <th style={thStyle}>Luogo</th>
               <th style={thStyle}>Ora</th>
@@ -202,15 +221,23 @@ export default function AppuntiPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, idx) => (
-              <tr key={idx}>
+            {sortedRows.map((row) => (
+              <tr key={row.id}>
                 <td style={tdStyle}>
-                  {renderAutocomplete(row.cliente, v => updateCell(idx, "cliente", v), suggestionsClients, `client-list-${idx}`)}
+                  <input
+                    type="date"
+                    value={row.data || todayISO()}
+                    onChange={e => updateCell(row.id, "data", e.target.value)}
+                    style={cellInputStyle}
+                  />
+                </td>
+                <td style={tdStyle}>
+                  {renderAutocomplete(row.cliente, v => updateCell(row.id, "cliente", v), suggestionsClients, `client-list-${row.id}`)}
                 </td>
                 <td style={tdStyle}>
                   <input
                     value={row.luogo}
-                    onChange={e => updateCell(idx, "luogo", e.target.value)}
+                    onChange={e => updateCell(row.id, "luogo", e.target.value)}
                     placeholder="Indirizzo / Sede"
                     style={cellInputStyle}
                   />
@@ -219,28 +246,28 @@ export default function AppuntiPage() {
                   <input
                     type="time"
                     value={row.ora}
-                    onChange={e => updateCell(idx, "ora", e.target.value)}
+                    onChange={e => updateCell(row.id, "ora", e.target.value)}
                     style={cellInputStyle}
                   />
                 </td>
                 <td style={tdStyle}>
-                  {renderAutocomplete(row.autista1, v => updateCell(idx, "autista1", v), suggestionsDrivers, `driver1-list-${idx}`)}
+                  {renderAutocomplete(row.autista1, v => updateCell(row.id, "autista1", v), suggestionsDrivers, `driver1-list-${row.id}`)}
                 </td>
                 <td style={tdStyle}>
-                  {renderAutocomplete(row.autista2, v => updateCell(idx, "autista2", v), suggestionsDrivers, `driver2-list-${idx}`)}
+                  {renderAutocomplete(row.autista2, v => updateCell(row.id, "autista2", v), suggestionsDrivers, `driver2-list-${row.id}`)}
                 </td>
                 <td style={tdStyle}>
                   <input
                     value={row.consegna}
-                    onChange={e => updateCell(idx, "consegna", e.target.value)}
+                    onChange={e => updateCell(row.id, "consegna", e.target.value)}
                     placeholder="Note / Dettagli"
                     style={cellInputStyle}
                   />
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'center' }}>
                   <button
-                    onClick={() => handleDeleteRowClick(idx)}
-                    title="Elimina riga"
+                    onClick={() => handleDeleteRowClick(row.id)}
+                    title="Elimina appunto"
                     style={btnDeleteSmall}
                   >
                     ✕
@@ -253,7 +280,7 @@ export default function AppuntiPage() {
       </div>
 
       <div style={{ marginTop: 12, color: "#666", fontSize: 13, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span>Suggerimenti disponibili per Cliente e Autisti. I dati sono salvati localmente per giorno.</span>
+        <span>Suggerimenti disponibili per Cliente e Autisti. I dati sono salvati localmente. Ogni appunto ha una data che può essere modificata.</span>
         {lastSavedAt && (
           <span style={{ color: '#4caf50' }}>Salvato automaticamente: {lastSavedAt.toLocaleTimeString()}</span>
         )}
