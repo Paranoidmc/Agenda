@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
-import { useState } from "react";
+import { useSidebar } from "../context/SidebarContext";
+import { useState, useEffect } from "react";
 import CGFLogo from "./CGFLogo";
 
 const navItems = [
@@ -61,9 +62,20 @@ const protectedPaths = [
 export default function Sidebar() {
   const { user } = useAuth();
   const pathname = usePathname();
+  const { isOpen, toggle } = useSidebar();
+  const [isMobile, setIsMobile] = useState(false);
   const [openSubsections, setOpenSubsections] = useState({
     'agende-calendari': true // Aperto di default
   });
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const toggleSubsection = (key) => {
     setOpenSubsections(prev => ({
@@ -76,37 +88,89 @@ export default function Sidebar() {
   if (!protectedPaths.some(p => pathname.startsWith(p))) return null;
 
   return (
-    <aside style={{
-      minWidth: 220,
-      background: '#fff',
-      borderRight: '1px solid #e5e5ea',
-      padding: '0.25em 0.5em',
-      height: '100vh',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      zIndex: 10,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 4,
-      overflowY: 'auto'
-    }}>
-      {/* Logo in alto */}
-      <div style={{
-        padding: '0.1em 0.5em',
-        borderBottom: '1px solid #e5e5ea',
-        marginBottom: '0.1em',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }}>
-        <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <CGFLogo size="large" showTagline={false} showText={false} />
-        </Link>
-      </div>
+    <>
+      {/* Overlay quando sidebar è aperto su mobile */}
+      {isOpen && isMobile && (
+        <div
+          onClick={toggle}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 9
+          }}
+        />
+      )}
       
-      {/* NavItems principali */}
-      {navItems.map((item, index) => {
+      <aside style={{
+        width: isOpen ? 220 : 0,
+        minWidth: isOpen ? 220 : 0,
+        background: '#fff',
+        borderRight: '1px solid #e5e5ea',
+        padding: isOpen ? '0.25em 0.5em' : '0',
+        height: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        transition: 'width 0.3s ease, min-width 0.3s ease, padding 0.3s ease',
+        boxShadow: isOpen ? '2px 0 8px rgba(0,0,0,0.1)' : 'none'
+      }}>
+        {/* Pulsante toggle - sempre visibile quando sidebar è chiusa */}
+        <button
+          onClick={toggle}
+          style={{
+            position: 'fixed',
+            top: '10px',
+            left: isOpen ? '230px' : '10px',
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            border: '1px solid #e5e5ea',
+            background: '#fff',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 12,
+            transition: 'left 0.3s ease',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            fontSize: '16px',
+            color: '#333'
+          }}
+          aria-label={isOpen ? 'Chiudi menu' : 'Apri menu'}
+        >
+          {isOpen ? '◀' : '☰'}
+        </button>
+
+        {/* Logo in alto */}
+        {isOpen && (
+          <div style={{
+            padding: '0.1em 0.5em',
+            borderBottom: '1px solid #e5e5ea',
+            marginBottom: '0.1em',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            opacity: isOpen ? 1 : 0,
+            transition: 'opacity 0.2s ease'
+          }}>
+            <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+              <CGFLogo size="large" showTagline={false} showText={false} />
+            </Link>
+          </div>
+        )}
+      
+        {/* NavItems principali */}
+        {isOpen && navItems.map((item, index) => {
         // Nasconde 'Anagrafiche' per gli utenti non-admin
         if (item.label === "Anagrafiche" && user?.role !== 'admin') {
           return null;
@@ -261,8 +325,8 @@ export default function Sidebar() {
           );
         }
       })}
-      {/* Voce menu Gestione Utenti solo per admin, in fondo */}
-      {user?.role === 'admin' && (
+        {/* Voce menu Gestione Utenti solo per admin, in fondo */}
+        {isOpen && user?.role === 'admin' && (
   <>
     <Link href="/utenti" style={{
       display: 'block',
@@ -295,8 +359,8 @@ export default function Sidebar() {
     </Link>
   </>
 )}
-      {/* Voce menu MOMAP solo admin */}
-      {user?.role === 'admin' && (
+        {/* Voce menu MOMAP solo admin */}
+        {isOpen && user?.role === 'admin' && (
         <Link href="/impostazioni-momap" style={{
           display: 'block',
           color: '#333',
@@ -312,6 +376,7 @@ export default function Sidebar() {
           Integrazione MOMAP
         </Link>
       )}
-    </aside>
+      </aside>
+    </>
   );
 }
