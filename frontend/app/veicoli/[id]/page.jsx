@@ -254,15 +254,24 @@ export default function VeicoloDetailPage() {
     try {
       console.log('🗑️ Eliminazione veicolo:', veicoloId);
       
-      await api.delete(`/vehicles/${veicoloId}`);
+      const response = await api.delete(`/vehicles/${veicoloId}`);
       
-      console.log('✅ Veicolo eliminato con successo');
-      
-      alert('Veicolo eliminato con successo!');
-      router.push('/veicoli');
+      // La risposta 204 No Content è un successo
+      if (response.status === 204 || response.status === 200) {
+        console.log('✅ Veicolo eliminato con successo');
+        alert('Veicolo eliminato con successo!');
+        router.push('/veicoli');
+      } else {
+        throw new Error('Risposta inaspettata dal server');
+      }
       
     } catch (err) {
       console.error('❌ Errore eliminazione veicolo:', err);
+      console.error('❌ Dettagli errore:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
       
       const errorMsg = err.response?.data?.message || err.message || 'Errore durante l\'eliminazione del veicolo';
       setError(errorMsg);
