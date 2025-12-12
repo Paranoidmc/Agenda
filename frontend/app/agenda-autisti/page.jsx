@@ -1200,56 +1200,109 @@ export default function AgendaAutistiPage() {
             </tbody>
           </table>
           </div>
+          </div>
           <div style={{ marginTop: 8, color: '#666', fontSize: 12, direction: 'ltr' }}>
             Tabella oraria: vengono mostrati tutti gli autisti. Se hanno attività nell'orario, viene mostrata la destinazione.
           </div>
         </div>
       ) : (
-        <div style={{ 
-          overflowX: 'scroll', 
-          overflowY: 'scroll', 
-          maxHeight: 'calc(100vh - 300px)', 
-          position: 'relative',
-          direction: 'rtl',
-          // Scrollbar sempre visibile e posizionata sopra (a sinistra con rtl)
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#888 #f1f1f1'
-        }} className="custom-scrollbar">
-          <style jsx>{`
-            .custom-scrollbar {
-              scrollbar-width: thin;
-              scrollbar-color: #888 #f1f1f1;
-            }
-            .custom-scrollbar::-webkit-scrollbar {
-              width: 12px;
-              height: 12px;
-              display: block !important;
-            }
-            .custom-scrollbar::-webkit-scrollbar:vertical {
-              display: block !important;
-            }
-            .custom-scrollbar::-webkit-scrollbar:horizontal {
-              display: block !important;
-            }
-            .custom-scrollbar::-webkit-scrollbar-track {
-              background: #f1f1f1;
-              display: block !important;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb {
-              background: #888;
-              border-radius: 6px;
-              display: block !important;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-              background: #555;
-            }
-            .custom-scrollbar::-webkit-scrollbar-corner {
-              background: #f1f1f1;
-              display: block !important;
-            }
-          `}</style>
-          <div style={{ direction: 'ltr', minWidth: `${200 + (weekDays.length * 150)}px` }}>
-            <table style={{ ...tableStyle, width: 'auto', minWidth: `${200 + (weekDays.length * 150)}px` }}>
+        <div style={{ position: 'relative' }}>
+          {/* Scrollbar orizzontale sopra la tabella - sempre visibile */}
+          <div 
+            id="horizontal-scrollbar-top-week"
+            style={{ 
+              overflowX: 'scroll', 
+              overflowY: 'hidden',
+              height: '17px',
+              marginBottom: '0',
+              direction: 'rtl',
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#666 #f1f1f1'
+            }}
+            className="custom-scrollbar-horizontal-top"
+            onScroll={(e) => {
+              const bottomScroll = document.getElementById('table-container-week');
+              if (bottomScroll) {
+                bottomScroll.scrollLeft = e.target.scrollLeft;
+              }
+            }}
+          >
+            <div style={{ height: '1px', minWidth: `${200 + (weekDays.length * 150)}px` }}></div>
+          </div>
+          <div 
+            id="table-container-week"
+            style={{ 
+              overflowX: 'scroll', 
+              overflowY: 'scroll', 
+              maxHeight: 'calc(100vh - 300px)', 
+              position: 'relative',
+              direction: 'rtl',
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#888 #f1f1f1'
+            }} 
+            className="custom-scrollbar"
+            onScroll={(e) => {
+              const topScroll = document.getElementById('horizontal-scrollbar-top-week');
+              if (topScroll) {
+                topScroll.scrollLeft = e.target.scrollLeft;
+              }
+            }}
+          >
+            <style jsx>{`
+              .custom-scrollbar {
+                scrollbar-width: thin;
+                scrollbar-color: #888 #f1f1f1;
+              }
+              .custom-scrollbar::-webkit-scrollbar {
+                width: 12px;
+                height: 12px;
+                display: block !important;
+              }
+              .custom-scrollbar::-webkit-scrollbar:vertical {
+                display: block !important;
+              }
+              .custom-scrollbar::-webkit-scrollbar:horizontal {
+                display: block !important;
+              }
+              .custom-scrollbar::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                display: block !important;
+              }
+              .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 6px;
+                display: block !important;
+              }
+              .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: #555;
+              }
+              .custom-scrollbar::-webkit-scrollbar-corner {
+                background: #f1f1f1;
+                display: block !important;
+              }
+              .custom-scrollbar-horizontal-top {
+                scrollbar-width: thin;
+                scrollbar-color: #666 #f1f1f1;
+              }
+              .custom-scrollbar-horizontal-top::-webkit-scrollbar {
+                height: 15px;
+                display: block !important;
+              }
+              .custom-scrollbar-horizontal-top::-webkit-scrollbar-track {
+                background: #e0e0e0;
+                display: block !important;
+              }
+              .custom-scrollbar-horizontal-top::-webkit-scrollbar-thumb {
+                background: #666;
+                border-radius: 4px;
+                display: block !important;
+              }
+              .custom-scrollbar-horizontal-top::-webkit-scrollbar-thumb:hover {
+                background: #333;
+              }
+            `}</style>
+            <div style={{ direction: 'ltr', minWidth: `${200 + (weekDays.length * 150)}px` }}>
+              <table style={{ ...tableStyle, width: 'auto', minWidth: `${200 + (weekDays.length * 150)}px` }}>
             <thead>
               <tr>
                 <th style={thStyle}>
@@ -1330,6 +1383,7 @@ export default function AgendaAutistiPage() {
               )}
             </tbody>
           </table>
+          </div>
           </div>
         </div>
       )}
