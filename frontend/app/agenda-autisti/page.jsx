@@ -1019,30 +1019,135 @@ export default function AgendaAutistiPage() {
         </div>
       ) : view === 'grid' ? (
         <div style={{ position: 'relative' }}>
-          {/* Scrollbar orizzontale sopra la tabella - sempre visibile */}
-          <div 
-            id="horizontal-scrollbar-top-grid"
-            style={{ 
-              overflowX: 'scroll', 
-              overflowY: 'hidden',
-              height: '17px',
-              marginBottom: '0',
-              direction: 'rtl',
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#666 #f1f1f1',
-              width: '100%'
-            }}
-            className="custom-scrollbar-horizontal-top"
-            onScroll={(e) => {
-              if (typeof window !== 'undefined') {
-                const bottomScroll = document.getElementById('table-container-grid');
-                if (bottomScroll) {
-                  bottomScroll.scrollLeft = e.target.scrollLeft;
+          {/* Scrollbar orizzontale personalizzata sopra la tabella - sempre visibile e fruibile */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            marginBottom: '8px',
+            padding: '8px',
+            background: '#f5f5f5',
+            borderRadius: '4px',
+            border: '1px solid #ddd'
+          }}>
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const container = document.getElementById('table-container-grid');
+                  if (container) {
+                    container.scrollBy({ left: -200, behavior: 'smooth' });
+                  }
                 }
-              }
-            }}
-          >
-            <div style={{ height: '1px', width: `${Math.max(80 + (driverList.length * 180), 1200)}px` }}></div>
+              }}
+              style={{
+                padding: '8px 12px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+              title="Scorri a sinistra"
+            >
+              ←
+            </button>
+            <div 
+              id="horizontal-scrollbar-top-grid"
+              style={{ 
+                flex: 1,
+                height: '25px',
+                background: '#e0e0e0',
+                borderRadius: '12px',
+                position: 'relative',
+                cursor: 'pointer',
+                border: '2px solid #999'
+              }}
+              onClick={(e) => {
+                if (typeof window !== 'undefined') {
+                  const container = document.getElementById('table-container-grid');
+                  const scrollbar = e.currentTarget;
+                  if (container && scrollbar) {
+                    const rect = scrollbar.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const percentage = clickX / rect.width;
+                    const maxScroll = container.scrollWidth - container.clientWidth;
+                    container.scrollLeft = percentage * maxScroll;
+                  }
+                }
+              }}
+            >
+              <div
+                id="horizontal-scrollbar-thumb-grid"
+                style={{
+                  height: '100%',
+                  background: '#666',
+                  borderRadius: '12px',
+                  minWidth: '30px',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  cursor: 'grab',
+                  border: '1px solid #333'
+                }}
+                onMouseDown={(e) => {
+                  if (typeof window !== 'undefined') {
+                    e.preventDefault();
+                    const container = document.getElementById('table-container-grid');
+                    const thumb = e.currentTarget;
+                    const scrollbar = document.getElementById('horizontal-scrollbar-top-grid');
+                    if (!container || !thumb || !scrollbar) return;
+                    
+                    const startX = e.clientX;
+                    const startScrollLeft = container.scrollLeft;
+                    const maxScroll = container.scrollWidth - container.clientWidth;
+                    const scrollbarWidth = scrollbar.offsetWidth;
+                    const thumbWidth = thumb.offsetWidth;
+                    
+                    const handleMouseMove = (moveEvent) => {
+                      const deltaX = moveEvent.clientX - startX;
+                      const scrollRatio = maxScroll / (scrollbarWidth - thumbWidth);
+                      const newScrollLeft = startScrollLeft + (deltaX * scrollRatio);
+                      container.scrollLeft = Math.max(0, Math.min(maxScroll, newScrollLeft));
+                    };
+                    
+                    const handleMouseUp = () => {
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                      thumb.style.cursor = 'grab';
+                    };
+                    
+                    thumb.style.cursor = 'grabbing';
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                  }
+                }}
+              />
+            </div>
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const container = document.getElementById('table-container-grid');
+                  if (container) {
+                    container.scrollBy({ left: 200, behavior: 'smooth' });
+                  }
+                }
+              }}
+              style={{
+                padding: '8px 12px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+              title="Scorri a destra"
+            >
+              →
+            </button>
           </div>
           <div 
             id="table-container-grid"
@@ -1248,7 +1353,7 @@ export default function AgendaAutistiPage() {
           <div 
             id="table-container-week"
             style={{ 
-              overflowX: 'scroll', 
+              overflowX: 'auto', 
               overflowY: 'scroll', 
               maxHeight: 'calc(100vh - 300px)', 
               position: 'relative',
@@ -1259,9 +1364,16 @@ export default function AgendaAutistiPage() {
             className="custom-scrollbar"
             onScroll={(e) => {
               if (typeof window !== 'undefined') {
-                const topScroll = document.getElementById('horizontal-scrollbar-top-week');
-                if (topScroll) {
-                  topScroll.scrollLeft = e.target.scrollLeft;
+                const container = e.target;
+                const scrollbar = document.getElementById('horizontal-scrollbar-top-week');
+                const thumb = document.getElementById('horizontal-scrollbar-thumb-week');
+                if (scrollbar && thumb && container) {
+                  const maxScroll = container.scrollWidth - container.clientWidth;
+                  const scrollRatio = container.scrollLeft / maxScroll;
+                  const scrollbarWidth = scrollbar.offsetWidth;
+                  const thumbWidth = thumb.offsetWidth;
+                  const maxThumbLeft = scrollbarWidth - thumbWidth;
+                  thumb.style.left = `${scrollRatio * maxThumbLeft}px`;
                 }
               }
             }}
