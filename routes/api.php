@@ -186,7 +186,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('activity-types', ActivityTypeController::class);
     Route::apiResource('sites', SiteController::class);
     Route::post('/sites/sync', [SiteController::class, 'sync']);
-    Route::apiResource('vehicles', VehicleController::class);
+    // Route esplicita per DELETE vehicles prima di apiResource per evitare conflitti
+    Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy']);
+    Route::apiResource('vehicles', VehicleController::class)->except(['destroy']);
 
     Route::apiResource('activities', ActivityController::class);
 
