@@ -861,8 +861,10 @@ export default function AgendaAutistiPage() {
       const thumbGrid = document.getElementById('horizontal-scrollbar-thumb-grid');
       
       if (containerGrid && scrollbarGrid && thumbGrid) {
+        // Con direction: rtl, scrollLeft è negativo, quindi usiamo Math.abs
+        const scrollLeft = Math.abs(containerGrid.scrollLeft);
         const maxScroll = Math.max(0, containerGrid.scrollWidth - containerGrid.clientWidth);
-        const scrollRatio = maxScroll > 0 ? containerGrid.scrollLeft / maxScroll : 0;
+        const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
         const scrollbarWidth = scrollbarGrid.offsetWidth;
         const thumbWidth = Math.max(30, (containerGrid.clientWidth / containerGrid.scrollWidth) * scrollbarWidth);
         const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
@@ -875,8 +877,10 @@ export default function AgendaAutistiPage() {
       const thumbWeek = document.getElementById('horizontal-scrollbar-thumb-week');
       
       if (containerWeek && scrollbarWeek && thumbWeek) {
+        // Con direction: rtl, scrollLeft è negativo, quindi usiamo Math.abs
+        const scrollLeft = Math.abs(containerWeek.scrollLeft);
         const maxScroll = Math.max(0, containerWeek.scrollWidth - containerWeek.clientWidth);
-        const scrollRatio = maxScroll > 0 ? containerWeek.scrollLeft / maxScroll : 0;
+        const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
         const scrollbarWidth = scrollbarWeek.offsetWidth;
         const thumbWidth = Math.max(30, (containerWeek.clientWidth / containerWeek.scrollWidth) * scrollbarWidth);
         const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
@@ -1100,7 +1104,11 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-grid');
                   if (container) {
-                    container.scrollBy({ left: -200, behavior: 'smooth' });
+                    // Con direction: rtl, per andare a destra (verso l'inizio) scrollLeft diventa più negativo
+                    const currentScroll = Math.abs(container.scrollLeft);
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                    const newScroll = Math.min(maxScroll, currentScroll + 200);
+                    container.scrollLeft = -newScroll;
                   }
                 }
               }}
@@ -1202,7 +1210,10 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-grid');
                   if (container) {
-                    container.scrollBy({ left: 200, behavior: 'smooth' });
+                    // Con direction: rtl, per andare a sinistra (verso la fine) scrollLeft diventa meno negativo
+                    const currentScroll = Math.abs(container.scrollLeft);
+                    const newScroll = Math.max(0, currentScroll - 200);
+                    container.scrollLeft = -newScroll;
                   }
                 }
               }}
@@ -1515,7 +1526,10 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-week');
                   if (container) {
-                    container.scrollBy({ left: 200, behavior: 'smooth' });
+                    // Con direction: rtl, per andare a sinistra (verso la fine) scrollLeft diventa meno negativo
+                    const currentScroll = Math.abs(container.scrollLeft);
+                    const newScroll = Math.max(0, currentScroll - 200);
+                    container.scrollLeft = -newScroll;
                   }
                 }
               }}
@@ -1552,8 +1566,10 @@ export default function AgendaAutistiPage() {
                 const scrollbar = document.getElementById('horizontal-scrollbar-top-week');
                 const thumb = document.getElementById('horizontal-scrollbar-thumb-week');
                 if (scrollbar && thumb && container) {
+                  // Con direction: rtl, scrollLeft è negativo, quindi usiamo Math.abs
+                  const scrollLeft = Math.abs(container.scrollLeft);
                   const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                  const scrollRatio = maxScroll > 0 ? container.scrollLeft / maxScroll : 0;
+                  const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
                   const scrollbarWidth = scrollbar.offsetWidth;
                   const thumbWidth = Math.max(30, (container.clientWidth / container.scrollWidth) * scrollbarWidth);
                   const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
