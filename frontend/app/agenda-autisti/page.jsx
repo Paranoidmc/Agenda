@@ -1033,9 +1033,11 @@ export default function AgendaAutistiPage() {
             }}
             className="custom-scrollbar-horizontal-top"
             onScroll={(e) => {
-              const bottomScroll = document.getElementById('table-container-grid');
-              if (bottomScroll) {
-                bottomScroll.scrollLeft = e.target.scrollLeft;
+              if (typeof window !== 'undefined') {
+                const bottomScroll = document.getElementById('table-container-grid');
+                if (bottomScroll) {
+                  bottomScroll.scrollLeft = e.target.scrollLeft;
+                }
               }
             }}
           >
@@ -1054,9 +1056,11 @@ export default function AgendaAutistiPage() {
             }} 
             className="custom-scrollbar"
             onScroll={(e) => {
-              const topScroll = document.getElementById('horizontal-scrollbar-top-grid');
-              if (topScroll) {
-                topScroll.scrollLeft = e.target.scrollLeft;
+              if (typeof window !== 'undefined') {
+                const topScroll = document.getElementById('horizontal-scrollbar-top-grid');
+                if (topScroll) {
+                  topScroll.scrollLeft = e.target.scrollLeft;
+                }
               }
             }}
           >
@@ -1221,9 +1225,11 @@ export default function AgendaAutistiPage() {
             }}
             className="custom-scrollbar-horizontal-top"
             onScroll={(e) => {
-              const bottomScroll = document.getElementById('table-container-week');
-              if (bottomScroll) {
-                bottomScroll.scrollLeft = e.target.scrollLeft;
+              if (typeof window !== 'undefined') {
+                const bottomScroll = document.getElementById('table-container-week');
+                if (bottomScroll) {
+                  bottomScroll.scrollLeft = e.target.scrollLeft;
+                }
               }
             }}
           >
@@ -1242,9 +1248,11 @@ export default function AgendaAutistiPage() {
             }} 
             className="custom-scrollbar"
             onScroll={(e) => {
-              const topScroll = document.getElementById('horizontal-scrollbar-top-week');
-              if (topScroll) {
-                topScroll.scrollLeft = e.target.scrollLeft;
+              if (typeof window !== 'undefined') {
+                const topScroll = document.getElementById('horizontal-scrollbar-top-week');
+                if (topScroll) {
+                  topScroll.scrollLeft = e.target.scrollLeft;
+                }
               }
             }}
           >
