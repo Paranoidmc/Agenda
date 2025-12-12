@@ -1397,30 +1397,142 @@ export default function AgendaAutistiPage() {
         </div>
       ) : (
         <div style={{ position: 'relative' }}>
-          {/* Scrollbar orizzontale sopra la tabella - sempre visibile */}
-          <div 
-            id="horizontal-scrollbar-top-week"
-            style={{ 
-              overflowX: 'scroll', 
-              overflowY: 'hidden',
-              height: '17px',
-              marginBottom: '0',
-              direction: 'rtl',
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#666 #f1f1f1',
-              width: '100%'
-            }}
-            className="custom-scrollbar-horizontal-top"
-            onScroll={(e) => {
-              if (typeof window !== 'undefined') {
-                const bottomScroll = document.getElementById('table-container-week');
-                if (bottomScroll) {
-                  bottomScroll.scrollLeft = e.target.scrollLeft;
+          {/* Scrollbar orizzontale personalizzata sopra la tabella - sempre visibile e fruibile */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            marginBottom: '8px',
+            padding: '8px',
+            background: '#f5f5f5',
+            borderRadius: '4px',
+            border: '1px solid #ddd'
+          }}>
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const container = document.getElementById('table-container-week');
+                  if (container) {
+                    container.scrollBy({ left: -200, behavior: 'smooth' });
+                  }
                 }
-              }
-            }}
-          >
-            <div style={{ height: '1px', width: `${Math.max(200 + (weekDays.length * 150), 1200)}px` }}></div>
+              }}
+              style={{
+                padding: '8px 12px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+              title="Scorri a sinistra"
+            >
+              ←
+            </button>
+            <div 
+              id="horizontal-scrollbar-top-week"
+              style={{ 
+                flex: 1,
+                height: '25px',
+                background: '#e0e0e0',
+                borderRadius: '12px',
+                position: 'relative',
+                cursor: 'pointer',
+                border: '2px solid #999'
+              }}
+              onClick={(e) => {
+                if (typeof window !== 'undefined') {
+                  const container = document.getElementById('table-container-week');
+                  const scrollbar = e.currentTarget;
+                  const thumb = document.getElementById('horizontal-scrollbar-thumb-week');
+                  if (container && scrollbar) {
+                    const rect = scrollbar.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const thumbWidth = thumb ? thumb.offsetWidth : 30;
+                    const scrollbarWidth = scrollbar.offsetWidth;
+                    const usableWidth = scrollbarWidth - thumbWidth;
+                    const percentage = Math.max(0, Math.min(1, (clickX - thumbWidth / 2) / usableWidth));
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                    container.scrollLeft = percentage * maxScroll;
+                  }
+                }
+              }}
+            >
+              <div
+                id="horizontal-scrollbar-thumb-week"
+                style={{
+                  height: '100%',
+                  background: '#666',
+                  borderRadius: '12px',
+                  minWidth: '30px',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  cursor: 'grab',
+                  border: '1px solid #333'
+                }}
+                onMouseDown={(e) => {
+                  if (typeof window !== 'undefined') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const container = document.getElementById('table-container-week');
+                    const thumb = e.currentTarget;
+                    const scrollbar = document.getElementById('horizontal-scrollbar-top-week');
+                    if (!container || !thumb || !scrollbar) return;
+                    
+                    const startX = e.clientX;
+                    const startThumbLeft = parseInt(thumb.style.left) || 0;
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                    const scrollbarWidth = scrollbar.offsetWidth;
+                    const thumbWidth = thumb.offsetWidth;
+                    const usableWidth = scrollbarWidth - thumbWidth;
+                    
+                    const handleMouseMove = (moveEvent) => {
+                      const deltaX = moveEvent.clientX - startX;
+                      const newThumbLeft = Math.max(0, Math.min(usableWidth, startThumbLeft + deltaX));
+                      const scrollRatio = usableWidth > 0 ? newThumbLeft / usableWidth : 0;
+                      container.scrollLeft = scrollRatio * maxScroll;
+                      thumb.style.left = `${newThumbLeft}px`;
+                    };
+                    
+                    const handleMouseUp = () => {
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                      thumb.style.cursor = 'grab';
+                    };
+                    
+                    thumb.style.cursor = 'grabbing';
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                  }
+                }}
+              />
+            </div>
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const container = document.getElementById('table-container-week');
+                  if (container) {
+                    container.scrollBy({ left: 200, behavior: 'smooth' });
+                  }
+                }
+              }}
+              style={{
+                padding: '8px 12px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+              title="Scorri a destra"
+            >
+              →
+            </button>
           </div>
           <div 
             id="table-container-week"
