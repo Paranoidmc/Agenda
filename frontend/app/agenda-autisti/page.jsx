@@ -861,12 +861,12 @@ export default function AgendaAutistiPage() {
       const thumbGrid = document.getElementById('horizontal-scrollbar-thumb-grid');
       
       if (containerGrid && scrollbarGrid && thumbGrid) {
-        const maxScroll = containerGrid.scrollWidth - containerGrid.clientWidth;
+        const maxScroll = Math.max(0, containerGrid.scrollWidth - containerGrid.clientWidth);
         const scrollRatio = maxScroll > 0 ? containerGrid.scrollLeft / maxScroll : 0;
         const scrollbarWidth = scrollbarGrid.offsetWidth;
-        const thumbWidth = Math.max(30, scrollbarWidth * 0.3);
-        const maxThumbLeft = scrollbarWidth - thumbWidth;
-        thumbGrid.style.width = `${Math.max(30, (containerGrid.clientWidth / containerGrid.scrollWidth) * scrollbarWidth)}px`;
+        const thumbWidth = Math.max(30, (containerGrid.clientWidth / containerGrid.scrollWidth) * scrollbarWidth);
+        const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
+        thumbGrid.style.width = `${thumbWidth}px`;
         thumbGrid.style.left = `${scrollRatio * maxThumbLeft}px`;
       }
       
@@ -875,23 +875,44 @@ export default function AgendaAutistiPage() {
       const thumbWeek = document.getElementById('horizontal-scrollbar-thumb-week');
       
       if (containerWeek && scrollbarWeek && thumbWeek) {
-        const maxScroll = containerWeek.scrollWidth - containerWeek.clientWidth;
+        const maxScroll = Math.max(0, containerWeek.scrollWidth - containerWeek.clientWidth);
         const scrollRatio = maxScroll > 0 ? containerWeek.scrollLeft / maxScroll : 0;
         const scrollbarWidth = scrollbarWeek.offsetWidth;
-        const thumbWidth = Math.max(30, scrollbarWidth * 0.3);
-        const maxThumbLeft = scrollbarWidth - thumbWidth;
-        thumbWeek.style.width = `${Math.max(30, (containerWeek.clientWidth / containerWeek.scrollWidth) * scrollbarWidth)}px`;
+        const thumbWidth = Math.max(30, (containerWeek.clientWidth / containerWeek.scrollWidth) * scrollbarWidth);
+        const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
+        thumbWeek.style.width = `${thumbWidth}px`;
         thumbWeek.style.left = `${scrollRatio * maxThumbLeft}px`;
       }
     };
     
+    // Aggiorna immediatamente e poi periodicamente
     updateScrollbar();
-    const timer = setTimeout(updateScrollbar, 100);
+    const timer1 = setTimeout(updateScrollbar, 100);
+    const timer2 = setTimeout(updateScrollbar, 500);
+    
+    // Ascolta lo scroll del contenitore
+    const containerGrid = document.getElementById('table-container-grid');
+    const containerWeek = document.getElementById('table-container-week');
+    
+    if (containerGrid) {
+      containerGrid.addEventListener('scroll', updateScrollbar);
+    }
+    if (containerWeek) {
+      containerWeek.addEventListener('scroll', updateScrollbar);
+    }
+    
     window.addEventListener('resize', updateScrollbar);
     
     return () => {
-      clearTimeout(timer);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       window.removeEventListener('resize', updateScrollbar);
+      if (containerGrid) {
+        containerGrid.removeEventListener('scroll', updateScrollbar);
+      }
+      if (containerWeek) {
+        containerWeek.removeEventListener('scroll', updateScrollbar);
+      }
     };
   }, [driverList, weekDays, view]);
 
