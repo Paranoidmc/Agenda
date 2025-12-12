@@ -1189,7 +1189,8 @@ export default function AgendaAutistiPage() {
                       const deltaX = moveEvent.clientX - startX;
                       const newThumbLeft = Math.max(0, Math.min(usableWidth, startThumbLeft + deltaX));
                       const scrollRatio = usableWidth > 0 ? newThumbLeft / usableWidth : 0;
-                      container.scrollLeft = scrollRatio * maxScroll;
+                      // Con direction: rtl, scrollLeft deve essere negativo
+                      container.scrollLeft = -scrollRatio * maxScroll;
                       thumb.style.left = `${newThumbLeft}px`;
                     };
                     
@@ -1425,7 +1426,11 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-week');
                   if (container) {
-                    container.scrollBy({ left: -200, behavior: 'smooth' });
+                    // Con direction: rtl, per andare a destra (verso l'inizio) scrollLeft diventa più negativo
+                    const currentScroll = Math.abs(container.scrollLeft);
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                    const newScroll = Math.min(maxScroll, currentScroll + 200);
+                    container.scrollLeft = -newScroll;
                   }
                 }
               }}
@@ -1467,7 +1472,8 @@ export default function AgendaAutistiPage() {
                     const usableWidth = scrollbarWidth - thumbWidth;
                     const percentage = Math.max(0, Math.min(1, (clickX - thumbWidth / 2) / usableWidth));
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    container.scrollLeft = percentage * maxScroll;
+                    // Con direction: rtl, scrollLeft deve essere negativo
+                    container.scrollLeft = -percentage * maxScroll;
                   }
                 }
               }}
@@ -1505,7 +1511,8 @@ export default function AgendaAutistiPage() {
                       const deltaX = moveEvent.clientX - startX;
                       const newThumbLeft = Math.max(0, Math.min(usableWidth, startThumbLeft + deltaX));
                       const scrollRatio = usableWidth > 0 ? newThumbLeft / usableWidth : 0;
-                      container.scrollLeft = scrollRatio * maxScroll;
+                      // Con direction: rtl, scrollLeft deve essere negativo
+                      container.scrollLeft = -scrollRatio * maxScroll;
                       thumb.style.left = `${newThumbLeft}px`;
                     };
                     
