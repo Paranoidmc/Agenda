@@ -25,9 +25,29 @@ export default function DataTable({
   hideSearch = false
 }) {
   // Stato per la ricerca (usa props esterni se disponibili)
-  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState(searchTerm || '');
   const actualSearchTerm = searchTerm !== null ? searchTerm : internalSearchTerm;
-  const displaySearchTerm = internalSearchTerm;
+  const displaySearchTerm = searchTerm !== null ? searchTerm : internalSearchTerm;
+  
+  // Ref per tracciare l'ultimo valore della prop
+  const lastPropSearchTermRef = useRef(searchTerm);
+  
+  // Sincronizza internalSearchTerm con searchTerm quando cambia dalla prop (non dall'utente)
+  useEffect(() => {
+    // Solo se searchTerm è cambiato dalla prop E non corrisponde a internalSearchTerm
+    // (se corrisponde, significa che l'utente ha appena digitato e stiamo aspettando il debounce)
+    if (searchTerm !== null && searchTerm !== lastPropSearchTermRef.current) {
+      // Se searchTerm corrisponde a internalSearchTerm, significa che il debounce è completato
+      // e la prop è stata aggiornata, quindi sincronizziamo
+      if (searchTerm === internalSearchTerm) {
+        lastPropSearchTermRef.current = searchTerm;
+      } else {
+        // Altrimenti, la prop è cambiata da un'altra fonte, sincronizziamo
+        setInternalSearchTerm(searchTerm);
+        lastPropSearchTermRef.current = searchTerm;
+      }
+    }
+  }, [searchTerm, internalSearchTerm]);
   
   // Stato per i filtri
   const [filters, setFilters] = useState({});
@@ -57,31 +77,60 @@ export default function DataTable({
   
   // Mantiene stabile il riferimento al callback di ricerca
   const onSearchTermChangeRef = useRef(onSearchTermChange);
+  const debounceTimerRef = useRef(null);
+  const lastDebouncedValueRef = useRef(internalSearchTerm);
 
   useEffect(() => {
     onSearchTermChangeRef.current = onSearchTermChange;
   }, [onSearchTermChange]);
-
-  // Debounce per la ricerca server-side
+  
+  // Debounce SEMPLICE per la ricerca server-side - aspetta che l'utente finisca di digitare
   useEffect(() => {
-    if (onSearchTermChangeRef.current) {
-      const timer = setTimeout(() => {
-        onSearchTermChangeRef.current(internalSearchTerm);
-      }, 500); // Aspetta 500ms dopo che l'utente smette di digitare
+    // Solo se c'è un callback, il valore è cambiato, E non corrisponde alla prop (significa che l'utente ha digitato)
+    if (onSearchTermChangeRef.current && 
+        internalSearchTerm !== lastDebouncedValueRef.current &&
+        internalSearchTerm !== searchTerm) {
+      // Cancella il timer precedente se esiste
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       
-      return () => clearTimeout(timer);
+      // Imposta un nuovo timer
+      debounceTimerRef.current = setTimeout(() => {
+        // Verifica che il callback sia ancora disponibile
+        // e che il valore corrente sia ancora quello che vogliamo chiamare
+        // e che non corrisponda già alla prop (significa che è stato già aggiornato)
+        if (onSearchTermChangeRef.current && 
+            internalSearchTerm !== searchTerm &&
+            internalSearchTerm === lastDebouncedValueRef.current) {
+          // Il valore è cambiato durante il debounce, non chiamare
+        } else if (onSearchTermChangeRef.current && internalSearchTerm !== searchTerm) {
+          // Chiama il callback con il valore corrente
+          lastDebouncedValueRef.current = internalSearchTerm;
+          onSearchTermChangeRef.current(internalSearchTerm);
+        }
+        debounceTimerRef.current = null;
+      }, 1000); // Aspetta 1 secondo dopo che l'utente smette di digitare
+    } else if (internalSearchTerm === searchTerm && internalSearchTerm !== lastDebouncedValueRef.current) {
+      // Se internalSearchTerm corrisponde a searchTerm, significa che la prop è stata aggiornata
+      // Aggiorna lastDebouncedValueRef per evitare chiamate duplicate
+      lastDebouncedValueRef.current = internalSearchTerm;
     }
-  }, [internalSearchTerm]);
+    
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [internalSearchTerm, searchTerm]);
   
   // Funzione per gestire la ricerca
   const handleSearch = (e) => {
     const newSearchTerm = e.target.value;
-    if (onSearchTermChange) {
-      // Per server-side, aggiorna solo lo stato locale (il debounce gestirà la chiamata)
-      setInternalSearchTerm(newSearchTerm);
-    } else {
-      setInternalSearchTerm(newSearchTerm);
-    }
+    // Aggiorna immediatamente il valore (per feedback visivo)
+    // Il debounce gestirà la chiamata API
+    setInternalSearchTerm(newSearchTerm);
   };
   
   // Funzione per gestire i filtri

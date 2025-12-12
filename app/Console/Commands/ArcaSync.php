@@ -63,10 +63,10 @@ class ArcaSync extends Command
             $this->syncDocumenti($client, $headers, $token);
         } else {
             // Se non specificato, sincronizza tutto
-            $this->syncClienti($client, $headers);
-            $this->syncDestinazioni($client, $headers);
-            $this->syncAgenti($client, $headers);
-            $this->syncDocumenti($client, $headers, $token);
+        $this->syncClienti($client, $headers);
+        $this->syncDestinazioni($client, $headers);
+        $this->syncAgenti($client, $headers);
+        $this->syncDocumenti($client, $headers, $token);
         }
         
         $this->info('Sincronizzazione ARCA completata!');

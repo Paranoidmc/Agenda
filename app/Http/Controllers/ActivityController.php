@@ -160,7 +160,7 @@ class ActivityController extends Controller
             $normalized = strtolower(trim($status));
             return $statusMap[$normalized] ?? $status;
         };
-        
+
         // Aggiungiamo i campi in italiano per ogni attività
         $activities->getCollection()->transform(function ($activity) use ($normalizeStatus) {
             // Normalizza lo stato prima di tutto

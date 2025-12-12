@@ -796,7 +796,26 @@ export default function AttivitaDetailPage() {
           />
         ),
       },
-      { name: 'site_id', label: <>Sede {extraBelowSite}</>, type: 'select', isNumeric: true, required: true, options: sediOptions, disabled: !selectedClientId, placeholder: selectedClientId ? 'Seleziona Sede' : 'Prima seleziona un cliente' },
+      {
+        name: 'site_id',
+        label: <>Sede {extraBelowSite}</>,
+        type: 'custom',
+        required: true,
+        render: (formData, handleChange) => (
+          <SearchableSelect
+            name="site_id"
+            value={formData.site_id ?? ''}
+            options={sediOptions}
+            placeholder={selectedClientId ? 'Cerca o seleziona sede...' : 'Prima seleziona un cliente'}
+            disabled={!selectedClientId}
+            onChange={(e) => {
+              // Assicura valore numerico o stringa vuota
+              const v = e.target.value === '' ? '' : Number(e.target.value);
+              handleChange({ target: { name: 'site_id', value: v } });
+            }}
+          />
+        ),
+      },
       { name: 'resources', label: 'Risorse abbinate', type: 'custom', render: (formData, handleChange) => <ResourcePairing value={formData.resources || []} onChange={(newValue) => handleChange({ target: { name: 'resources', value: newValue }})} drivers={autisti} vehicles={veicoli} />, required: false },
       { name: 'activity_type_id', label: 'Tipo Attività', type: 'select', isNumeric: true, required: true, options: tipiAttivita.map(t => ({ value: t.id, label: t.nome || t.name || '' })), placeholder: 'Seleziona Tipo Attività' },
       { name: 'status', label: 'Stato', type: 'select', required: true, options: [{ value: 'non assegnato', label: 'Non assegnato' }, { value: 'assegnato', label: 'Assegnato' }, { value: 'doc emesso', label: 'Doc emesso' }, { value: 'programmato', label: 'Programmato' }, { value: 'in corso', label: 'In corso' }, { value: 'completato', label: 'Completato' }, { value: 'annullato', label: 'Annullato' }], placeholder: 'Seleziona Stato' },
@@ -1144,7 +1163,10 @@ export default function AttivitaDetailPage() {
         buttonLabel={canEdit ? (isEditing ? "Annulla" : isNew ? "" : "Modifica") : ""}
         onAddClick={canEdit && !isNew ? () => setIsEditing(!isEditing) : null}
         showBackButton={true}
-        onBackClick={() => router.push("/attivita")}
+        onBackClick={() => {
+          // Torna sempre all'agenda (pianificazione)
+          router.push("/pianificazione");
+        }}
       />
 
       {canEdit && !isNew && (

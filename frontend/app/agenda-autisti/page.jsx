@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import api from "../../lib/api";
+import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 
 function toDate(val) {
@@ -21,6 +22,9 @@ function formatTime(val) {
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function AgendaAutistiPage() {
+  const { user, loading: authLoading } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  
   const [date, setDate] = useState(todayISO());
   const [view, setView] = useState("grid"); // 'day' | 'week' | 'grid'
   const [drivers, setDrivers] = useState([]);
@@ -32,23 +36,10 @@ export default function AgendaAutistiPage() {
   const [driverQuery, setDriverQuery] = useState("");
   const [onlyWithActivities, setOnlyWithActivities] = useState(false); // Cambiato a false per vedere tutti gli autisti di default
   const [loadAllActivities, setLoadAllActivities] = useState(false); // Flag per caricare tutte le attività senza filtro data
-  const [driverOrder, setDriverOrder] = useState(() => {
-    // Carica ordinamento custom da localStorage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('agendaAutistiOrder');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
-  });
-  const [hiddenDrivers, setHiddenDrivers] = useState(() => {
-    // Carica autisti nascosti da localStorage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('agendaAutistiHidden');
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    }
-    return new Set();
-  });
+  const [driverOrder, setDriverOrder] = useState([]);
+  const [hiddenDrivers, setHiddenDrivers] = useState(new Set());
   const [draggedDriverId, setDraggedDriverId] = useState(null);
+  const [savingPreferences, setSavingPreferences] = useState(false);
 
   // Carica anagrafica autisti
   useEffect(() => {
@@ -99,7 +90,7 @@ export default function AgendaAutistiPage() {
             if (!loadAllActivities) {
               params.append("date", String(d));
             }
-          params.append("include", "resources");
+          params.append("include", "resources,client");
             const url = `/activities?${params.toString()}`;
             console.log(`🔍 Richiesta attività per ${d}:`, url, loadAllActivities ? '(senza filtro data)' : '(con filtro data)');
             const response = await api.get(url, { 
@@ -191,7 +182,7 @@ export default function AgendaAutistiPage() {
               if (!loadAllActivities) {
                 params.append("date", String(d));
               }
-              params.append("include", "resources");
+              params.append("include", "resources,client");
               const url = `/activities?${params.toString()}`;
               const response = await api.get(url, { 
                 useCache: false, 
@@ -367,9 +358,12 @@ export default function AgendaAutistiPage() {
           // Usa sempre la data formattata come YYYY-MM-DD per la chiave
           const dayKey = d; // d è già in formato YYYY-MM-DD da weekDays
           if (!acc[key].perDay[dayKey]) acc[key].perDay[dayKey] = [];
+          // Estrai il nome del cliente
+          const clientName = act.client?.nome || act.client?.name || act.cliente?.nome || act.cliente?.name || '';
           acc[key].perDay[dayKey].push({
             id: act.id,
             descrizione: act.descrizione || act.titolo || "",
+            clientName: clientName,
             start,
             end,
           });
@@ -547,16 +541,14 @@ export default function AgendaAutistiPage() {
       }
       
       if (overlaps) {
-        // Estrai la destinazione dalla descrizione dell'attività
-        const descrizione = a.descrizione || '';
+        // Usa il nome del cliente invece della descrizione
+        const clientName = a.clientName || '';
         if (isFirstCheck) {
-          console.log('✅ Attività trovata per questo slot!', { id: a.id, descrizione });
+          console.log('✅ Attività trovata per questo slot!', { id: a.id, clientName });
         }
-        // Se la descrizione contiene informazioni sulla destinazione, usala
-        // Altrimenti usa la descrizione completa
         return {
           ...a,
-          destinazione: descrizione.length > 20 ? descrizione.substring(0, 17) + '...' : descrizione
+          destinazione: clientName || 'Nessun cliente'
         };
       }
     }
@@ -572,16 +564,21 @@ export default function AgendaAutistiPage() {
       newHidden.add(String(driverId));
     }
     setHiddenDrivers(newHidden);
-    // Salva in localStorage
-    if (typeof window !== 'undefined') {
+    // Salva preferenze globali se admin, altrimenti solo localStorage
+    if (isAdmin) {
+      saveGlobalPreferences(driverOrder, newHidden);
+    } else if (typeof window !== 'undefined') {
       localStorage.setItem('agendaAutistiHidden', JSON.stringify(Array.from(newHidden)));
     }
   };
 
   // Funzione per ripristinare tutti gli autisti nascosti
   const restoreAllHiddenDrivers = () => {
-    setHiddenDrivers(new Set());
-    if (typeof window !== 'undefined') {
+    const newHidden = new Set();
+    setHiddenDrivers(newHidden);
+    if (isAdmin) {
+      saveGlobalPreferences(driverOrder, newHidden);
+    } else if (typeof window !== 'undefined') {
       localStorage.removeItem('agendaAutistiHidden');
     }
   };
@@ -626,8 +623,10 @@ export default function AgendaAutistiPage() {
       // Inserisci nella nuova posizione
       currentOrder.splice(targetIndex, 0, dragged);
       
-      // Salva in localStorage
-      if (typeof window !== 'undefined') {
+      // Salva preferenze globali se admin, altrimenti solo localStorage
+      if (isAdmin) {
+        saveGlobalPreferences(currentOrder, hiddenDrivers);
+      } else if (typeof window !== 'undefined') {
         localStorage.setItem('agendaAutistiOrder', JSON.stringify(currentOrder));
       }
       
@@ -870,15 +869,23 @@ export default function AgendaAutistiPage() {
           <button
             onClick={() => {
               setDriverOrder([]);
-              if (typeof window !== 'undefined') {
+              if (isAdmin) {
+                saveGlobalPreferences([], hiddenDrivers);
+              } else if (typeof window !== 'undefined') {
                 localStorage.removeItem('agendaAutistiOrder');
               }
             }}
             style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
             title="Ripristina ordinamento originale"
+            disabled={savingPreferences}
           >
             Reset ordinamento
           </button>
+        )}
+        {isAdmin && (
+          <span style={{ fontSize: '12px', color: '#666', marginLeft: 8 }}>
+            {savingPreferences ? '💾 Salvataggio...' : '⚙️ Configurazione globale'}
+          </span>
         )}
         {hiddenDrivers.size > 0 && (
           <button
@@ -966,7 +973,7 @@ export default function AgendaAutistiPage() {
                   {(groupedByDriver[String(d.id)]?.perDay?.[date] || []).map(a => (
                     <li key={a.id}>
                       <a href={`/attivita/${a.id}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: '#0b5ed7' }}>
-                        {a.descrizione || 'Attività'}
+                        {a.clientName || 'Nessun cliente'}
                       </a>
                       {` — ${formatTime(a.start)}${a.end ? ` - ${formatTime(a.end)}` : ''}`}
                     </li>
@@ -977,8 +984,9 @@ export default function AgendaAutistiPage() {
           )}
         </div>
       ) : view === 'grid' ? (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
+        <div style={{ overflowX: 'auto', direction: 'rtl' }}>
+          <div style={{ direction: 'ltr' }}>
+            <table style={tableStyle}>
             <thead>
               <tr>
                 <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
@@ -1063,13 +1071,15 @@ export default function AgendaAutistiPage() {
               )}
             </tbody>
           </table>
-          <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
+          </div>
+          <div style={{ marginTop: 8, color: '#666', fontSize: 12, direction: 'ltr' }}>
             Tabella oraria: vengono mostrati tutti gli autisti. Se hanno attività nell'orario, viene mostrata la destinazione.
           </div>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
+        <div style={{ overflowX: 'auto', direction: 'rtl' }}>
+          <div style={{ direction: 'ltr' }}>
+            <table style={tableStyle}>
             <thead>
               <tr>
                 <th style={thStyle}>
@@ -1136,7 +1146,7 @@ export default function AgendaAutistiPage() {
                                   {formatTime(a.start)}{a.end ? `-${formatTime(a.end)}` : ''} ·
                                   {' '}
                                   <a href={`/attivita/${a.id}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: '#0b5ed7' }}>
-                                    {a.descrizione || 'Attività'}
+                                    {a.clientName || 'Nessun cliente'}
                                   </a>
                                 </li>
                               ))}
@@ -1150,6 +1160,7 @@ export default function AgendaAutistiPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

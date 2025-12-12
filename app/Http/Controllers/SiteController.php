@@ -151,49 +151,49 @@ class SiteController extends Controller
         ]);
 
         try {
-            $validated = $request->validate([
-                'name' => 'sometimes|required|string|max:255',
-                'address' => 'sometimes|required|string|max:255',
-                'city' => 'sometimes|required|string|max:100',
-                'postal_code' => 'nullable|string|max:10',
-                'province' => 'nullable|string|max:50',
-                'client_id' => $clientId ? 'nullable' : 'required|exists:clients,id',
-                //'phone' => 'nullable|string|max:20',
-                'email' => 'nullable|email|max:255',
-                'notes' => 'nullable|string',
-                'status' => 'nullable|string|max:20',
-                // Campi in italiano
-                'nome' => 'sometimes|required|string|max:255',
-                'indirizzo' => 'sometimes|required|string|max:255',
-                'citta' => 'sometimes|required|string|max:100',
-                'cap' => 'nullable|string|max:10',
-                'provincia' => 'nullable|string|max:50',
-                //'telefono' => 'nullable|string|max:20',
-                'note' => 'nullable|string',
-            ]);
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'address' => 'sometimes|required|string|max:255',
+            'city' => 'sometimes|required|string|max:100',
+            'postal_code' => 'nullable|string|max:10',
+            'province' => 'nullable|string|max:50',
+            'client_id' => $clientId ? 'nullable' : 'required|exists:clients,id',
+            //'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'notes' => 'nullable|string',
+            'status' => 'nullable|string|max:20',
+            // Campi in italiano
+            'nome' => 'sometimes|required|string|max:255',
+            'indirizzo' => 'sometimes|required|string|max:255',
+            'citta' => 'sometimes|required|string|max:100',
+            'cap' => 'nullable|string|max:10',
+            'provincia' => 'nullable|string|max:50',
+            //'telefono' => 'nullable|string|max:20',
+            'note' => 'nullable|string',
+        ]);
 
             \Log::info('SiteController::store - Validazione passata', ['validated' => $validated]);
 
-            // Map Italian field names to English field names
-            $data = [];
-            
-            // Prioritize English fields, but use Italian if English is not provided
-            $data['name'] = $validated['name'] ?? $validated['nome'] ?? null;
-            $data['address'] = $validated['address'] ?? $validated['indirizzo'] ?? null;
-            $data['city'] = $validated['city'] ?? $validated['citta'] ?? null;
-            $data['postal_code'] = $validated['postal_code'] ?? $validated['cap'] ?? null;
-            $data['province'] = $validated['province'] ?? $validated['provincia'] ?? null;
-            $data['client_id'] = $clientId;
-           // $data['phone'] = $validated['phone'] ?? $validated['telefono'] ?? null;
-            $data['notes'] = $validated['notes'] ?? $validated['note'] ?? null;
-            
-            // Fields that only exist in English
-            if (isset($validated['email'])) $data['email'] = $validated['email'];
-            if (isset($validated['status'])) $data['status'] = $validated['status'];
+        // Map Italian field names to English field names
+        $data = [];
+        
+        // Prioritize English fields, but use Italian if English is not provided
+        $data['name'] = $validated['name'] ?? $validated['nome'] ?? null;
+        $data['address'] = $validated['address'] ?? $validated['indirizzo'] ?? null;
+        $data['city'] = $validated['city'] ?? $validated['citta'] ?? null;
+        $data['postal_code'] = $validated['postal_code'] ?? $validated['cap'] ?? null;
+        $data['province'] = $validated['province'] ?? $validated['provincia'] ?? null;
+        $data['client_id'] = $clientId;
+       // $data['phone'] = $validated['phone'] ?? $validated['telefono'] ?? null;
+        $data['notes'] = $validated['notes'] ?? $validated['note'] ?? null;
+        
+        // Fields that only exist in English
+        if (isset($validated['email'])) $data['email'] = $validated['email'];
+        if (isset($validated['status'])) $data['status'] = $validated['status'];
 
             \Log::info('SiteController::store - Dati da inserire', ['data' => $data]);
 
-            $site = Site::create($data);
+        $site = Site::create($data);
             
             \Log::info('SiteController::store - Sito creato con successo', ['site_id' => $site->id]);
         

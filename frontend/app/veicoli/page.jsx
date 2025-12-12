@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
@@ -191,50 +191,57 @@ export default function VeicoliPage() {
     }
   ];
 
-  useEffect(() => {
-    if (!loading && user) {
-      loadVeicoli();
-    } else if (!loading && !user) {
-      // Se non c'è un utente e non sta caricando, imposta fetching a false
-      setFetching(false);
-    }
-  }, [user, loading, dataVersion]);
+  // Ref per evitare loop infiniti
+  const isInitialLoad = useRef(true);
+  const lastFiltersRef = useRef(JSON.stringify(filters));
+  const lastSearchRef = useRef(searchTerm);
+  const isLoadingRef = useRef(false);
   
-  // Effetto per ricaricare i dati quando cambiano pagina o elementi per pagina
-  useEffect(() => {
-    if (!loading && user) {
-      loadVeicoliWithSearch(searchTerm);
-    }
-  }, [currentPage, perPage, filters]);
-
-  // Sidepanel rimosso: tabella sempre full width
-
-  const loadVeicoli = async () => {
-    await loadVeicoliWithSearch(searchTerm);
-  };
+  // Ref per memorizzare i valori correnti senza triggerare re-render
+  const stateRef = useRef({ searchTerm, currentPage, perPage, filters });
   
-  const loadVeicoliWithSearch = async (searchTermParam = '', resetPage = false) => {
+  // Aggiorna i ref quando cambiano i valori
+  useEffect(() => {
+    stateRef.current = { searchTerm, currentPage, perPage, filters };
+  }, [searchTerm, currentPage, perPage, filters]);
+  
+  // Funzione unificata per caricare i dati (usa ref per evitare loop)
+  const loadData = useCallback(async (options = {}) => {
+    if (!user || loading || isLoadingRef.current) return;
+    
+    isLoadingRef.current = true;
     setFetching(true);
     setError("");
     
-    // Se è una nuova ricerca, reset alla pagina 1
-    const pageToUse = resetPage ? 1 : currentPage;
-    if (resetPage && currentPage !== 1) {
+    // Usa i valori dalle options o dai ref correnti (per evitare dipendenze)
+    const currentState = stateRef.current;
+    const search = options.search !== undefined ? options.search : currentState.searchTerm;
+    const page = options.page !== undefined ? options.page : currentState.currentPage;
+    const itemsPerPage = options.itemsPerPage !== undefined ? options.itemsPerPage : currentState.perPage;
+    const resetPage = options.resetPage || false;
+    const filtersToUse = options.filters !== undefined ? options.filters : currentState.filters;
+    
+    const pageToUse = resetPage ? 1 : page;
+    
+    // Se resetPage è true e currentPage non è 1, aggiorna lo stato
+    // Ma continua con il caricamento (non fare return)
+    if (resetPage && currentState.currentPage !== 1) {
       setCurrentPage(1);
+      // Continua con pageToUse = 1 per il caricamento
     }
     
     try {
       const params = new URLSearchParams({
         page: pageToUse.toString(),
-        perPage: perPage.toString()
+        perPage: itemsPerPage.toString()
       });
       
-      if (searchTermParam && searchTermParam.trim()) {
-        params.append('search', searchTermParam.trim());
+      if (search && String(search).trim()) {
+        params.append('search', String(search).trim());
       }
       
-      // Aggiungi i filtri come parametri
-      Object.entries(filters).forEach(([key, value]) => {
+      // Usa i filtri passati o correnti
+      Object.entries(filtersToUse).forEach(([key, value]) => {
         if (value !== undefined && value !== '' && value !== null) {
           if (typeof value === 'object' && value.from) {
             if (value.from) params.append(`${key}_from`, value.from);
@@ -245,23 +252,12 @@ export default function VeicoliPage() {
         }
       });
       
-      console.log('🔍 Caricamento veicoli:', {
-        page: pageToUse,
-        perPage,
-        search: searchTermParam,
-        resetPage,
-        url: `/vehicles?${params.toString()}`
-      });
-      
       const response = await api.get(`/vehicles?${params.toString()}`);
-      
-      console.log('📄 Risposta API veicoli:', response.data);
       
       if (response.data && response.data.data) {
         setVeicoli(response.data.data);
         setTotal(response.data.total || 0);
       } else {
-        console.warn('⚠️ Struttura risposta inaspettata:', response.data);
         setVeicoli([]);
         setTotal(0);
       }
@@ -276,32 +272,103 @@ export default function VeicoliPage() {
       setTotal(0);
     } finally {
       setFetching(false);
+      isLoadingRef.current = false;
     }
-  };
+  }, [user, loading]);
   
-  // Funzione per gestire la ricerca con debounce (chiamata dal DataTable)
-  const handleSearchChange = (newTerm) => {
-    // NON aggiornare searchTerm o currentPage qui per evitare re-render
-    // setSearchTerm(newTerm);
-    // setCurrentPage(1);
-    
-    // Chiama loadVeicoli direttamente con il nuovo termine e reset pagina
-    if (!loading && user) {
-      loadVeicoliWithSearch(newTerm, true); // true = reset pagina
+  // Caricamento iniziale
+  useEffect(() => {
+    if (!loading && user && isInitialLoad.current) {
+      isInitialLoad.current = false;
+      loadData();
+    } else if (!loading && !user) {
+      setFetching(false);
     }
-  };
+  }, [user, loading, loadData]);
+  
+  // Ricarica quando cambia dataVersion
+  useEffect(() => {
+    if (!loading && user && dataVersion > 0) {
+      loadData({ resetPage: true });
+    }
+  }, [dataVersion, loadData, user, loading]);
+  
+  // Ricarica quando cambiano pagina o items per pagina
+  useEffect(() => {
+    if (!loading && user && !isInitialLoad.current && !isLoadingRef.current) {
+      // Usa i valori correnti da stateRef per evitare problemi di timing
+      const currentState = stateRef.current;
+      loadData({ 
+        page: currentPage, 
+        itemsPerPage: perPage,
+        search: currentState.searchTerm,
+        filters: currentState.filters
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, perPage]);
+  
+  // Ricarica quando cambiano i filtri (resetta pagina)
+  useEffect(() => {
+    const filtersStr = JSON.stringify(filters);
+    if (!loading && user && !isInitialLoad.current && !isLoadingRef.current && filtersStr !== lastFiltersRef.current) {
+      lastFiltersRef.current = filtersStr;
+      const currentState = stateRef.current;
+      if (currentState.currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        loadData({ 
+          filters: filters,
+          search: currentState.searchTerm,
+          resetPage: false 
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+  
+  // Ricarica quando cambia searchTerm
+  // Il debounce è gestito nel DataTable, qui facciamo solo la chiamata quando searchTerm cambia
+  // IMPORTANTE: resetta la pagina SOLO quando searchTerm cambia, non quando cambia la pagina
+  useEffect(() => {
+    if (!loading && user && !isInitialLoad.current && !isLoadingRef.current && searchTerm !== lastSearchRef.current) {
+      lastSearchRef.current = searchTerm;
+      const currentState = stateRef.current;
+      // Reset pagina solo se searchTerm è cambiato (non quando cambia la pagina)
+      if (currentState.currentPage !== 1) {
+        setCurrentPage(1);
+        // Non fare loadData qui, l'useEffect per currentPage lo farà
+      } else {
+        loadData({ 
+          search: searchTerm,
+          filters: currentState.filters,
+          resetPage: false 
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
 
-  const handleFilterChange = (newFilters) => {
+  // Funzione per gestire la ricerca con debounce (chiamata dal DataTable)
+  // Questa funzione viene chiamata DOPO il debounce, quindi possiamo aggiornare direttamente
+  const handleSearchChange = useCallback((newTerm) => {
+    const trimmedTerm = newTerm ? String(newTerm).trim() : '';
+    // Aggiorna searchTerm solo se è diverso (evita loop)
+    setSearchTerm(prev => {
+      if (prev !== trimmedTerm) {
+        return trimmedTerm;
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleFilterChange = useCallback((newFilters) => {
     setFilters(newFilters);
-    setCurrentPage(1);
-    loadVeicoliWithSearch(searchTerm, true);
-  };
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setFilters({});
-    setCurrentPage(1);
-    loadVeicoliWithSearch(searchTerm, true);
-  };
+  }, []);
 
   const handleViewDetails = (veicolo) => {
     if (veicolo?.id) router.push(`/veicoli/${veicolo.id}`);
@@ -388,6 +455,7 @@ export default function VeicoliPage() {
         onPageChange={setCurrentPage}
         onItemsPerPageChange={setPerPage}
         onSearchTermChange={handleSearchChange}
+        searchTerm={searchTerm}
         loading={fetching}
         // Props per filtri client-side (disabilitati per server-side)
         filterableColumns={[]}

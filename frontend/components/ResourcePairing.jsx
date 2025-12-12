@@ -1,8 +1,20 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import SearchableSelect from './SearchableSelect';
 
 const ResourcePairing = ({ value = [], onChange, drivers = [], vehicles = [] }) => {
   // Assicuriamoci che value sia sempre un array
   const currentValue = Array.isArray(value) ? value : [];
+  
+  // Ordina i veicoli per targa in ordine alfabetico
+  const sortedVehicles = useMemo(() => {
+    return [...vehicles].sort((a, b) => {
+      // Estrai la targa (può essere in targa o plate)
+      const targaA = (a.targa || a.plate || '').toUpperCase().trim();
+      const targaB = (b.targa || b.plate || '').toUpperCase().trim();
+      // Ordina alfabeticamente per targa
+      return targaA.localeCompare(targaB);
+    });
+  }, [vehicles]);
 
   const handleAddPair = () => {
     const newValue = [...currentValue, { vehicle_id: '', driver_ids: [] }];
@@ -40,24 +52,26 @@ const ResourcePairing = ({ value = [], onChange, drivers = [], vehicles = [] }) 
             <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '14px' }}>
               Veicolo:
             </label>
-            <select
+            <SearchableSelect
+              name={`vehicle_${index}`}
               value={pair.vehicle_id || ''}
-              onChange={(e) => handlePairChange(index, 'vehicle_id', e.target.value)}
-              style={{ 
-                width: '100%', 
-                padding: '8px', 
-                borderRadius: '4px', 
-                border: '1px solid #d1d5db',
-                backgroundColor: 'white'
-              }}
-            >
-              <option value="">Seleziona Veicolo</option>
-              {vehicles.map(vehicle => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.targa} ({vehicle.modello})
-                </option>
-              ))}
-            </select>
+              options={sortedVehicles.map(vehicle => {
+                const targa = vehicle.targa || vehicle.plate || '';
+                const marca = vehicle.marca || vehicle.brand || '';
+                const modello = vehicle.modello || vehicle.model || '';
+                // Mostra sempre la targa per prima, poi marca e modello se disponibili
+                let label = targa;
+                if (marca || modello) {
+                  label += ` - ${marca} ${modello}`.trim();
+                }
+                return {
+                  value: vehicle.id,
+                  label: label
+                };
+              })}
+              placeholder="Cerca o seleziona veicolo..."
+              onChange={(e) => handlePairChange(index, 'vehicle_id', e.target.value === '' ? '' : Number(e.target.value))}
+            />
           </div>
           
           <div style={{ marginBottom: '8px' }}>
@@ -78,11 +92,29 @@ const ResourcePairing = ({ value = [], onChange, drivers = [], vehicles = [] }) 
                 overflowY: 'auto'
               }}
             >
-              {drivers.map(driver => (
-                <option key={driver.id} value={driver.id}>
-                  {driver.nome} {driver.cognome}
-                </option>
-              ))}
+              {drivers.map(driver => {
+                // Usa la stessa logica che funziona in altre parti dell'app (agenda-autisti, pianificazione):
+                // Prima prova con nome/cognome (campi italiani), poi fallback a name/surname
+                const nome = (driver.nome || driver.name || '').trim();
+                const cognome = (driver.cognome || driver.surname || '').trim();
+                // Se nome e cognome sono uguali, usa solo uno (evita duplicati)
+                // Altrimenti costruisci il nome completo
+                let displayName;
+                if (nome && cognome && nome !== cognome) {
+                  displayName = `${nome} ${cognome}`.trim();
+                } else if (nome) {
+                  displayName = nome;
+                } else if (cognome) {
+                  displayName = cognome;
+                } else {
+                  displayName = 'N/D';
+                }
+                return (
+                  <option key={driver.id} value={driver.id}>
+                    {displayName}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

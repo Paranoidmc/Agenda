@@ -175,6 +175,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::apiResource('drivers', DriverController::class);
     Route::post('/drivers/sync', [DriverController::class, 'sync']);
+    
+    // Driver preferences (globali e per utente)
+    Route::get('/driver-preferences/global', [\App\Http\Controllers\DriverPreferenceController::class, 'getGlobal']);
+    Route::post('/driver-preferences/global', [\App\Http\Controllers\DriverPreferenceController::class, 'saveGlobal']);
+    Route::get('/driver-preferences/user', [\App\Http\Controllers\DriverPreferenceController::class, 'getUser']);
+    Route::post('/driver-preferences/user', [\App\Http\Controllers\DriverPreferenceController::class, 'saveUser']);
     Route::apiResource('clients', ClientController::class);
     Route::post('/clients/sync', [ClientController::class, 'sync']);
     Route::apiResource('activity-types', ActivityTypeController::class);

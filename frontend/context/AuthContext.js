@@ -98,16 +98,16 @@ export const AuthProvider = ({ children }) => {
       if (isProduction) {
         // Produzione: login diretto al backend (no proxy) per evitare cookie/CSRF
         const res = await api.post('/login', { email, password }, { baseURL: 'https://api.edilcipriano.peels.it/api' });
-        if (res.data && res.data.token) {
-          const token = res.data.token;
-          const user = res.data.user;
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(user));
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          setUser(user);
-          setSessionExpired(false);
-          setLoading(false);
-          return user;
+      if (res.data && res.data.token) {
+        const token = res.data.token;
+        const user = res.data.user;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser(user);
+        setSessionExpired(false);
+        setLoading(false);
+        return user;
         }
         throw new Error('Login fallito');
       } else {
@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           setUser(user);
           setSessionExpired(false);
-          setLoading(false);
+        setLoading(false);
           return user;
         }
         throw new Error('Login fallito');

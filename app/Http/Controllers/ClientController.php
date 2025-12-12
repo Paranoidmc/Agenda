@@ -188,39 +188,39 @@ class ClientController extends Controller
         ]);
 
         try {
-            $validated = $request->validate([
-                'nome' => 'required|string|max:255',
-                'email' => 'required|email|max:255',
-                'telefono' => 'nullable|string|max:20',
-                'indirizzo' => 'nullable|string|max:255',
-                'citta' => 'nullable|string|max:255',
-                'cap' => 'nullable|string|max:20',
-                'provincia' => 'nullable|string|max:50',
-                'partita_iva' => 'nullable|string|max:50',
-                'codice_fiscale' => 'nullable|string|max:50',
-                'codice_arca' => 'nullable|string|max:50',
-                'note' => 'nullable|string',
-            ]);
+        $validated = $request->validate([
+            'nome' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'telefono' => 'nullable|string|max:20',
+            'indirizzo' => 'nullable|string|max:255',
+            'citta' => 'nullable|string|max:255',
+            'cap' => 'nullable|string|max:20',
+            'provincia' => 'nullable|string|max:50',
+            'partita_iva' => 'nullable|string|max:50',
+            'codice_fiscale' => 'nullable|string|max:50',
+            'codice_arca' => 'nullable|string|max:50',
+            'note' => 'nullable|string',
+        ]);
 
             \Log::info('ClientController::store - Validazione passata', ['validated' => $validated]);
 
-            $data = [
-                'name' => $validated['nome'],
-                'email' => $validated['email'],
-                'phone' => $validated['telefono'] ?? null,
-                'address' => $validated['indirizzo'] ?? null,
-                'city' => $validated['citta'] ?? null,
-                'postal_code' => $validated['cap'] ?? null,
-                'province' => $validated['provincia'] ?? null,
-                'vat_number' => $validated['partita_iva'] ?? null,
-                'fiscal_code' => $validated['codice_fiscale'] ?? null,
-                'codice_arca' => $validated['codice_arca'] ?? null,
-                'notes' => $validated['note'] ?? null,
-            ];
+        $data = [
+            'name' => $validated['nome'],
+            'email' => $validated['email'],
+            'phone' => $validated['telefono'] ?? null,
+            'address' => $validated['indirizzo'] ?? null,
+            'city' => $validated['citta'] ?? null,
+            'postal_code' => $validated['cap'] ?? null,
+            'province' => $validated['provincia'] ?? null,
+            'vat_number' => $validated['partita_iva'] ?? null,
+            'fiscal_code' => $validated['codice_fiscale'] ?? null,
+            'codice_arca' => $validated['codice_arca'] ?? null,
+            'notes' => $validated['note'] ?? null,
+        ];
 
             \Log::info('ClientController::store - Dati da inserire', ['data' => $data]);
 
-            $client = Client::create($data);
+        $client = Client::create($data);
             
             \Log::info('ClientController::store - Cliente creato con successo', ['client_id' => $client->id]);
         

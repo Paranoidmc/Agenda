@@ -68,27 +68,27 @@ class CheckDocumentiArca extends Command
         for ($giorno = 0; $giorno < $giorni; $giorno++) {
             $data = date('Ymd', strtotime("-{$giorno} days")); // Formato YYYYMMDD
             $dataFormatted = date('Y-m-d', strtotime("-{$giorno} days"));
-            
-            try {
+        
+        try {
                 $this->info("📅 Controllo documenti per {$dataFormatted} ({$data})...");
                 
-                $res = $client->get('documenti/date', [
-                    'headers' => $headers,
-                    'query' => [
+            $res = $client->get('documenti/date', [
+                'headers' => $headers,
+                'query' => [
                         'dataInizio' => $data,
                         'dataFine' => $data
-                    ],
-                    'timeout' => 60
-                ]);
-                
-                $list = json_decode($res->getBody(), true);
-                
-                if (!is_array($list)) {
+                ],
+                'timeout' => 60
+            ]);
+            
+            $list = json_decode($res->getBody(), true);
+            
+            if (!is_array($list)) {
                     $this->warn("⚠️ Risposta non valida per {$dataFormatted}");
                     continue;
-                }
-                
-                $count = count($list);
+            }
+            
+            $count = count($list);
                 $documentiTotali += $count;
                 
                 $this->info("✅ {$dataFormatted}: {$count} documenti trovati");
@@ -106,26 +106,26 @@ class CheckDocumentiArca extends Command
                 
             } catch (\Exception $e) {
                 $this->error("❌ Errore per {$dataFormatted}: " . $e->getMessage());
+                }
             }
-        }
         
         $this->info("\n🎯 TOTALE documenti trovati nell'API Arca: {$documentiTotali}");
-        
+            
         // Confronta con il database locale
         $documentiDB = DB::table('documenti')
             ->whereDate('data_doc', '>=', now()->subDays($giorni - 1)->format('Y-m-d'))
-            ->count();
+                ->count();
             
         $this->info("💾 Documenti nel database locale (ultimi {$giorni} giorni): {$documentiDB}");
-        
+            
         if ($documentiTotali > $documentiDB) {
             $this->warn("⚠️ Differenza: ci sono " . ($documentiTotali - $documentiDB) . " documenti nell'API che non sono nel database!");
         } elseif ($documentiTotali == $documentiDB) {
             $this->info("✅ Database sincronizzato!");
-        } else {
+            } else {
             $this->warn("⚠️ Database locale ha più documenti dell'API (potrebbero essere documenti vecchi)");
-        }
-        
-        return 0;
+            }
+            
+            return 0;
     }
 }

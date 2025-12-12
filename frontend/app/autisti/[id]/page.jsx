@@ -637,140 +637,140 @@ export default function AutistaDetailPage() {
         )}
 
         {activeTab === "patente_professionale" && (
-          <div>
-            {loadingProf ? (
-              <div>Caricamento...</div>
-            ) : (
-              <div style={{ display: 'grid', gap: 12 }}>
-                {/* Lista patenti professionali esistenti */}
-                {profLicenses.length === 0 ? (
-                  <div style={{ color: '#666' }}>Nessuna patente professionale registrata</div>
+              <div>
+                {loadingProf ? (
+                  <div>Caricamento...</div>
                 ) : (
-                  <div style={{ border: '1px solid #e5e5ea', borderRadius: 8 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ background: '#f8f9fa' }}>
-                          <th style={{ textAlign: 'left', padding: 8 }}>Tipo</th>
-                          <th style={{ textAlign: 'left', padding: 8 }}>Numero</th>
-                          <th style={{ textAlign: 'left', padding: 8 }}>Ente rilascio</th>
-                          <th style={{ textAlign: 'left', padding: 8 }}>Rilasciata il</th>
-                          <th style={{ textAlign: 'left', padding: 8 }}>Scadenza</th>
-                          <th style={{ textAlign: 'left', padding: 8 }}>Note</th>
-                          {canEdit && <th style={{ textAlign: 'right', padding: 8 }}>Azioni</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {profLicenses.map(lic => (
-                          <tr key={lic.id} style={{ borderTop: '1px solid #eee' }}>
-                            <td style={{ padding: 8 }}>
-                              {editingLicenseId === lic.id ? (
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {/* Lista patenti professionali esistenti */}
+                    {profLicenses.length === 0 ? (
+                      <div style={{ color: '#666' }}>Nessuna patente professionale registrata</div>
+                    ) : (
+                      <div style={{ border: '1px solid #e5e5ea', borderRadius: 8 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: '#f8f9fa' }}>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Tipo</th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Numero</th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Ente rilascio</th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Rilasciata il</th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Scadenza</th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Note</th>
+                              {canEdit && <th style={{ textAlign: 'right', padding: 8 }}>Azioni</th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {profLicenses.map(lic => (
+                              <tr key={lic.id} style={{ borderTop: '1px solid #eee' }}>
+                                <td style={{ padding: 8 }}>
+                                  {editingLicenseId === lic.id ? (
                                 <input value={lic._edit_tipo ?? lic.tipo ?? ''} onChange={e => setProfLicenses(prev => prev.map(x => x.id === lic.id ? { ...x, _edit_tipo: e.target.value } : x))} style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }} />
-                              ) : lic.tipo || ''}
-                            </td>
-                            <td style={{ padding: 8 }}>
-                              {editingLicenseId === lic.id ? (
+                                  ) : lic.tipo || ''}
+                                </td>
+                                <td style={{ padding: 8 }}>
+                                  {editingLicenseId === lic.id ? (
                                 <input value={lic._edit_numero ?? lic.numero ?? ''} onChange={e => setProfLicenses(prev => prev.map(x => x.id === lic.id ? { ...x, _edit_numero: e.target.value } : x))} style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }} />
-                              ) : lic.numero || ''}
-                            </td>
-                            <td style={{ padding: 8 }}>
-                              {editingLicenseId === lic.id ? (
+                                  ) : lic.numero || ''}
+                                </td>
+                                <td style={{ padding: 8 }}>
+                                  {editingLicenseId === lic.id ? (
                                 <input value={lic._edit_ente_rilascio ?? lic.ente_rilascio ?? ''} onChange={e => setProfLicenses(prev => prev.map(x => x.id === lic.id ? { ...x, _edit_ente_rilascio: e.target.value } : x))} style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }} />
-                              ) : lic.ente_rilascio || ''}
-                            </td>
-                            <td style={{ padding: 8 }}>
-                              {editingLicenseId === lic.id ? (
+                                  ) : lic.ente_rilascio || ''}
+                                </td>
+                                <td style={{ padding: 8 }}>
+                                  {editingLicenseId === lic.id ? (
                                 <input type="date" value={(lic._edit_rilasciata_il ?? (lic.rilasciata_il ? String(lic.rilasciata_il).slice(0,10) : ''))} onChange={e => setProfLicenses(prev => prev.map(x => x.id === lic.id ? { ...x, _edit_rilasciata_il: e.target.value } : x))} style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }} />
-                              ) : (lic.rilasciata_il ? new Date(lic.rilasciata_il).toLocaleDateString('it-IT') : '')}
-                            </td>
-                            <td style={{ padding: 8 }}>
-                              {editingLicenseId === lic.id ? (
+                                  ) : (lic.rilasciata_il ? new Date(lic.rilasciata_il).toLocaleDateString('it-IT') : '')}
+                                </td>
+                                <td style={{ padding: 8 }}>
+                                  {editingLicenseId === lic.id ? (
                                 <input type="date" value={(lic._edit_scadenza ?? (lic.scadenza ? String(lic.scadenza).slice(0,10) : ''))} onChange={e => setProfLicenses(prev => prev.map(x => x.id === lic.id ? { ...x, _edit_scadenza: e.target.value } : x))} style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }} />
-                              ) : (lic.scadenza ? new Date(lic.scadenza).toLocaleDateString('it-IT') : '')}
-                            </td>
-                            <td style={{ padding: 8 }}>
-                              {editingLicenseId === lic.id ? (
+                                  ) : (lic.scadenza ? new Date(lic.scadenza).toLocaleDateString('it-IT') : '')}
+                                </td>
+                                <td style={{ padding: 8 }}>
+                                  {editingLicenseId === lic.id ? (
                                 <input value={lic._edit_note ?? lic.note ?? ''} onChange={e => setProfLicenses(prev => prev.map(x => x.id === lic.id ? { ...x, _edit_note: e.target.value } : x))} style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }} />
-                              ) : (lic.note || '')}
-                            </td>
-                            {canEdit && (
-                              <td style={{ padding: 8, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                {editingLicenseId === lic.id ? (
-                                  <>
+                                  ) : (lic.note || '')}
+                                </td>
+                                {canEdit && (
+                                  <td style={{ padding: 8, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                    {editingLicenseId === lic.id ? (
+                                      <>
                                     <button onClick={() => setEditingLicenseId(null)} style={{ marginRight: 8, background: '#f3f3f3', color: '#333', borderRadius: 4, padding: '4px 8px', border: 'none', cursor: 'pointer' }}>Annulla</button>
-                                    <button onClick={() => handleUpdateLicense(lic.id, {
-                                      tipo: lic._edit_tipo ?? lic.tipo ?? '',
-                                      numero: lic._edit_numero ?? lic.numero ?? '',
-                                      ente_rilascio: lic._edit_ente_rilascio ?? lic.ente_rilascio ?? '',
-                                      rilasciata_il: lic._edit_rilasciata_il ?? (lic.rilasciata_il ? String(lic.rilasciata_il).slice(0,10) : null),
-                                      scadenza: lic._edit_scadenza ?? (lic.scadenza ? String(lic.scadenza).slice(0,10) : ''),
-                                      note: lic._edit_note ?? lic.note ?? ''
+                                        <button onClick={() => handleUpdateLicense(lic.id, {
+                                          tipo: lic._edit_tipo ?? lic.tipo ?? '',
+                                          numero: lic._edit_numero ?? lic.numero ?? '',
+                                          ente_rilascio: lic._edit_ente_rilascio ?? lic.ente_rilascio ?? '',
+                                          rilasciata_il: lic._edit_rilasciata_il ?? (lic.rilasciata_il ? String(lic.rilasciata_il).slice(0,10) : null),
+                                          scadenza: lic._edit_scadenza ?? (lic.scadenza ? String(lic.scadenza).slice(0,10) : ''),
+                                          note: lic._edit_note ?? lic.note ?? ''
                                     })} disabled={savingProf} style={{ background: 'var(--primary)', color: '#fff', borderRadius: 4, padding: '4px 8px', border: 'none', cursor: 'pointer' }}>Salva</button>
-                                  </>
-                                ) : (
-                                  <>
+                                      </>
+                                    ) : (
+                                      <>
                                     <button onClick={() => setEditingLicenseId(lic.id)} style={{ marginRight: 8, background: 'var(--primary)', color: '#fff', borderRadius: 4, padding: '4px 8px', border: 'none', cursor: 'pointer' }}>Modifica</button>
                                     <button onClick={() => handleDeleteLicense(lic.id)} style={{ background: '#ff3b30', color: '#fff', borderRadius: 4, padding: '4px 8px', border: 'none', cursor: 'pointer' }}>Elimina</button>
-                                  </>
+                                      </>
+                                    )}
+                                  </td>
                                 )}
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
-                {canEdit && (
-                  <div style={{ marginTop: 12, borderTop: '1px dashed #e5e5ea', paddingTop: 12 }}>
-                    <h4 style={{ margin: '8px 0' }}>Aggiungi patente professionale</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                    {canEdit && (
+                      <div style={{ marginTop: 12, borderTop: '1px dashed #e5e5ea', paddingTop: 12 }}>
+                        <h4 style={{ margin: '8px 0' }}>Aggiungi patente professionale</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                       <input placeholder="Tipo" value={newLicense.tipo} onChange={e => setNewLicense({ ...newLicense, tipo: e.target.value })} style={{ padding: 8, borderRadius: 4, border: '1px solid #ddd' }} />
                       <input placeholder="Numero" value={newLicense.numero} onChange={e => setNewLicense({ ...newLicense, numero: e.target.value })} style={{ padding: 8, borderRadius: 4, border: '1px solid #ddd' }} />
                       <input placeholder="Ente rilascio" value={newLicense.ente_rilascio} onChange={e => setNewLicense({ ...newLicense, ente_rilascio: e.target.value })} style={{ padding: 8, borderRadius: 4, border: '1px solid #ddd' }} />
-                      <div>
+                          <div>
                         <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Rilasciata il</label>
                         <input type="date" value={newLicense.rilasciata_il} onChange={e => setNewLicense({ ...newLicense, rilasciata_il: e.target.value })} style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ddd' }} />
-                      </div>
-                      <div>
+                          </div>
+                          <div>
                         <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Scadenza*</label>
                         <input type="date" value={newLicense.scadenza} onChange={e => setNewLicense({ ...newLicense, scadenza: e.target.value })} style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ddd' }} />
-                      </div>
+                          </div>
                       <input placeholder="Note" value={newLicense.note} onChange={e => setNewLicense({ ...newLicense, note: e.target.value })} style={{ padding: 8, borderRadius: 4, border: '1px solid #ddd' }} />
-                    </div>
-                    <div style={{ marginTop: 8 }}>
+                        </div>
+                        <div style={{ marginTop: 8 }}>
                       <button onClick={handleCreateLicense} disabled={savingProf} style={{ background: 'var(--primary)', color: '#fff', borderRadius: 6, padding: '0.6em 1.2em', fontSize: 14, border: 'none', cursor: 'pointer' }}>Salva patente professionale</button>
-                    </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
         )}
 
         {activeTab === "activities" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-              <h3 style={{ margin: 0 }}>Attività dell'autista</h3>
-              {canEdit && (
-                <button
-                  onClick={() => router.push(`/attivita/new?driver_id=${autistaId}`)}
-                  style={{
-                    background: "var(--primary)",
-                    color: "#fff",
-                    borderRadius: 6,
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                  <h3 style={{ margin: 0 }}>Attività dell'autista</h3>
+                  {canEdit && (
+                    <button
+                      onClick={() => router.push(`/attivita/new?driver_id=${autistaId}`)}
+                      style={{
+                        background: "var(--primary)",
+                        color: "#fff",
+                        borderRadius: 6,
                     padding: "0.6em 1.2em",
-                    fontSize: 14,
-                    border: "none",
-                    cursor: "pointer"
-                  }}
-                >
-                  Nuova Attività
-                </button>
-              )}
-            </div>
-            {loadingActivities ? (
-              <div>Caricamento attività...</div>
+                        fontSize: 14,
+                        border: "none",
+                        cursor: "pointer"
+                      }}
+                    >
+                      Nuova Attività
+                    </button>
+                  )}
+                </div>
+                {loadingActivities ? (
+                  <div>Caricamento attività...</div>
             ) : activities.length === 0 ? (
               <div>Nessuna attività disponibile.</div>
             ) : (

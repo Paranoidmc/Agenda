@@ -234,3 +234,5 @@ class ArcaCheckDestinazioni extends Command
     }
 }
 
+
+

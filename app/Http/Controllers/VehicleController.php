@@ -62,18 +62,18 @@ class VehicleController extends Controller
                 $search = $request->input('search');
                 $query = Vehicle::with(['activities', 'deadlines']);
 
-                // Ricerca per targa, nome, marca, modello, tipo, stato, note, colore, ecc.
-                if ($search) {
-                    $query->where(function ($q) use ($search) {
-                        $q->where('plate', 'like', "%$search%")
-                          ->orWhere('name', 'like', "%$search%")
-                          ->orWhere('brand', 'like', "%$search%")
-                          ->orWhere('model', 'like', "%$search%")
-                          ->orWhere('type', 'like', "%$search%")
-                          ->orWhere('status', 'like', "%$search%")
-                          ->orWhere('color', 'like', "%$search%")
-                          ->orWhere('fuel_type', 'like', "%$search%")
-                          ->orWhere('notes', 'like', "%$search%");
+                // Ricerca per targa, marca, modello, tipo, stato, note, colore, ecc.
+                if ($search && trim($search) !== '') {
+                    $searchTerm = trim($search);
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('plate', 'like', "%{$searchTerm}%")
+                          ->orWhere('brand', 'like', "%{$searchTerm}%")
+                          ->orWhere('model', 'like', "%{$searchTerm}%")
+                          ->orWhere('type', 'like', "%{$searchTerm}%")
+                          ->orWhere('status', 'like', "%{$searchTerm}%")
+                          ->orWhere('color', 'like', "%{$searchTerm}%")
+                          ->orWhere('fuel_type', 'like', "%{$searchTerm}%")
+                          ->orWhere('notes', 'like', "%{$searchTerm}%");
                     });
                 }
 
@@ -83,6 +83,12 @@ class VehicleController extends Controller
                     foreach ($filterParams as $field => $value) {
                         // Salta se il campo è un numero (indice array) o se il valore è vuoto/null
                         if (is_numeric($field) || $value === null || $value === '') {
+                            continue;
+                        }
+                        
+                        // Assicurati che il valore sia una stringa valida
+                        $value = is_string($value) ? trim($value) : (string)$value;
+                        if ($value === '') {
                             continue;
                         }
                         
@@ -112,7 +118,7 @@ class VehicleController extends Controller
                         }
                         
                         // Verifica che il campo esista nella tabella prima di applicare il filtro
-                        if (in_array($dbField, ['plate', 'name', 'brand', 'model', 'year', 'type', 'fuel_type', 'status', 'color', 'notes'])) {
+                        if (in_array($dbField, ['plate', 'brand', 'model', 'year', 'type', 'fuel_type', 'status', 'color', 'notes'])) {
                             $query->where($dbField, 'like', "%{$value}%");
                         }
                     }
@@ -125,7 +131,16 @@ class VehicleController extends Controller
                     return $this->mapItalianFields($vehicle);
                 });
                 
-                return response()->json($vehicles);
+                // Restituisce la risposta nel formato atteso dal frontend
+                return response()->json([
+                    'data' => $vehicles->items(),
+                    'total' => $vehicles->total(),
+                    'per_page' => $vehicles->perPage(),
+                    'current_page' => $vehicles->currentPage(),
+                    'last_page' => $vehicles->lastPage(),
+                    'from' => $vehicles->firstItem(),
+                    'to' => $vehicles->lastItem(),
+                ]);
             }
             
             // Per 'all', mappa tutti i veicoli
