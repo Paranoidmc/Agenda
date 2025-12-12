@@ -1029,7 +1029,8 @@ export default function AgendaAutistiPage() {
               marginBottom: '0',
               direction: 'rtl',
               scrollbarWidth: 'thin',
-              scrollbarColor: '#666 #f1f1f1'
+              scrollbarColor: '#666 #f1f1f1',
+              width: '100%'
             }}
             className="custom-scrollbar-horizontal-top"
             onScroll={(e) => {
@@ -1041,7 +1042,7 @@ export default function AgendaAutistiPage() {
               }
             }}
           >
-            <div style={{ height: '1px', minWidth: `${80 + (driverList.length * 180)}px` }}></div>
+            <div style={{ height: '1px', width: `${Math.max(80 + (driverList.length * 180), 1200)}px` }}></div>
           </div>
           <div 
             id="table-container-grid"
@@ -1221,7 +1222,8 @@ export default function AgendaAutistiPage() {
               marginBottom: '0',
               direction: 'rtl',
               scrollbarWidth: 'thin',
-              scrollbarColor: '#666 #f1f1f1'
+              scrollbarColor: '#666 #f1f1f1',
+              width: '100%'
             }}
             className="custom-scrollbar-horizontal-top"
             onScroll={(e) => {
@@ -1233,7 +1235,7 @@ export default function AgendaAutistiPage() {
               }
             }}
           >
-            <div style={{ height: '1px', minWidth: `${200 + (weekDays.length * 150)}px` }}></div>
+            <div style={{ height: '1px', width: `${Math.max(200 + (weekDays.length * 150), 1200)}px` }}></div>
           </div>
           <div 
             id="table-container-week"
