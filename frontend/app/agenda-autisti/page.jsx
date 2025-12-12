@@ -1061,8 +1061,8 @@ export default function AgendaAutistiPage() {
               display: block !important;
             }
           `}</style>
-          <div style={{ direction: 'ltr' }}>
-            <table style={tableStyle}>
+          <div style={{ direction: 'ltr', minWidth: `${80 + (driverList.length * 180)}px` }}>
+            <table style={{ ...tableStyle, width: 'auto', minWidth: `${80 + (driverList.length * 180)}px` }}>
             <thead>
               <tr>
                 <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
@@ -1196,8 +1196,8 @@ export default function AgendaAutistiPage() {
               display: block !important;
             }
           `}</style>
-          <div style={{ direction: 'ltr' }}>
-            <table style={tableStyle}>
+          <div style={{ direction: 'ltr', minWidth: `${80 + (driverList.length * 180)}px` }}>
+            <table style={{ ...tableStyle, width: 'auto', minWidth: `${80 + (driverList.length * 180)}px` }}>
             <thead>
               <tr>
                 <th style={thStyle}>
