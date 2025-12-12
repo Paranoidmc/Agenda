@@ -851,6 +851,50 @@ export default function AgendaAutistiPage() {
     }
   }, [drivers, driverOrder]);
 
+  // Aggiorna la posizione della scrollbar personalizzata quando cambia il contenuto
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const updateScrollbar = () => {
+      const containerGrid = document.getElementById('table-container-grid');
+      const scrollbarGrid = document.getElementById('horizontal-scrollbar-top-grid');
+      const thumbGrid = document.getElementById('horizontal-scrollbar-thumb-grid');
+      
+      if (containerGrid && scrollbarGrid && thumbGrid) {
+        const maxScroll = containerGrid.scrollWidth - containerGrid.clientWidth;
+        const scrollRatio = maxScroll > 0 ? containerGrid.scrollLeft / maxScroll : 0;
+        const scrollbarWidth = scrollbarGrid.offsetWidth;
+        const thumbWidth = Math.max(30, scrollbarWidth * 0.3);
+        const maxThumbLeft = scrollbarWidth - thumbWidth;
+        thumbGrid.style.width = `${Math.max(30, (containerGrid.clientWidth / containerGrid.scrollWidth) * scrollbarWidth)}px`;
+        thumbGrid.style.left = `${scrollRatio * maxThumbLeft}px`;
+      }
+      
+      const containerWeek = document.getElementById('table-container-week');
+      const scrollbarWeek = document.getElementById('horizontal-scrollbar-top-week');
+      const thumbWeek = document.getElementById('horizontal-scrollbar-thumb-week');
+      
+      if (containerWeek && scrollbarWeek && thumbWeek) {
+        const maxScroll = containerWeek.scrollWidth - containerWeek.clientWidth;
+        const scrollRatio = maxScroll > 0 ? containerWeek.scrollLeft / maxScroll : 0;
+        const scrollbarWidth = scrollbarWeek.offsetWidth;
+        const thumbWidth = Math.max(30, scrollbarWidth * 0.3);
+        const maxThumbLeft = scrollbarWidth - thumbWidth;
+        thumbWeek.style.width = `${Math.max(30, (containerWeek.clientWidth / containerWeek.scrollWidth) * scrollbarWidth)}px`;
+        thumbWeek.style.left = `${scrollRatio * maxThumbLeft}px`;
+      }
+    };
+    
+    updateScrollbar();
+    const timer = setTimeout(updateScrollbar, 100);
+    window.addEventListener('resize', updateScrollbar);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateScrollbar);
+    };
+  }, [driverList, weekDays, view]);
+
   const goPrev = () => {
     const base = toDate(date);
     if (!base) return;
