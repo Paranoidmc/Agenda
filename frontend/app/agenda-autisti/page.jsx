@@ -555,6 +555,24 @@ export default function AgendaAutistiPage() {
     return null;
   }, [groupedByDriver, date]);
 
+  // Funzione per salvare preferenze globali (solo admin)
+  const saveGlobalPreferences = async (order, hidden) => {
+    if (!isAdmin) return;
+    setSavingPreferences(true);
+    try {
+      const response = await api.post('/driver-preferences/global', {
+        driver_order: order,
+        hidden_drivers: Array.from(hidden)
+      });
+      console.log('✅ Preferenze globali salvate:', response.data);
+    } catch (error) {
+      console.error('❌ Errore salvataggio preferenze globali:', error);
+      // Non bloccare l'operazione se il salvataggio fallisce
+    } finally {
+      setSavingPreferences(false);
+    }
+  };
+
   // Funzione per nascondere/mostrare un autista
   const toggleDriverVisibility = (driverId) => {
     const newHidden = new Set(hiddenDrivers);
@@ -596,44 +614,60 @@ export default function AgendaAutistiPage() {
   };
 
   const handleDrop = (e, targetDriverId) => {
-    e.preventDefault();
-    if (!draggedDriverId || draggedDriverId === String(targetDriverId)) return;
-    
-    // Usa l'ordine corrente o costruiscilo dalla lista filtrata corrente
-    setDriverOrder(prevOrder => {
-      // Se non c'è ordine salvato, costruiscilo dalla lista attuale
-      const currentOrder = prevOrder.length > 0 ? [...prevOrder] : [];
-      
-      // Se l'ordine non contiene i driver, aggiungili
-      const draggedIdStr = String(draggedDriverId);
-      const targetIdStr = String(targetDriverId);
-      
-      if (currentOrder.length === 0) {
-        // Costruisci ordine iniziale da tutti i driver (non filtrati)
-        currentOrder.push(...drivers.map(d => String(d.id)));
+    try {
+      e.preventDefault();
+      if (!draggedDriverId || draggedDriverId === String(targetDriverId)) {
+        setDraggedDriverId(null);
+        return;
       }
       
-      const draggedIndex = currentOrder.findIndex(id => id === draggedIdStr);
-      const targetIndex = currentOrder.findIndex(id => id === targetIdStr);
+      // Usa l'ordine corrente o costruiscilo dalla lista filtrata corrente
+      setDriverOrder(prevOrder => {
+        try {
+          // Se non c'è ordine salvato, costruiscilo dalla lista attuale
+          const currentOrder = prevOrder.length > 0 ? [...prevOrder] : [];
+          
+          // Se l'ordine non contiene i driver, aggiungili
+          const draggedIdStr = String(draggedDriverId);
+          const targetIdStr = String(targetDriverId);
+          
+          if (currentOrder.length === 0) {
+            // Costruisci ordine iniziale da tutti i driver (non filtrati)
+            currentOrder.push(...drivers.map(d => String(d.id)));
+          }
+          
+          const draggedIndex = currentOrder.findIndex(id => id === draggedIdStr);
+          const targetIndex = currentOrder.findIndex(id => id === targetIdStr);
+          
+          if (draggedIndex === -1 || targetIndex === -1) {
+            console.warn('⚠️ Driver non trovato nell\'ordine:', { draggedIdStr, targetIdStr, currentOrder });
+            return prevOrder;
+          }
+          
+          // Rimuovi elemento dalla posizione corrente
+          const [dragged] = currentOrder.splice(draggedIndex, 1);
+          // Inserisci nella nuova posizione
+          currentOrder.splice(targetIndex, 0, dragged);
+          
+          // Salva preferenze globali se admin, altrimenti solo localStorage
+          if (isAdmin) {
+            saveGlobalPreferences(currentOrder, hiddenDrivers);
+          } else if (typeof window !== 'undefined') {
+            localStorage.setItem('agendaAutistiOrder', JSON.stringify(currentOrder));
+          }
+          
+          return currentOrder;
+        } catch (error) {
+          console.error('❌ Errore durante il riordinamento:', error);
+          return prevOrder;
+        }
+      });
       
-      if (draggedIndex === -1 || targetIndex === -1) return prevOrder;
-      
-      // Rimuovi elemento dalla posizione corrente
-      const [dragged] = currentOrder.splice(draggedIndex, 1);
-      // Inserisci nella nuova posizione
-      currentOrder.splice(targetIndex, 0, dragged);
-      
-      // Salva preferenze globali se admin, altrimenti solo localStorage
-      if (isAdmin) {
-        saveGlobalPreferences(currentOrder, hiddenDrivers);
-      } else if (typeof window !== 'undefined') {
-        localStorage.setItem('agendaAutistiOrder', JSON.stringify(currentOrder));
-      }
-      
-      return currentOrder;
-    });
-    
-    setDraggedDriverId(null);
+      setDraggedDriverId(null);
+    } catch (error) {
+      console.error('❌ Errore durante il drag & drop:', error);
+      setDraggedDriverId(null);
+    }
   };
 
   const handleDragEnd = () => {
@@ -984,7 +1018,36 @@ export default function AgendaAutistiPage() {
           )}
         </div>
       ) : view === 'grid' ? (
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 300px)', position: 'relative', direction: 'rtl' }}>
+        <div style={{ 
+          overflowX: 'auto', 
+          overflowY: 'scroll', 
+          maxHeight: 'calc(100vh - 300px)', 
+          position: 'relative',
+          direction: 'rtl',
+          // Scrollbar sempre visibile e posizionata sopra (a sinistra con rtl)
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#888 #f1f1f1'
+        }} className="custom-scrollbar">
+          <style jsx>{`
+            .custom-scrollbar {
+              scrollbar-width: thin;
+              scrollbar-color: #888 #f1f1f1;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 12px;
+              height: 12px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: #f1f1f1;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: #888;
+              border-radius: 6px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: #555;
+            }
+          `}</style>
           <div style={{ direction: 'ltr' }}>
             <table style={tableStyle}>
             <thead>
@@ -1077,7 +1140,36 @@ export default function AgendaAutistiPage() {
           </div>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 300px)', position: 'relative', direction: 'rtl' }}>
+        <div style={{ 
+          overflowX: 'auto', 
+          overflowY: 'scroll', 
+          maxHeight: 'calc(100vh - 300px)', 
+          position: 'relative',
+          direction: 'rtl',
+          // Scrollbar sempre visibile e posizionata sopra (a sinistra con rtl)
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#888 #f1f1f1'
+        }} className="custom-scrollbar">
+          <style jsx>{`
+            .custom-scrollbar {
+              scrollbar-width: thin;
+              scrollbar-color: #888 #f1f1f1;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 12px;
+              height: 12px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: #f1f1f1;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: #888;
+              border-radius: 6px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: #555;
+            }
+          `}</style>
           <div style={{ direction: 'ltr' }}>
             <table style={tableStyle}>
             <thead>
