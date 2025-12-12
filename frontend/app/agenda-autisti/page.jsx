@@ -1150,7 +1150,8 @@ export default function AgendaAutistiPage() {
                     const usableWidth = scrollbarWidth - thumbWidth;
                     const percentage = Math.max(0, Math.min(1, (clickX - thumbWidth / 2) / usableWidth));
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    container.scrollLeft = percentage * maxScroll;
+                    // Con direction: rtl, scrollLeft deve essere negativo
+                    container.scrollLeft = -percentage * maxScroll;
                   }
                 }
               }}
