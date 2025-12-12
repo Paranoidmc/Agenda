@@ -1036,16 +1036,29 @@ export default function AgendaAutistiPage() {
             .custom-scrollbar::-webkit-scrollbar {
               width: 12px;
               height: 12px;
+              display: block !important;
+            }
+            .custom-scrollbar::-webkit-scrollbar:vertical {
+              display: block !important;
+            }
+            .custom-scrollbar::-webkit-scrollbar:horizontal {
+              display: block !important;
             }
             .custom-scrollbar::-webkit-scrollbar-track {
               background: #f1f1f1;
+              display: block !important;
             }
             .custom-scrollbar::-webkit-scrollbar-thumb {
               background: #888;
               border-radius: 6px;
+              display: block !important;
             }
             .custom-scrollbar::-webkit-scrollbar-thumb:hover {
               background: #555;
+            }
+            .custom-scrollbar::-webkit-scrollbar-corner {
+              background: #f1f1f1;
+              display: block !important;
             }
           `}</style>
           <div style={{ direction: 'ltr' }}>
@@ -1158,16 +1171,29 @@ export default function AgendaAutistiPage() {
             .custom-scrollbar::-webkit-scrollbar {
               width: 12px;
               height: 12px;
+              display: block !important;
+            }
+            .custom-scrollbar::-webkit-scrollbar:vertical {
+              display: block !important;
+            }
+            .custom-scrollbar::-webkit-scrollbar:horizontal {
+              display: block !important;
             }
             .custom-scrollbar::-webkit-scrollbar-track {
               background: #f1f1f1;
+              display: block !important;
             }
             .custom-scrollbar::-webkit-scrollbar-thumb {
               background: #888;
               border-radius: 6px;
+              display: block !important;
             }
             .custom-scrollbar::-webkit-scrollbar-thumb:hover {
               background: #555;
+            }
+            .custom-scrollbar::-webkit-scrollbar-corner {
+              background: #f1f1f1;
+              display: block !important;
             }
           `}</style>
           <div style={{ direction: 'ltr' }}>
