@@ -1133,11 +1133,15 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-grid');
                   const scrollbar = e.currentTarget;
+                  const thumb = document.getElementById('horizontal-scrollbar-thumb-grid');
                   if (container && scrollbar) {
                     const rect = scrollbar.getBoundingClientRect();
                     const clickX = e.clientX - rect.left;
-                    const percentage = clickX / rect.width;
-                    const maxScroll = container.scrollWidth - container.clientWidth;
+                    const thumbWidth = thumb ? thumb.offsetWidth : 30;
+                    const scrollbarWidth = scrollbar.offsetWidth;
+                    const usableWidth = scrollbarWidth - thumbWidth;
+                    const percentage = Math.max(0, Math.min(1, (clickX - thumbWidth / 2) / usableWidth));
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
                     container.scrollLeft = percentage * maxScroll;
                   }
                 }
@@ -1159,22 +1163,25 @@ export default function AgendaAutistiPage() {
                 onMouseDown={(e) => {
                   if (typeof window !== 'undefined') {
                     e.preventDefault();
+                    e.stopPropagation();
                     const container = document.getElementById('table-container-grid');
                     const thumb = e.currentTarget;
                     const scrollbar = document.getElementById('horizontal-scrollbar-top-grid');
                     if (!container || !thumb || !scrollbar) return;
                     
                     const startX = e.clientX;
-                    const startScrollLeft = container.scrollLeft;
-                    const maxScroll = container.scrollWidth - container.clientWidth;
+                    const startThumbLeft = parseInt(thumb.style.left) || 0;
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
                     const scrollbarWidth = scrollbar.offsetWidth;
                     const thumbWidth = thumb.offsetWidth;
+                    const usableWidth = scrollbarWidth - thumbWidth;
                     
                     const handleMouseMove = (moveEvent) => {
                       const deltaX = moveEvent.clientX - startX;
-                      const scrollRatio = maxScroll / (scrollbarWidth - thumbWidth);
-                      const newScrollLeft = startScrollLeft + (deltaX * scrollRatio);
-                      container.scrollLeft = Math.max(0, Math.min(maxScroll, newScrollLeft));
+                      const newThumbLeft = Math.max(0, Math.min(usableWidth, startThumbLeft + deltaX));
+                      const scrollRatio = usableWidth > 0 ? newThumbLeft / usableWidth : 0;
+                      container.scrollLeft = scrollRatio * maxScroll;
+                      thumb.style.left = `${newThumbLeft}px`;
                     };
                     
                     const handleMouseUp = () => {
