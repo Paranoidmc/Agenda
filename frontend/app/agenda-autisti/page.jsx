@@ -1412,11 +1412,12 @@ export default function AgendaAutistiPage() {
                 const scrollbar = document.getElementById('horizontal-scrollbar-top-week');
                 const thumb = document.getElementById('horizontal-scrollbar-thumb-week');
                 if (scrollbar && thumb && container) {
-                  const maxScroll = container.scrollWidth - container.clientWidth;
-                  const scrollRatio = container.scrollLeft / maxScroll;
+                  const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                  const scrollRatio = maxScroll > 0 ? container.scrollLeft / maxScroll : 0;
                   const scrollbarWidth = scrollbar.offsetWidth;
-                  const thumbWidth = thumb.offsetWidth;
-                  const maxThumbLeft = scrollbarWidth - thumbWidth;
+                  const thumbWidth = Math.max(30, (container.clientWidth / container.scrollWidth) * scrollbarWidth);
+                  const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
+                  thumb.style.width = `${thumbWidth}px`;
                   thumb.style.left = `${scrollRatio * maxThumbLeft}px`;
                 }
               }
