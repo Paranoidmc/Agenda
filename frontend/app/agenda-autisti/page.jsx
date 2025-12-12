@@ -1196,8 +1196,8 @@ export default function AgendaAutistiPage() {
               display: block !important;
             }
           `}</style>
-          <div style={{ direction: 'ltr', minWidth: `${80 + (driverList.length * 180)}px` }}>
-            <table style={{ ...tableStyle, width: 'auto', minWidth: `${80 + (driverList.length * 180)}px` }}>
+          <div style={{ direction: 'ltr', minWidth: `${200 + (weekDays.length * 150)}px` }}>
+            <table style={{ ...tableStyle, width: 'auto', minWidth: `${200 + (weekDays.length * 150)}px` }}>
             <thead>
               <tr>
                 <th style={thStyle}>
