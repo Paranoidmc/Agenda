@@ -1019,7 +1019,7 @@ export default function AgendaAutistiPage() {
         </div>
       ) : view === 'grid' ? (
         <div style={{ 
-          overflowX: 'auto', 
+          overflowX: 'scroll', 
           overflowY: 'scroll', 
           maxHeight: 'calc(100vh - 300px)', 
           position: 'relative',
@@ -1141,7 +1141,7 @@ export default function AgendaAutistiPage() {
         </div>
       ) : (
         <div style={{ 
-          overflowX: 'auto', 
+          overflowX: 'scroll', 
           overflowY: 'scroll', 
           maxHeight: 'calc(100vh - 300px)', 
           position: 'relative',
