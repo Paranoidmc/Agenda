@@ -984,8 +984,8 @@ export default function AgendaAutistiPage() {
           )}
         </div>
       ) : view === 'grid' ? (
-        <div style={{ overflow: 'auto', direction: 'rtl', maxHeight: 'calc(100vh - 300px)' }}>
-          <div style={{ direction: 'ltr' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 300px)', position: 'relative' }}>
+          <div>
             <table style={tableStyle}>
             <thead>
               <tr>
@@ -1077,8 +1077,8 @@ export default function AgendaAutistiPage() {
           </div>
         </div>
       ) : (
-        <div style={{ overflow: 'auto', direction: 'rtl', maxHeight: 'calc(100vh - 300px)' }}>
-          <div style={{ direction: 'ltr' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 300px)', position: 'relative' }}>
+          <div>
             <table style={tableStyle}>
             <thead>
               <tr>
