@@ -786,9 +786,35 @@ class VehicleController extends Controller
      */
     public function destroy(Vehicle $vehicle)
     {
-        $this->authorize('manage-anagrafiche');
-
+        $user = auth()->user();
+        
+        Log::info('VehicleController@destroy - Verifica permessi', [
+            'user_id' => $user ? $user->id : null,
+            'user_email' => $user ? $user->email : null,
+            'user_role' => $user ? $user->role : null,
+            'isAdmin' => $user ? $user->isAdmin() : false,
+            'vehicle_id' => $vehicle->id
+        ]);
+        
+        if (!$user) {
+            Log::warning('VehicleController@destroy - Utente non autenticato');
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+        
+        if (!$user->isAdmin()) {
+            Log::warning('VehicleController@destroy - Utente non admin', [
+                'user_id' => $user->id,
+                'role' => $user->role
+            ]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+        
         $vehicle->delete();
+        Log::info('VehicleController@destroy - Veicolo eliminato', [
+            'vehicle_id' => $vehicle->id,
+            'user_id' => $user->id
+        ]);
+        
         return response()->json(null, 204);
     }
 
