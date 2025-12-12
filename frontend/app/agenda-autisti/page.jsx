@@ -1100,22 +1100,30 @@ export default function AgendaAutistiPage() {
               .custom-scrollbar-horizontal-top {
                 scrollbar-width: thin;
                 scrollbar-color: #666 #f1f1f1;
+                overflow-x: scroll !important;
+                overflow-y: hidden !important;
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar {
-                height: 15px;
+                height: 15px !important;
                 display: block !important;
+                -webkit-appearance: none;
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar-track {
-                background: #e0e0e0;
+                background: #e0e0e0 !important;
                 display: block !important;
+                -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.1);
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar-thumb {
-                background: #666;
-                border-radius: 4px;
+                background: #666 !important;
+                border-radius: 4px !important;
                 display: block !important;
+                min-width: 20px;
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar-thumb:hover {
-                background: #333;
+                background: #333 !important;
+              }
+              .custom-scrollbar-horizontal-top::-webkit-scrollbar:horizontal {
+                display: block !important;
               }
             `}</style>
             <div style={{ direction: 'ltr', minWidth: `${80 + (driverList.length * 180)}px` }}>
@@ -1293,22 +1301,30 @@ export default function AgendaAutistiPage() {
               .custom-scrollbar-horizontal-top {
                 scrollbar-width: thin;
                 scrollbar-color: #666 #f1f1f1;
+                overflow-x: scroll !important;
+                overflow-y: hidden !important;
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar {
-                height: 15px;
+                height: 15px !important;
                 display: block !important;
+                -webkit-appearance: none;
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar-track {
-                background: #e0e0e0;
+                background: #e0e0e0 !important;
                 display: block !important;
+                -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.1);
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar-thumb {
-                background: #666;
-                border-radius: 4px;
+                background: #666 !important;
+                border-radius: 4px !important;
                 display: block !important;
+                min-width: 20px;
               }
               .custom-scrollbar-horizontal-top::-webkit-scrollbar-thumb:hover {
-                background: #333;
+                background: #333 !important;
+              }
+              .custom-scrollbar-horizontal-top::-webkit-scrollbar:horizontal {
+                display: block !important;
               }
             `}</style>
             <div style={{ direction: 'ltr', minWidth: `${200 + (weekDays.length * 150)}px` }}>
