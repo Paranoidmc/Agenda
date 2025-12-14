@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
@@ -22,6 +23,7 @@ function formatTime(val) {
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function AgendaAutistiPage() {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === 'admin';
   
@@ -943,7 +945,7 @@ export default function AgendaAutistiPage() {
 
   return (
     <div style={{ padding: 32 }}>
-      <PageHeader title="Agenda Autisti" showBackButton onBackClick={() => history.back()} />
+      <PageHeader title="Agenda Autisti" showBackButton onBackClick={() => window.history.back()} />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 8 }}>
