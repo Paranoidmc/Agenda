@@ -702,13 +702,52 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
       activityEvents = activityEvents.filter(e => e.siteId === selectedSiteId || e.data?.site?.id === selectedSiteId);
     }
     if (selectedDriverId) {
-      activityEvents = activityEvents.filter(e => e.driverId === selectedDriverId || e.data?.driver?.id === selectedDriverId);
+      activityEvents = activityEvents.filter(e => {
+        // Controlla driverId diretto
+        if (e.driverId === selectedDriverId || e.data?.driver?.id === selectedDriverId) return true;
+        // Controlla nell'array driverList
+        if (Array.isArray(e.driverList) && e.driverList.length > 0) {
+          // driverList contiene stringhe con nomi, quindi controlla se c'è un driver con questo ID
+          // Verifica anche nelle risorse
+          if (Array.isArray(e.data?.resources)) {
+            return e.data.resources.some(r => r.driver?.id === selectedDriverId || r.driver_id === selectedDriverId);
+          }
+        }
+        // Controlla nell'array resources
+        if (Array.isArray(e.data?.resources)) {
+          return e.data.resources.some(r => r.driver?.id === selectedDriverId || r.driver_id === selectedDriverId);
+        }
+        // Controlla nell'array drivers
+        if (Array.isArray(e.data?.drivers)) {
+          return e.data.drivers.some(d => d.id === selectedDriverId);
+        }
+        return false;
+      });
     }
     if (selectedVehicleId) {
-      activityEvents = activityEvents.filter(e => e.vehicleId === selectedVehicleId || e.data?.vehicle?.id === selectedVehicleId);
+      activityEvents = activityEvents.filter(e => {
+        // Controlla vehicleId diretto
+        if (e.vehicleId === selectedVehicleId || e.data?.vehicle?.id === selectedVehicleId) return true;
+        // Controlla nell'array vehicleList
+        if (Array.isArray(e.vehicleList) && e.vehicleList.length > 0) {
+          // Verifica anche nelle risorse
+          if (Array.isArray(e.data?.resources)) {
+            return e.data.resources.some(r => r.vehicle?.id === selectedVehicleId || r.vehicle_id === selectedVehicleId);
+          }
+        }
+        // Controlla nell'array resources
+        if (Array.isArray(e.data?.resources)) {
+          return e.data.resources.some(r => r.vehicle?.id === selectedVehicleId || r.vehicle_id === selectedVehicleId);
+        }
+        // Controlla nell'array vehicles
+        if (Array.isArray(e.data?.vehicles)) {
+          return e.data.vehicles.some(v => v.id === selectedVehicleId);
+        }
+        return false;
+      });
     }
     if (selectedActivityTypeId) {
-      activityEvents = activityEvents.filter(e => e.activityTypeId === selectedActivityTypeId || e.data?.activityType?.id === selectedActivityTypeId);
+      activityEvents = activityEvents.filter(e => e.activityTypeId === selectedActivityTypeId || e.data?.activityType?.id === selectedActivityTypeId || e.data?.activity_type_id === selectedActivityTypeId);
     }
     switch (viewMode) {
       case 'driver':
