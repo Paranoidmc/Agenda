@@ -688,15 +688,32 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
     const y = currentDate.getFullYear();
     const m = currentDate.getMonth();
     const d = currentDate.getDate();
+    console.log('🔍 [getRows] Filtro per data:', { y, m, d, currentDate: currentDate.toISOString() });
+    console.log('🔍 [getRows] Totale eventi nello state:', events.length);
     let activityEvents = events.filter(e => {
-      if (e.type !== 'activity' || !e.data?.data_inizio) return false;
+      if (e.type !== 'activity' || !e.data?.data_inizio) {
+        if (e.type === 'activity') {
+          console.log('⚠️ [getRows] Evento attività senza data_inizio:', e);
+        }
+        return false;
+      }
       const eventDate = new Date(e.data.data_inizio);
-      return (
+      const matches = (
         eventDate.getFullYear() === y &&
         eventDate.getMonth() === m &&
         eventDate.getDate() === d
       );
+      if (!matches) {
+        console.log('❌ [getRows] Evento non corrisponde alla data:', {
+          eventDate: eventDate.toISOString(),
+          eventDateParts: { y: eventDate.getFullYear(), m: eventDate.getMonth(), d: eventDate.getDate() },
+          targetDateParts: { y, m, d },
+          activityId: e.data?.id
+        });
+      }
+      return matches;
     });
+    console.log('✅ [getRows] Attività filtrate per data:', activityEvents.length);
     // Applica i filtri in base alle selezioni
     if (selectedSiteId) {
       activityEvents = activityEvents.filter(e => e.siteId === selectedSiteId || e.data?.site?.id === selectedSiteId);
@@ -842,7 +859,9 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
         const formattedDate = formatDateISO(currentDate);
 
         // Carica le attività per il giorno corrente
+        console.log('🔍 [AgendaGiornaliera] Caricamento attività per data:', formattedDate);
         const activitiesResponse = await api.get(`/activities?date=${formattedDate}`, { withCredentials: true });
+        console.log('📦 [AgendaGiornaliera] Risposta API attività:', activitiesResponse.data);
 
         // Trasforma le attività in eventi per il calendario
         const activitiesRaw = Array.isArray(activitiesResponse.data)
@@ -850,6 +869,7 @@ export default function AgendaGiornalieraPage({ initialDate = null }) {
   : (activitiesResponse.data && Array.isArray(activitiesResponse.data.data)
     ? activitiesResponse.data.data
     : []);
+        console.log('✅ [AgendaGiornaliera] Attività raw trovate:', activitiesRaw.length, activitiesRaw);
 const activityEvents = activitiesRaw.map(activity => {
   // Estrai tutti gli autisti associati
   let driverList = [];
@@ -985,7 +1005,10 @@ const activityEvents = activitiesRaw.map(activity => {
         });
         
         // Combina gli eventi
+        console.log('📊 [AgendaGiornaliera] Eventi attività creati:', activityEvents.length, activityEvents);
+        console.log('📊 [AgendaGiornaliera] Eventi scadenze creati:', deadlineEvents.length);
         setEvents([...activityEvents, ...deadlineEvents]);
+        console.log('✅ [AgendaGiornaliera] Totale eventi salvati nello state:', activityEvents.length + deadlineEvents.length);
         setFetching(false);
       } catch (error) {
         console.error('Errore nel caricamento dei dati:', error);
