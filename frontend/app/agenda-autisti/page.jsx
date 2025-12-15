@@ -679,6 +679,7 @@ export default function AgendaAutistiPage() {
           currentOrder.splice(targetIndex, 0, dragged);
           
           // Salva preferenze globali se admin (solo gli admin possono salvare)
+          // Chiama saveGlobalPreferences con il nuovo ordine calcolato immediatamente
           if (isAdmin) {
             saveGlobalPreferences(currentOrder, hiddenDrivers);
           }
