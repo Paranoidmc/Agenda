@@ -61,6 +61,32 @@ export default function AgendaAutistiPage() {
     return () => { mounted = false; };
   }, []);
 
+  // Carica preferenze globali all'avvio (per tutti gli utenti)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await api.get("/driver-preferences/global");
+        if (mounted && data) {
+          // Applica l'ordine dei driver se presente
+          if (data.driver_order && Array.isArray(data.driver_order) && data.driver_order.length > 0) {
+            setDriverOrder(data.driver_order);
+            console.log('✅ Preferenze globali caricate - ordine driver:', data.driver_order);
+          }
+          // Applica gli autisti nascosti se presenti
+          if (data.hidden_drivers && Array.isArray(data.hidden_drivers) && data.hidden_drivers.length > 0) {
+            setHiddenDrivers(new Set(data.hidden_drivers));
+            console.log('✅ Preferenze globali caricate - autisti nascosti:', data.hidden_drivers);
+          }
+        }
+      } catch (e) {
+        console.error("Errore caricamento preferenze globali:", e);
+        // Non bloccare l'applicazione se il caricamento fallisce
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const weekDays = useMemo(() => {
     if (view !== "week") return [date];
     const center = toDate(date);
@@ -584,23 +610,24 @@ export default function AgendaAutistiPage() {
       newHidden.add(String(driverId));
     }
     setHiddenDrivers(newHidden);
-    // Salva preferenze globali se admin, altrimenti solo localStorage
+    // Salva preferenze globali se admin (solo gli admin possono salvare)
     if (isAdmin) {
       saveGlobalPreferences(driverOrder, newHidden);
-    } else if (typeof window !== 'undefined') {
-      localStorage.setItem('agendaAutistiHidden', JSON.stringify(Array.from(newHidden)));
     }
+    // Gli utenti non admin possono modificare temporaneamente nella sessione corrente,
+    // ma le modifiche non vengono salvate e verranno sovrascritte al prossimo caricamento
   };
 
   // Funzione per ripristinare tutti gli autisti nascosti
   const restoreAllHiddenDrivers = () => {
     const newHidden = new Set();
     setHiddenDrivers(newHidden);
+    // Salva preferenze globali se admin (solo gli admin possono salvare)
     if (isAdmin) {
       saveGlobalPreferences(driverOrder, newHidden);
-    } else if (typeof window !== 'undefined') {
-      localStorage.removeItem('agendaAutistiHidden');
     }
+    // Gli utenti non admin possono modificare temporaneamente nella sessione corrente,
+    // ma le modifiche non vengono salvate e verranno sovrascritte al prossimo caricamento
   };
 
   // Funzioni per drag & drop
@@ -651,12 +678,12 @@ export default function AgendaAutistiPage() {
           // Inserisci nella nuova posizione
           currentOrder.splice(targetIndex, 0, dragged);
           
-          // Salva preferenze globali se admin, altrimenti solo localStorage
+          // Salva preferenze globali se admin (solo gli admin possono salvare)
           if (isAdmin) {
             saveGlobalPreferences(currentOrder, hiddenDrivers);
-          } else if (typeof window !== 'undefined') {
-            localStorage.setItem('agendaAutistiOrder', JSON.stringify(currentOrder));
           }
+          // Gli utenti non admin possono modificare temporaneamente nella sessione corrente,
+          // ma le modifiche non vengono salvate e verranno sovrascritte al prossimo caricamento
           
           return currentOrder;
         } catch (error) {
@@ -858,66 +885,88 @@ export default function AgendaAutistiPage() {
     if (typeof window === 'undefined') return;
     
     const updateScrollbar = () => {
-      const containerGrid = document.getElementById('table-container-grid');
-      const scrollbarGrid = document.getElementById('horizontal-scrollbar-top-grid');
-      const thumbGrid = document.getElementById('horizontal-scrollbar-thumb-grid');
-      
-      if (containerGrid && scrollbarGrid && thumbGrid) {
-        // Con direction: rtl, scrollLeft è negativo, quindi usiamo Math.abs
-        const scrollLeft = Math.abs(containerGrid.scrollLeft);
-        const maxScroll = Math.max(0, containerGrid.scrollWidth - containerGrid.clientWidth);
-        const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
-        const scrollbarWidth = scrollbarGrid.offsetWidth;
-        const thumbWidth = Math.max(30, (containerGrid.clientWidth / containerGrid.scrollWidth) * scrollbarWidth);
-        const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
-        thumbGrid.style.width = `${thumbWidth}px`;
-        thumbGrid.style.left = `${scrollRatio * maxThumbLeft}px`;
-      }
-      
-      const containerWeek = document.getElementById('table-container-week');
-      const scrollbarWeek = document.getElementById('horizontal-scrollbar-top-week');
-      const thumbWeek = document.getElementById('horizontal-scrollbar-thumb-week');
-      
-      if (containerWeek && scrollbarWeek && thumbWeek) {
-        // Con direction: rtl, scrollLeft è negativo, quindi usiamo Math.abs
-        const scrollLeft = Math.abs(containerWeek.scrollLeft);
-        const maxScroll = Math.max(0, containerWeek.scrollWidth - containerWeek.clientWidth);
-        const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
-        const scrollbarWidth = scrollbarWeek.offsetWidth;
-        const thumbWidth = Math.max(30, (containerWeek.clientWidth / containerWeek.scrollWidth) * scrollbarWidth);
-        const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
-        thumbWeek.style.width = `${thumbWidth}px`;
-        thumbWeek.style.left = `${scrollRatio * maxThumbLeft}px`;
+      try {
+        const containerGrid = document.getElementById('table-container-grid');
+        const scrollbarGrid = document.getElementById('horizontal-scrollbar-top-grid');
+        const thumbGrid = document.getElementById('horizontal-scrollbar-thumb-grid');
+        
+        if (containerGrid && scrollbarGrid && thumbGrid) {
+          // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
+          const scrollLeft = containerGrid.scrollLeft;
+          const maxScroll = Math.max(0, containerGrid.scrollWidth - containerGrid.clientWidth);
+          const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
+          const scrollbarWidth = scrollbarGrid.offsetWidth;
+          const thumbWidth = Math.max(30, (containerGrid.clientWidth / containerGrid.scrollWidth) * scrollbarWidth);
+          const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
+          thumbGrid.style.width = `${thumbWidth}px`;
+          thumbGrid.style.left = `${scrollRatio * maxThumbLeft}px`;
+        }
+        
+        const containerWeek = document.getElementById('table-container-week');
+        const scrollbarWeek = document.getElementById('horizontal-scrollbar-top-week');
+        const thumbWeek = document.getElementById('horizontal-scrollbar-thumb-week');
+        
+        if (containerWeek && scrollbarWeek && thumbWeek) {
+          // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
+          const scrollLeft = containerWeek.scrollLeft;
+          const maxScroll = Math.max(0, containerWeek.scrollWidth - containerWeek.clientWidth);
+          const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
+          const scrollbarWidth = scrollbarWeek.offsetWidth;
+          const thumbWidth = Math.max(30, (containerWeek.clientWidth / containerWeek.scrollWidth) * scrollbarWidth);
+          const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
+          thumbWeek.style.width = `${thumbWidth}px`;
+          thumbWeek.style.left = `${scrollRatio * maxThumbLeft}px`;
+        }
+      } catch (error) {
+        console.error('Errore aggiornamento scrollbar:', error);
       }
     };
     
-    // Aggiorna immediatamente e poi periodicamente
-    updateScrollbar();
+    // Aggiorna solo dopo che il DOM è stato renderizzato
     const timer1 = setTimeout(updateScrollbar, 100);
     const timer2 = setTimeout(updateScrollbar, 500);
     
-    // Ascolta lo scroll del contenitore
-    const containerGrid = document.getElementById('table-container-grid');
-    const containerWeek = document.getElementById('table-container-week');
+    // Ascolta lo scroll del contenitore solo dopo che gli elementi esistono
+    const setupListeners = () => {
+      try {
+        const containerGrid = document.getElementById('table-container-grid');
+        const containerWeek = document.getElementById('table-container-week');
+        
+        if (containerGrid) {
+          containerGrid.addEventListener('scroll', updateScrollbar);
+        }
+        if (containerWeek) {
+          containerWeek.addEventListener('scroll', updateScrollbar);
+        }
+        
+        if (typeof window !== 'undefined') {
+          window.addEventListener('resize', updateScrollbar);
+        }
+      } catch (error) {
+        console.error('Errore setup listeners scrollbar:', error);
+      }
+    };
     
-    if (containerGrid) {
-      containerGrid.addEventListener('scroll', updateScrollbar);
-    }
-    if (containerWeek) {
-      containerWeek.addEventListener('scroll', updateScrollbar);
-    }
-    
-    window.addEventListener('resize', updateScrollbar);
+    const timer3 = setTimeout(setupListeners, 200);
     
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
-      window.removeEventListener('resize', updateScrollbar);
-      if (containerGrid) {
-        containerGrid.removeEventListener('scroll', updateScrollbar);
+      clearTimeout(timer3);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', updateScrollbar);
       }
-      if (containerWeek) {
-        containerWeek.removeEventListener('scroll', updateScrollbar);
+      try {
+        const containerGrid = document.getElementById('table-container-grid');
+        const containerWeek = document.getElementById('table-container-week');
+        if (containerGrid) {
+          containerGrid.removeEventListener('scroll', updateScrollbar);
+        }
+        if (containerWeek) {
+          containerWeek.removeEventListener('scroll', updateScrollbar);
+        }
+      } catch (error) {
+        // Ignora errori durante cleanup
       }
     };
   }, [driverList, weekDays, view]);
@@ -941,11 +990,20 @@ export default function AgendaAutistiPage() {
     }
   };
 
-  if (loading) return <div className="centered">Caricamento...</div>;
+  // Evita rendering durante SSR o quando auth non è pronto
+  if (authLoading || loading) {
+    return <div className="centered">Caricamento...</div>;
+  }
+
+  const handleBackClick = () => {
+    if (typeof window !== 'undefined') {
+      window.history.back();
+    }
+  };
 
   return (
     <div style={{ padding: 32 }}>
-      <PageHeader title="Agenda Autisti" showBackButton onBackClick={() => window.history.back()} />
+      <PageHeader title="Agenda Autisti" showBackButton onBackClick={handleBackClick} />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -974,11 +1032,12 @@ export default function AgendaAutistiPage() {
           <button
             onClick={() => {
               setDriverOrder([]);
+              // Salva preferenze globali se admin (solo gli admin possono salvare)
               if (isAdmin) {
                 saveGlobalPreferences([], hiddenDrivers);
-              } else if (typeof window !== 'undefined') {
-                localStorage.removeItem('agendaAutistiOrder');
               }
+              // Gli utenti non admin possono modificare temporaneamente nella sessione corrente,
+              // ma le modifiche non vengono salvate e verranno sovrascritte al prossimo caricamento
             }}
             style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
             title="Ripristina ordinamento originale"
@@ -1106,11 +1165,10 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-grid');
                   if (container) {
-                    // Con direction: rtl, per andare a destra (verso l'inizio) scrollLeft diventa più negativo
-                    const currentScroll = Math.abs(container.scrollLeft);
-                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    const newScroll = Math.min(maxScroll, currentScroll + 200);
-                    container.scrollLeft = -newScroll;
+                    // Con direction: ltr, per andare a sinistra (verso l'inizio) scrollLeft diminuisce
+                    const currentScroll = container.scrollLeft;
+                    const newScroll = Math.max(0, currentScroll - 200);
+                    container.scrollLeft = newScroll;
                   }
                 }
               }}
@@ -1152,8 +1210,8 @@ export default function AgendaAutistiPage() {
                     const usableWidth = scrollbarWidth - thumbWidth;
                     const percentage = Math.max(0, Math.min(1, (clickX - thumbWidth / 2) / usableWidth));
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    // Con direction: rtl, scrollLeft deve essere negativo
-                    container.scrollLeft = -percentage * maxScroll;
+                    // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
+                    container.scrollLeft = percentage * maxScroll;
                   }
                 }
               }}
@@ -1214,10 +1272,11 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-grid');
                   if (container) {
-                    // Con direction: rtl, per andare a sinistra (verso la fine) scrollLeft diventa meno negativo
-                    const currentScroll = Math.abs(container.scrollLeft);
-                    const newScroll = Math.max(0, currentScroll - 200);
-                    container.scrollLeft = -newScroll;
+                    // Con direction: ltr, per andare a destra (verso la fine) scrollLeft aumenta
+                    const currentScroll = container.scrollLeft;
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                    const newScroll = Math.min(maxScroll, currentScroll + 200);
+                    container.scrollLeft = newScroll;
                   }
                 }
               }}
@@ -1243,7 +1302,7 @@ export default function AgendaAutistiPage() {
               overflowY: 'scroll', 
               maxHeight: 'calc(100vh - 300px)', 
               position: 'relative',
-              direction: 'rtl',
+              direction: 'ltr',
               scrollbarWidth: 'thin',
               scrollbarColor: '#888 #f1f1f1'
             }} 
@@ -1428,11 +1487,10 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-week');
                   if (container) {
-                    // Con direction: rtl, per andare a destra (verso l'inizio) scrollLeft diventa più negativo
-                    const currentScroll = Math.abs(container.scrollLeft);
-                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    const newScroll = Math.min(maxScroll, currentScroll + 200);
-                    container.scrollLeft = -newScroll;
+                    // Con direction: ltr, per andare a sinistra (verso l'inizio) scrollLeft diminuisce
+                    const currentScroll = container.scrollLeft;
+                    const newScroll = Math.max(0, currentScroll - 200);
+                    container.scrollLeft = newScroll;
                   }
                 }
               }}
@@ -1474,8 +1532,8 @@ export default function AgendaAutistiPage() {
                     const usableWidth = scrollbarWidth - thumbWidth;
                     const percentage = Math.max(0, Math.min(1, (clickX - thumbWidth / 2) / usableWidth));
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    // Con direction: rtl, scrollLeft deve essere negativo
-                    container.scrollLeft = -percentage * maxScroll;
+                    // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
+                    container.scrollLeft = percentage * maxScroll;
                   }
                 }
               }}
@@ -1513,8 +1571,8 @@ export default function AgendaAutistiPage() {
                       const deltaX = moveEvent.clientX - startX;
                       const newThumbLeft = Math.max(0, Math.min(usableWidth, startThumbLeft + deltaX));
                       const scrollRatio = usableWidth > 0 ? newThumbLeft / usableWidth : 0;
-                      // Con direction: rtl, scrollLeft deve essere negativo
-                      container.scrollLeft = -scrollRatio * maxScroll;
+                      // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
+                      container.scrollLeft = scrollRatio * maxScroll;
                       thumb.style.left = `${newThumbLeft}px`;
                     };
                     
@@ -1536,10 +1594,11 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-week');
                   if (container) {
-                    // Con direction: rtl, per andare a sinistra (verso la fine) scrollLeft diventa meno negativo
-                    const currentScroll = Math.abs(container.scrollLeft);
-                    const newScroll = Math.max(0, currentScroll - 200);
-                    container.scrollLeft = -newScroll;
+                    // Con direction: ltr, per andare a destra (verso la fine) scrollLeft aumenta
+                    const currentScroll = container.scrollLeft;
+                    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                    const newScroll = Math.min(maxScroll, currentScroll + 200);
+                    container.scrollLeft = newScroll;
                   }
                 }
               }}
@@ -1565,7 +1624,7 @@ export default function AgendaAutistiPage() {
               overflowY: 'scroll', 
               maxHeight: 'calc(100vh - 300px)', 
               position: 'relative',
-              direction: 'rtl',
+              direction: 'ltr',
               scrollbarWidth: 'thin',
               scrollbarColor: '#888 #f1f1f1'
             }} 
@@ -1576,8 +1635,8 @@ export default function AgendaAutistiPage() {
                 const scrollbar = document.getElementById('horizontal-scrollbar-top-week');
                 const thumb = document.getElementById('horizontal-scrollbar-thumb-week');
                 if (scrollbar && thumb && container) {
-                  // Con direction: rtl, scrollLeft è negativo, quindi usiamo Math.abs
-                  const scrollLeft = Math.abs(container.scrollLeft);
+                  // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
+                  const scrollLeft = container.scrollLeft;
                   const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
                   const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
                   const scrollbarWidth = scrollbar.offsetWidth;
