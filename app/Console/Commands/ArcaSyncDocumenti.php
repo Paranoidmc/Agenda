@@ -41,7 +41,7 @@ class ArcaSyncDocumenti extends Command
         
         // 2. Login
         $client = new Client([
-            'base_uri' => 'http://ws.grsis.it:8082/api-arca/cgf/',
+            'base_uri' => 'http://94.23.67.156:8082/api-arca/cgf/',
             'timeout' => 300, // ✅ FIX: 5 minuti per produzione
             'connect_timeout' => 60, // ✅ FIX: 1 minuto per connessione
             'read_timeout' => 300 // ✅ FIX: 5 minuti per lettura

@@ -276,7 +276,7 @@ class DocumentiController extends Controller
             
             // Login
             $client = new \GuzzleHttp\Client([
-                'base_uri' => 'http://ws.grsis.it:8082/api-arca/cgf/',
+                'base_uri' => 'http://94.23.67.156:8082/api-arca/cgf/',
                 'timeout' => 60,
             ]);
             
