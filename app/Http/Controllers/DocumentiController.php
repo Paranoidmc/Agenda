@@ -347,9 +347,9 @@ class DocumentiController extends Controller
             // Imposta il tempo massimo di esecuzione a 5 minuti
             set_time_limit(300);
             
-            // Esegui il comando di sincronizzazione per oggi (1 giorno)
+            // Esegui il comando di sincronizzazione per oggi (ultimi 3 giorni per sicurezza)
             Artisan::call('arca:sync-documenti', [
-                '--giorni' => 1,
+                '--giorni' => 3,
                 '--retry' => 2
             ]);
             
