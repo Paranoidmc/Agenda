@@ -15,6 +15,8 @@ class ActivityResource extends Model
         'activity_id',
         'driver_id',
         'vehicle_id',
+        'start_time',
+        'end_time',
     ];
 
     public function activity()

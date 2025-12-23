@@ -26,7 +26,7 @@ export default function AgendaAutistiPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === 'admin';
-  
+
   const [date, setDate] = useState(todayISO());
   const [view, setView] = useState("grid"); // 'day' | 'week' | 'grid'
   const [drivers, setDrivers] = useState([]);
@@ -42,6 +42,23 @@ export default function AgendaAutistiPage() {
   const [hiddenDrivers, setHiddenDrivers] = useState(new Set());
   const [draggedDriverId, setDraggedDriverId] = useState(null);
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [showHiddenDriversModal, setShowHiddenDriversModal] = useState(false);
+
+  const saveUserPreferences = async (order, hidden) => {
+    try {
+      setSavingPreferences(true);
+      await api.post("/driver-preferences/user", {
+        driver_order: order,
+        hidden_drivers: Array.from(hidden)
+      });
+      alert("Preferenze salvate come predefinito personale!");
+    } catch (e) {
+      console.error("Errore salvataggio preferenze utente:", e);
+      alert("Errore durante il salvataggio delle preferenze.");
+    } finally {
+      setSavingPreferences(false);
+    }
+  };
 
   // Carica anagrafica autisti
   useEffect(() => {
@@ -118,13 +135,13 @@ export default function AgendaAutistiPage() {
             if (!loadAllActivities) {
               params.append("date", String(d));
             }
-          params.append("include", "resources,client");
+            params.append("include", "resources,client,site");
             const url = `/activities?${params.toString()}`;
             console.log(`🔍 Richiesta attività per ${d}:`, url, loadAllActivities ? '(senza filtro data)' : '(con filtro data)');
-            const response = await api.get(url, { 
-              useCache: false, 
+            const response = await api.get(url, {
+              useCache: false,
               skipLoadingState: false,
-              timeout: 30000 
+              timeout: 30000
             });
             console.log(`📥 Risposta API per ${d}:`, {
               status: response.status,
@@ -134,7 +151,7 @@ export default function AgendaAutistiPage() {
               dataKeys: response.data ? Object.keys(response.data) : [],
               fullResponse: response.data
             });
-            
+
             // Gestisci risposta paginata Laravel
             let items = [];
             if (Array.isArray(response.data)) {
@@ -146,7 +163,7 @@ export default function AgendaAutistiPage() {
             } else if (response.data?.results && Array.isArray(response.data.results)) {
               items = response.data.results;
             }
-            
+
             console.log(`📅 Caricate ${items.length} attività per ${d}`, items.length > 0 ? items[0] : 'nessuna attività');
             if (items.length > 0) {
               console.log(`📋 Prima attività per ${d}:`, {
@@ -159,7 +176,7 @@ export default function AgendaAutistiPage() {
                 resourcesCount: items[0].resources ? items[0].resources.length : 0
               });
             }
-          return [d, items];
+            return [d, items];
           } catch (err) {
             console.error(`❌ Errore caricamento attività per ${d}:`, err);
             console.error(`❌ Dettagli errore:`, {
@@ -210,14 +227,14 @@ export default function AgendaAutistiPage() {
               if (!loadAllActivities) {
                 params.append("date", String(d));
               }
-              params.append("include", "resources,client");
+              params.append("include", "resources,client,site");
               const url = `/activities?${params.toString()}`;
-              const response = await api.get(url, { 
-                useCache: false, 
+              const response = await api.get(url, {
+                useCache: false,
                 skipLoadingState: false,
-                timeout: 30000 
+                timeout: 30000
               });
-              
+
               let items = [];
               if (Array.isArray(response.data)) {
                 items = response.data;
@@ -228,14 +245,14 @@ export default function AgendaAutistiPage() {
               } else if (response.data?.results && Array.isArray(response.data.results)) {
                 items = response.data.results;
               }
-              
+
               return [d, items];
             } catch (err) {
               console.error(`❌ Errore caricamento attività per ${d}:`, err);
               return [d, []];
             }
           }));
-          
+
           const map = {};
           for (const [d, items] of results) {
             map[d] = items;
@@ -248,7 +265,7 @@ export default function AgendaAutistiPage() {
           setLoadingActs(false);
         }
       };
-      
+
       fetchForDays(weekDays);
     };
 
@@ -256,7 +273,7 @@ export default function AgendaAutistiPage() {
     window.addEventListener('activityUpdated', handleActivityEvent);
     window.addEventListener('activityDeleted', handleActivityEvent);
     window.addEventListener('activitySaved', handleActivityEvent);
-    
+
     return () => {
       window.removeEventListener('activityCreated', handleActivityEvent);
       window.removeEventListener('activityUpdated', handleActivityEvent);
@@ -268,14 +285,14 @@ export default function AgendaAutistiPage() {
   const groupedByDriver = useMemo(() => {
     // Restituisce { driverId: { driver, perDay: { date: [acts] } } }
     const acc = {};
-    const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned','non assegnato']);
+    const allowedStatuses = includeAllStatuses ? null : new Set(['in corso', 'programmato', 'assegnato', 'doc emesso', 'planned', 'scheduled', 'assigned', 'non assegnato']);
     console.log('🔄 Elaborazione attività per autisti, giorni:', weekDays);
     console.log('📊 Attività per giorno:', Object.keys(activitiesByDay).map(d => `${d}: ${activitiesByDay[d]?.length || 0}`));
     console.log('👥 Totale autisti nel sistema:', drivers.length);
-    
+
     let totalActivitiesProcessed = 0;
     let totalActivitiesWithDrivers = 0;
-    
+
     for (const d of weekDays) {
       const items = activitiesByDay[d] || [];
       const dayStart = toDate(d);
@@ -284,7 +301,7 @@ export default function AgendaAutistiPage() {
         dayStart.setHours(0, 0, 0, 0);
         dayEnd.setHours(23, 59, 59, 999);
       }
-      
+
       for (const act of items) {
         totalActivitiesProcessed++;
         const start = act.data_inizio || act.start_date || act.start;
@@ -298,7 +315,7 @@ export default function AgendaAutistiPage() {
         // Filtra per stato se richiesto
         const status = String(act.status || act.stato || '').toLowerCase();
         if (allowedStatuses && status && !allowedStatuses.has(status)) continue;
-        
+
         // DEBUG: Log struttura attività per capire il formato
         if (items.indexOf(act) === 0) {
           console.log('🔍 DEBUG Prima attività:', {
@@ -315,15 +332,15 @@ export default function AgendaAutistiPage() {
             totalDrivers: drivers.length
           });
         }
-        
+
         // Supporta multiple fonti di dati driver
         let driverIds = [];
-        
+
         // 1. Prima controlla resources (formato nuovo)
         if (Array.isArray(act.resources) && act.resources.length > 0) {
           console.log(`🔍 Attività ${act.id} ha ${act.resources.length} resources`);
           for (const r of act.resources) {
-          const drv = r.driver || (r.driver_id && drivers.find(x => String(x.id) === String(r.driver_id)));
+            const drv = r.driver || (r.driver_id && drivers.find(x => String(x.id) === String(r.driver_id)));
             if (drv) {
               driverIds.push(drv);
               console.log(`✅ Driver trovato in resources: ${drv.nome || drv.name} ${drv.cognome || drv.surname} (ID: ${drv.id})`);
@@ -332,7 +349,7 @@ export default function AgendaAutistiPage() {
             }
           }
         }
-        
+
         // 2. Fallback: controlla drivers array (formato alternativo dal backend)
         if (driverIds.length === 0 && Array.isArray(act.drivers) && act.drivers.length > 0) {
           console.log(`🔍 Attività ${act.id} ha drivers array con ${act.drivers.length} elementi`);
@@ -350,7 +367,7 @@ export default function AgendaAutistiPage() {
             console.log(`✅ Trovati ${driverIds.length} driver dal drivers array`);
           }
         }
-        
+
         // 3. Fallback: controlla driver_id diretto
         if (driverIds.length === 0 && act.driver_id) {
           console.log(`🔍 Attività ${act.id} ha driver_id diretto: ${act.driver_id}`);
@@ -362,7 +379,7 @@ export default function AgendaAutistiPage() {
             console.warn(`⚠️ Driver con ID ${act.driver_id} non trovato nella lista autisti`);
           }
         }
-        
+
         // 4. Fallback: controlla driver object diretto
         if (driverIds.length === 0 && act.driver && act.driver.id) {
           console.log(`🔍 Attività ${act.id} ha driver object diretto`);
@@ -375,7 +392,7 @@ export default function AgendaAutistiPage() {
             console.log(`⚠️ Driver object non trovato nella lista, aggiunto comunque`);
           }
         }
-        
+
         // Aggiungi attività a tutti i driver trovati
         if (driverIds.length > 0) {
           totalActivitiesWithDrivers += driverIds.length;
@@ -388,17 +405,21 @@ export default function AgendaAutistiPage() {
           if (!acc[key].perDay[dayKey]) acc[key].perDay[dayKey] = [];
           // Estrai il nome del cliente
           const clientName = act.client?.nome || act.client?.name || act.cliente?.nome || act.cliente?.name || '';
+          // Estrai il cantiere
+          const siteName = act.site?.name || act.site?.nome || act.start_location || '';
+
           acc[key].perDay[dayKey].push({
             id: act.id,
             descrizione: act.descrizione || act.titolo || "",
             clientName: clientName,
+            siteName: siteName,
             start,
             end,
           });
           console.log(`✅ Attività ${act.id} aggiunta a driver ${key} per giorno ${dayKey} (start: ${start}, end: ${end})`);
           console.log(`   Chiavi perDay disponibili dopo aggiunta:`, Object.keys(acc[key].perDay));
         }
-        
+
         if (driverIds.length === 0) {
           console.warn('⚠️ Attività senza driver assegnato:', {
             id: act.id,
@@ -411,7 +432,7 @@ export default function AgendaAutistiPage() {
         }
       }
     }
-    
+
     console.log('👥 Autisti con attività:', Object.keys(acc).length);
     console.log('📊 Statistiche:', {
       totalActivitiesProcessed,
@@ -425,20 +446,20 @@ export default function AgendaAutistiPage() {
       return `${name}: ${totalActs} attività (${perDayDetails})`;
     }));
     console.log('📋 Dettaglio completo groupedByDriver:', JSON.stringify(acc, null, 2));
-    
+
     return acc;
   }, [activitiesByDay, weekDays, drivers, includeAllStatuses, view]);
 
-  // Costruisce gli slot orari dalle 06:00 alle 18:00, step 30 minuti
+  // Costruisce gli slot orari dalle 07:00 alle 17:00, step 30 minuti
   const timeSlots = useMemo(() => {
-    const startHour = 6;
-    const endHour = 18;
+    const startHour = 7;
+    const endHour = 17;
     const slots = [];
     const base = toDate(date);
     if (!base) return slots;
     for (let h = startHour; h <= endHour; h++) {
       for (let m of [0, 30]) {
-        if (h === endHour && m > 0) continue; // non superare 18:00
+        if (h === endHour && m > 0) continue; // non superare 17:00
         const d = new Date(base);
         d.setHours(h, m, 0, 0);
         slots.push(d);
@@ -452,19 +473,19 @@ export default function AgendaAutistiPage() {
     // Determina il giorno da cercare: per la vista grid usa il giorno dello slot, per week cerca in tutti i giorni
     const slotDateStr = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
     const driverIdStr = String(driverId);
-    
+
     // Cerca in tutti i giorni disponibili per questo driver
     const driverData = groupedByDriver[driverIdStr];
     if (!driverData || !driverData.perDay) {
       return null;
     }
-    
+
     // Prova prima con la data dello slot, poi con la data corrente
     let list = driverData.perDay[slotDateStr] || [];
     if (!list.length && slotDateStr !== date) {
       list = driverData.perDay[date] || [];
     }
-    
+
     // Se ancora non trova nulla, prova con tutte le chiavi disponibili
     if (!list.length) {
       const availableDays = Object.keys(driverData.perDay);
@@ -488,7 +509,7 @@ export default function AgendaAutistiPage() {
         }
       }
     }
-    
+
     // DEBUG: log solo per il primo slot (evita spam)
     const isFirstCheck = slotDate.getHours() === 6 && slotDate.getMinutes() === 0;
     if (isFirstCheck && !getActivityForSlot._logged) {
@@ -523,12 +544,12 @@ export default function AgendaAutistiPage() {
       getActivityForSlot._logged = true;
       setTimeout(() => { getActivityForSlot._logged = false; }, 2000);
     }
-    
+
     if (!list.length) return null;
-    
+
     const t = slotDate.getTime();
     const slotDateOnly = slotDate.toISOString().slice(0, 10); // YYYY-MM-DD
-    
+
     for (const a of list) {
       const s = toDate(a.start);
       const e = toDate(a.end) || (s ? new Date(s.getTime() + 60 * 60 * 1000) : null); // default 1h se end mancante
@@ -536,7 +557,7 @@ export default function AgendaAutistiPage() {
         if (isFirstCheck) console.warn('⚠️ Attività senza data_inizio valida:', a);
         continue;
       }
-      
+
       // Verifica che l'attività sia nello stesso giorno dello slot
       const activityDateOnly = s.toISOString().slice(0, 10);
       if (activityDateOnly !== slotDateOnly) {
@@ -545,7 +566,7 @@ export default function AgendaAutistiPage() {
         }
         continue;
       }
-      
+
       // Verifica che lo slot si sovrapponga all'attività
       // Lo slot copre 30 minuti, quindi controlliamo se lo slot si sovrappone all'attività
       const startTime = s.getTime();
@@ -554,29 +575,32 @@ export default function AgendaAutistiPage() {
       if (endTime <= startTime) {
         endTime = startTime + 60 * 60 * 1000; // Default 1 ora se fine <= inizio
       }
-      
+
       const slotStartTime = slotDate.getTime();
       const slotEndTime = slotStartTime + (30 * 60 * 1000); // 30 minuti
-      
+
       // Lo slot si sovrappone se: slotStartTime < endTime && slotEndTime > startTime
       // Oppure se lo slot contiene completamente l'attività (per attività istantanee)
-      const overlaps = (slotStartTime < endTime && slotEndTime > startTime) || 
-                       (slotStartTime <= startTime && slotEndTime >= endTime);
-      
+      const overlaps = (slotStartTime < endTime && slotEndTime > startTime) ||
+        (slotStartTime <= startTime && slotEndTime >= endTime);
+
       if (isFirstCheck) {
         console.log(`🔍 Verifica slot ${slotDate.toLocaleTimeString()} (${slotStartTime} - ${slotEndTime}) vs attività ${s.toLocaleTimeString()} (${startTime}) - ${e ? e.toLocaleTimeString() : 'N/A'} (${endTime})`);
         console.log(`   Overlap: ${overlaps}`);
       }
-      
+
       if (overlaps) {
-        // Usa il nome del cliente invece della descrizione
+        // Usa il nome del cliente e cantiere invece della descrizione
         const clientName = a.clientName || '';
+        const siteName = a.siteName || '';
+        const displayLabel = [clientName, siteName].filter(Boolean).join(' - ');
+
         if (isFirstCheck) {
-          console.log('✅ Attività trovata per questo slot!', { id: a.id, clientName });
+          console.log('✅ Attività trovata per questo slot!', { id: a.id, clientName, siteName, displayLabel });
         }
         return {
           ...a,
-          destinazione: clientName || 'Nessun cliente'
+          destinazione: displayLabel || 'Nessun dato'
         };
       }
     }
@@ -649,35 +673,35 @@ export default function AgendaAutistiPage() {
         setDraggedDriverId(null);
         return;
       }
-      
+
       // Usa l'ordine corrente o costruiscilo dalla lista filtrata corrente
       setDriverOrder(prevOrder => {
         try {
           // Se non c'è ordine salvato, costruiscilo dalla lista attuale
           const currentOrder = prevOrder.length > 0 ? [...prevOrder] : [];
-          
+
           // Se l'ordine non contiene i driver, aggiungili
           const draggedIdStr = String(draggedDriverId);
           const targetIdStr = String(targetDriverId);
-          
+
           if (currentOrder.length === 0) {
             // Costruisci ordine iniziale da tutti i driver (non filtrati)
             currentOrder.push(...drivers.map(d => String(d.id)));
           }
-          
+
           const draggedIndex = currentOrder.findIndex(id => id === draggedIdStr);
           const targetIndex = currentOrder.findIndex(id => id === targetIdStr);
-          
+
           if (draggedIndex === -1 || targetIndex === -1) {
             console.warn('⚠️ Driver non trovato nell\'ordine:', { draggedIdStr, targetIdStr, currentOrder });
             return prevOrder;
           }
-          
+
           // Rimuovi elemento dalla posizione corrente
           const [dragged] = currentOrder.splice(draggedIndex, 1);
           // Inserisci nella nuova posizione
           currentOrder.splice(targetIndex, 0, dragged);
-          
+
           // Salva preferenze globali se admin (solo gli admin possono salvare)
           // Chiama saveGlobalPreferences con il nuovo ordine calcolato immediatamente
           if (isAdmin) {
@@ -685,14 +709,14 @@ export default function AgendaAutistiPage() {
           }
           // Gli utenti non admin possono modificare temporaneamente nella sessione corrente,
           // ma le modifiche non vengono salvate e verranno sovrascritte al prossimo caricamento
-          
+
           return currentOrder;
         } catch (error) {
           console.error('❌ Errore durante il riordinamento:', error);
           return prevOrder;
         }
       });
-      
+
       setDraggedDriverId(null);
     } catch (error) {
       console.error('❌ Errore durante il drag & drop:', error);
@@ -706,7 +730,7 @@ export default function AgendaAutistiPage() {
 
   const driverList = useMemo(() => {
     const q = driverQuery.trim().toLowerCase();
-    
+
     // PRIMA applica il filtro di ricerca a tutti gli autisti (se presente)
     let filteredDrivers = drivers;
     if (q) {
@@ -715,15 +739,15 @@ export default function AgendaAutistiPage() {
         return fullName.includes(q);
       });
     }
-    
+
     // Verifica quali autisti hanno attività
     const hasAssignments = new Set(Object.keys(groupedByDriver));
     const withActs = new Set();
-    
+
     console.log('🔍 [driverList] hasAssignments:', Array.from(hasAssignments));
     console.log('🔍 [driverList] groupedByDriver keys:', Object.keys(groupedByDriver));
     console.log('🔍 [driverList] drivers count:', drivers.length);
-    
+
     // Verifica anche direttamente nelle attività per sicurezza
     for (const day of weekDays) {
       const items = activitiesByDay[day] || [];
@@ -742,17 +766,17 @@ export default function AgendaAutistiPage() {
         const overlaps = s.getTime() <= dayEnd.getTime() && (e ? e.getTime() : s.getTime()) >= dayStart.getTime();
         if (!overlaps) continue;
         const status = String(act.status || act.stato || '').toLowerCase();
-        const allowedStatuses = includeAllStatuses ? null : new Set(['in corso','programmato','assegnato','doc emesso','planned','scheduled','assigned','non assegnato']);
+        const allowedStatuses = includeAllStatuses ? null : new Set(['in corso', 'programmato', 'assegnato', 'doc emesso', 'planned', 'scheduled', 'assigned', 'non assegnato']);
         if (allowedStatuses && status && !allowedStatuses.has(status)) {
           console.log(`⚠️ Attività ${act.id} esclusa per stato: "${status}"`);
           continue;
         }
-        
+
         // Estrai tutti i driver dalle attività (supporta tutti i formati)
         let driverIds = [];
         if (Array.isArray(act.resources) && act.resources.length > 0) {
           for (const r of act.resources) {
-          const drvId = r.driver?.id || r.driver_id;
+            const drvId = r.driver?.id || r.driver_id;
             if (drvId != null) driverIds.push(String(drvId));
           }
         }
@@ -765,19 +789,19 @@ export default function AgendaAutistiPage() {
         if (driverIds.length === 0 && act.driver?.id) {
           driverIds.push(String(act.driver.id));
         }
-        
+
         for (const drvId of driverIds) {
           withActs.add(drvId);
         }
       }
     }
-    
+
     // Filtra per attività (se richiesto)
     let list = [];
     console.log('🔍 [driverList] onlyWithActivities:', onlyWithActivities);
     console.log('🔍 [driverList] hasAssignments:', Array.from(hasAssignments));
     console.log('🔍 [driverList] withActs:', Array.from(withActs));
-    
+
     if (q) {
       // Se c'è ricerca, mostra tutti gli autisti filtrati (anche senza attività)
       list = filteredDrivers.filter(d => {
@@ -805,9 +829,9 @@ export default function AgendaAutistiPage() {
       // Mostra tutti gli autisti
       list = filteredDrivers;
     }
-    
+
     console.log('🔍 [driverList] Lista dopo filtro attività:', list.length, 'autisti');
-    
+
     // IMPORTANTE: Se un autista ha attività in groupedByDriver ma non è nella lista drivers,
     // aggiungilo comunque dalla struttura groupedByDriver
     const missingDriversWithActivities = [];
@@ -825,9 +849,9 @@ export default function AgendaAutistiPage() {
       console.log(`✅ [driverList] Aggiunti ${missingDriversWithActivities.length} autisti con attività non presenti nella lista drivers`);
       list = [...list, ...missingDriversWithActivities];
     }
-    
+
     console.log('🔍 [driverList] Lista dopo aggiunta driver mancanti:', list.length, 'autisti');
-    
+
     // Filtra autisti nascosti
     // IMPORTANTE: Se il filtro "Solo autisti con attività" è attivo, NON filtrare i driver nascosti
     // che hanno attività, perché l'utente vuole vedere i driver con attività anche se erano nascosti
@@ -845,7 +869,7 @@ export default function AgendaAutistiPage() {
       console.log('🔍 [driverList] Lista dopo filtro nascosti:', list.length, 'autisti');
     }
     console.log('🔍 [driverList] hiddenDrivers:', Array.from(hiddenDrivers));
-    
+
     // Applica ordinamento custom (drag & drop) se presente
     if (driverOrder.length > 0) {
       const orderMap = new Map(driverOrder.map((id, idx) => [String(id), idx]));
@@ -859,10 +883,10 @@ export default function AgendaAutistiPage() {
         return 0;
       });
     }
-    
+
     return list;
   }, [drivers, groupedByDriver, activitiesByDay, weekDays, driverQuery, includeAllStatuses, onlyWithActivities, driverOrder, hiddenDrivers]);
-  
+
   // Aggiorna driverOrder quando cambiano i driver (aggiungi nuovi driver alla fine)
   useEffect(() => {
     if (driverOrder.length === 0 && drivers.length > 0) {
@@ -875,7 +899,7 @@ export default function AgendaAutistiPage() {
     const missing = drivers
       .map(d => String(d.id))
       .filter(id => !orderSet.has(id));
-    
+
     if (missing.length > 0) {
       setDriverOrder(prev => [...prev, ...missing]);
     }
@@ -884,13 +908,13 @@ export default function AgendaAutistiPage() {
   // Aggiorna la posizione della scrollbar personalizzata quando cambia il contenuto
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const updateScrollbar = () => {
       try {
         const containerGrid = document.getElementById('table-container-grid');
         const scrollbarGrid = document.getElementById('horizontal-scrollbar-top-grid');
         const thumbGrid = document.getElementById('horizontal-scrollbar-thumb-grid');
-        
+
         if (containerGrid && scrollbarGrid && thumbGrid) {
           // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
           const scrollLeft = containerGrid.scrollLeft;
@@ -902,11 +926,11 @@ export default function AgendaAutistiPage() {
           thumbGrid.style.width = `${thumbWidth}px`;
           thumbGrid.style.left = `${scrollRatio * maxThumbLeft}px`;
         }
-        
+
         const containerWeek = document.getElementById('table-container-week');
         const scrollbarWeek = document.getElementById('horizontal-scrollbar-top-week');
         const thumbWeek = document.getElementById('horizontal-scrollbar-thumb-week');
-        
+
         if (containerWeek && scrollbarWeek && thumbWeek) {
           // Con direction: ltr, scrollLeft è positivo (0 = inizio, max = fine)
           const scrollLeft = containerWeek.scrollLeft;
@@ -922,24 +946,24 @@ export default function AgendaAutistiPage() {
         console.error('Errore aggiornamento scrollbar:', error);
       }
     };
-    
+
     // Aggiorna solo dopo che il DOM è stato renderizzato
     const timer1 = setTimeout(updateScrollbar, 100);
     const timer2 = setTimeout(updateScrollbar, 500);
-    
+
     // Ascolta lo scroll del contenitore solo dopo che gli elementi esistono
     const setupListeners = () => {
       try {
         const containerGrid = document.getElementById('table-container-grid');
         const containerWeek = document.getElementById('table-container-week');
-        
+
         if (containerGrid) {
           containerGrid.addEventListener('scroll', updateScrollbar);
         }
         if (containerWeek) {
           containerWeek.addEventListener('scroll', updateScrollbar);
         }
-        
+
         if (typeof window !== 'undefined') {
           window.addEventListener('resize', updateScrollbar);
         }
@@ -947,9 +971,9 @@ export default function AgendaAutistiPage() {
         console.error('Errore setup listeners scrollbar:', error);
       }
     };
-    
+
     const timer3 = setTimeout(setupListeners, 200);
-    
+
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
@@ -976,18 +1000,18 @@ export default function AgendaAutistiPage() {
     const base = toDate(date);
     if (!base) return;
     if (view === "day") {
-      const d = new Date(base); d.setDate(base.getDate() - 1); setDate(d.toISOString().slice(0,10));
+      const d = new Date(base); d.setDate(base.getDate() - 1); setDate(d.toISOString().slice(0, 10));
     } else {
-      const d = new Date(base); d.setDate(base.getDate() - 7); setDate(d.toISOString().slice(0,10));
+      const d = new Date(base); d.setDate(base.getDate() - 7); setDate(d.toISOString().slice(0, 10));
     }
   };
   const goNext = () => {
     const base = toDate(date);
     if (!base) return;
     if (view === "day") {
-      const d = new Date(base); d.setDate(base.getDate() + 1); setDate(d.toISOString().slice(0,10));
+      const d = new Date(base); d.setDate(base.getDate() + 1); setDate(d.toISOString().slice(0, 10));
     } else {
-      const d = new Date(base); d.setDate(base.getDate() + 7); setDate(d.toISOString().slice(0,10));
+      const d = new Date(base); d.setDate(base.getDate() + 7); setDate(d.toISOString().slice(0, 10));
     }
   };
 
@@ -1017,71 +1041,122 @@ export default function AgendaAutistiPage() {
           <button onClick={() => setView('grid')} style={view === 'grid' ? btnPrimary : btnLight}>Tabella Oraria</button>
           <button onClick={() => setView('week')} style={view === 'week' ? btnPrimary : btnLight}>Settimana</button>
         </div>
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
-          <input type="checkbox" checked={includeAllStatuses} onChange={e => setIncludeAllStatuses(e.target.checked)} />
-          Includi completate/annullate
-        </label>
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
-          <input type="checkbox" checked={onlyWithActivities} onChange={e => setOnlyWithActivities(e.target.checked)} />
-          Solo autisti con attività
-        </label>
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
-          <input type="checkbox" checked={loadAllActivities} onChange={e => setLoadAllActivities(e.target.checked)} />
-          Carica tutte le attività (senza filtro data)
-        </label>
-        {driverOrder.length > 0 && (
+
+        <div style={{ borderLeft: '1px solid #ddd', paddingLeft: 12, marginLeft: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
-            onClick={() => {
-              setDriverOrder([]);
-              // Salva preferenze globali se admin (solo gli admin possono salvare)
-              if (isAdmin) {
-                saveGlobalPreferences([], hiddenDrivers);
-              }
-              // Gli utenti non admin possono modificare temporaneamente nella sessione corrente,
-              // ma le modifiche non vengono salvate e verranno sovrascritte al prossimo caricamento
-            }}
+            onClick={() => saveUserPreferences(driverOrder, hiddenDrivers)}
             style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
-            title="Ripristina ordinamento originale"
+            title="Salva la vista corrente come tua predefinita"
             disabled={savingPreferences}
           >
-            Reset ordinamento
+            💾 Salva Personale
           </button>
-        )}
-        {isAdmin && (
-          <span style={{ fontSize: '12px', color: '#666', marginLeft: 8 }}>
-            {savingPreferences ? '💾 Salvataggio...' : '⚙️ Configurazione globale'}
-          </span>
-        )}
-        {hiddenDrivers.size > 0 && (
-          <button
-            onClick={restoreAllHiddenDrivers}
-            style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
-            title={`Ripristina ${hiddenDrivers.size} autista/i nascosto/i`}
-          >
-            Ripristina nascosti ({hiddenDrivers.size})
-          </button>
-        )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                if (confirm('Vuoi sovrascrivere la vista predefinita GLOBALE per tutti gli utenti?')) {
+                  saveGlobalPreferences(driverOrder, hiddenDrivers);
+                }
+              }}
+              style={{ ...btnLight, fontSize: '12px', padding: '6px 10px', borderColor: '#d32f2f', color: '#d32f2f' }}
+              title="Salva come default per TUTTI (Admin)"
+              disabled={savingPreferences}
+            >
+              ⚠️ Salva Globale
+            </button>
+          )}
+
+          {hiddenDrivers.size > 0 && (
+            <button
+              onClick={() => setShowHiddenDriversModal(true)}
+              style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
+            >
+              Gestisci Nascosti ({hiddenDrivers.size})
+            </button>
+          )}
+
+          {driverOrder.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('Resettare l\'ordine personalizzato?')) {
+                  setDriverOrder([]);
+                }
+              }}
+              style={{ ...btnLight, fontSize: '12px', padding: '6px 10px' }}
+              title="Ripristina ordinamento originale"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+
         <input
           type="text"
           placeholder="Cerca autista..."
           value={driverQuery}
           onChange={e => setDriverQuery(e.target.value)}
-          style={{ ...dateInputStyle, minWidth: 220 }}
+          style={{ ...dateInputStyle, minWidth: 200, marginLeft: 'auto' }}
         />
       </div>
 
+      {showHiddenDriversModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{ background: 'white', padding: 24, borderRadius: 8, minWidth: 400, maxHeight: '80vh', overflowY: 'auto' }}>
+            <h3 style={{ marginTop: 0 }}>Autisti Nascosti</h3>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {Array.from(hiddenDrivers).map(id => {
+                const drv = drivers.find(d => String(d.id) === String(id));
+                return (
+                  <li key={id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
+                    <span>{drv ? (drv.nome + ' ' + drv.cognome) : `ID ${id}`}</span>
+                    <button
+                      onClick={() => {
+                        const newHidden = new Set(hiddenDrivers);
+                        newHidden.delete(id);
+                        setHiddenDrivers(newHidden);
+                      }}
+                      style={{ ...btnLight, fontSize: '11px', padding: '2px 6px' }}
+                    >
+                      Ripristina
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setHiddenDrivers(new Set());
+                  setShowHiddenDriversModal(false);
+                }}
+                style={{ ...btnLight, color: '#d32f2f' }}
+              >
+                Ripristina Tutti
+              </button>
+              <button onClick={() => setShowHiddenDriversModal(false)} style={btnPrimary}>
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && <div style={{ color: '#d32f2f', marginBottom: 12 }}>{error}</div>}
-      
-      {/* Debug info */}
+
+      {/* Debug info - NASCOSTO 
       {!loadingActs && Object.keys(activitiesByDay).length > 0 && (
         <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f0f0f0', borderRadius: 6, fontSize: '12px' }}>
-          <strong>Debug:</strong> Attività caricate: {Object.values(activitiesByDay).reduce((sum, acts) => sum + acts.length, 0)} | 
-          Autisti con attività: {Object.keys(groupedByDriver).length} | 
-          Autisti visibili: {driverList.length} | 
-          Autisti nascosti: {hiddenDrivers.size} {hiddenDrivers.size > 0 && `(${Array.from(hiddenDrivers).join(', ')})`} | 
+          <strong>Debug:</strong> Attività caricate: {Object.values(activitiesByDay).reduce((sum, acts) => sum + acts.length, 0)} |
+          Autisti con attività: {Object.keys(groupedByDriver).length} |
+          Autisti visibili: {driverList.length} |
+          Autisti nascosti: {hiddenDrivers.size} {hiddenDrivers.size > 0 && `(${Array.from(hiddenDrivers).join(', ')})`} |
           Filtro "Solo con attività": {onlyWithActivities ? 'ON' : 'OFF'}
           {hiddenDrivers.size > 0 && (
-            <button 
+            <button
               onClick={restoreAllHiddenDrivers}
               style={{ marginLeft: 8, padding: '4px 8px', fontSize: '11px', background: '#007bff', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
             >
@@ -1090,6 +1165,7 @@ export default function AgendaAutistiPage() {
           )}
         </div>
       )}
+      */}
 
       {view === 'day' ? (
         <div style={{ display: 'grid', gap: 12 }}>
@@ -1151,52 +1227,64 @@ export default function AgendaAutistiPage() {
       ) : view === 'grid' ? (
         <div style={{ position: 'relative' }}>
           {/* Scrollbar orizzontale personalizzata sopra la tabella - sempre visibile e fruibile */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            marginBottom: '8px',
-            padding: '8px',
-            background: '#f5f5f5',
-            borderRadius: '4px',
-            border: '1px solid #ddd'
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '12px',
+            padding: '8px 12px',
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #f0f0f0',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
           }}>
             <button
               onClick={() => {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-grid');
                   if (container) {
-                    // Con direction: ltr, per andare a sinistra (verso l'inizio) scrollLeft diminuisce
                     const currentScroll = container.scrollLeft;
-                    const newScroll = Math.max(0, currentScroll - 200);
+                    const newScroll = Math.max(0, currentScroll - 300);
                     container.scrollLeft = newScroll;
                   }
                 }
               }}
               style={{
-                padding: '8px 12px',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f8f9fa',
+                color: '#4b5563',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = '#e5e7eb';
+                e.currentTarget.style.color = '#1f2937';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = '#f8f9fa';
+                e.currentTarget.style.color = '#4b5563';
               }}
               title="Scorri a sinistra"
             >
-              ←
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
             </button>
-            <div 
+            <div
               id="horizontal-scrollbar-top-grid"
-              style={{ 
+              style={{
                 flex: 1,
-                height: '25px',
-                background: '#e0e0e0',
-                borderRadius: '12px',
+                height: '8px',
+                background: '#f3f4f6',
+                borderRadius: '4px',
                 position: 'relative',
                 cursor: 'pointer',
-                border: '2px solid #999'
+                border: 'none'
               }}
               onClick={(e) => {
                 if (typeof window !== 'undefined') {
@@ -1221,14 +1309,14 @@ export default function AgendaAutistiPage() {
                 id="horizontal-scrollbar-thumb-grid"
                 style={{
                   height: '100%',
-                  background: '#666',
-                  borderRadius: '12px',
-                  minWidth: '30px',
+                  background: '#9ca3af',
+                  borderRadius: '4px',
+                  minWidth: '20px',
                   position: 'absolute',
                   left: 0,
                   top: 0,
                   cursor: 'grab',
-                  border: '1px solid #333'
+                  border: 'none'
                 }}
                 onMouseDown={(e) => {
                   if (typeof window !== 'undefined') {
@@ -1238,29 +1326,29 @@ export default function AgendaAutistiPage() {
                     const thumb = e.currentTarget;
                     const scrollbar = document.getElementById('horizontal-scrollbar-top-grid');
                     if (!container || !thumb || !scrollbar) return;
-                    
+
                     const startX = e.clientX;
                     const startThumbLeft = parseInt(thumb.style.left) || 0;
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
                     const scrollbarWidth = scrollbar.offsetWidth;
                     const thumbWidth = thumb.offsetWidth;
                     const usableWidth = scrollbarWidth - thumbWidth;
-                    
+
                     const handleMouseMove = (moveEvent) => {
                       const deltaX = moveEvent.clientX - startX;
                       const newThumbLeft = Math.max(0, Math.min(usableWidth, startThumbLeft + deltaX));
                       const scrollRatio = usableWidth > 0 ? newThumbLeft / usableWidth : 0;
                       // Con direction: rtl, scrollLeft deve essere negativo
-                      container.scrollLeft = -scrollRatio * maxScroll;
+                      container.scrollLeft = scrollRatio * maxScroll;
                       thumb.style.left = `${newThumbLeft}px`;
                     };
-                    
+
                     const handleMouseUp = () => {
                       document.removeEventListener('mousemove', handleMouseMove);
                       document.removeEventListener('mouseup', handleMouseUp);
                       thumb.style.cursor = 'grab';
                     };
-                    
+
                     thumb.style.cursor = 'grabbing';
                     document.addEventListener('mousemove', handleMouseMove);
                     document.addEventListener('mouseup', handleMouseUp);
@@ -1273,46 +1361,66 @@ export default function AgendaAutistiPage() {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-grid');
                   if (container) {
-                    // Con direction: ltr, per andare a destra (verso la fine) scrollLeft aumenta
                     const currentScroll = container.scrollLeft;
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    const newScroll = Math.min(maxScroll, currentScroll + 200);
+                    const newScroll = Math.min(maxScroll, currentScroll + 300);
                     container.scrollLeft = newScroll;
                   }
                 }
               }}
               style={{
-                padding: '8px 12px',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f8f9fa',
+                color: '#4b5563',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = '#e5e7eb';
+                e.currentTarget.style.color = '#1f2937';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = '#f8f9fa';
+                e.currentTarget.style.color = '#4b5563';
               }}
               title="Scorri a destra"
             >
-              →
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
             </button>
           </div>
-          <div 
+          <div
             id="table-container-grid"
-            style={{ 
-              overflowX: 'scroll', 
-              overflowY: 'scroll', 
-              maxHeight: 'calc(100vh - 300px)', 
+            style={{
+              overflowX: 'scroll',
+              overflowY: 'scroll',
+              maxHeight: 'calc(100vh - 300px)',
               position: 'relative',
               direction: 'ltr',
               scrollbarWidth: 'thin',
               scrollbarColor: '#888 #f1f1f1'
-            }} 
+            }}
             className="custom-scrollbar"
             onScroll={(e) => {
               if (typeof window !== 'undefined') {
-                const topScroll = document.getElementById('horizontal-scrollbar-top-grid');
-                if (topScroll) {
-                  topScroll.scrollLeft = e.target.scrollLeft;
+                const container = e.target;
+                const scrollbar = document.getElementById('horizontal-scrollbar-top-grid');
+                const thumb = document.getElementById('horizontal-scrollbar-thumb-grid');
+                if (scrollbar && thumb && container) {
+                  const scrollLeft = container.scrollLeft;
+                  const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+                  const scrollRatio = maxScroll > 0 ? scrollLeft / maxScroll : 0;
+                  const scrollbarWidth = scrollbar.offsetWidth;
+                  const thumbWidth = Math.max(20, (container.clientWidth / container.scrollWidth) * scrollbarWidth);
+                  const maxThumbLeft = Math.max(0, scrollbarWidth - thumbWidth);
+                  thumb.style.width = `${thumbWidth}px`;
+                  thumb.style.left = `${scrollRatio * maxThumbLeft}px`;
                 }
               }
             }}
@@ -1380,91 +1488,91 @@ export default function AgendaAutistiPage() {
             `}</style>
             <div style={{ direction: 'ltr', minWidth: `${80 + (driverList.length * 180)}px` }}>
               <table style={{ ...tableStyle, width: 'auto', minWidth: `${80 + (driverList.length * 180)}px` }}>
-            <thead>
-              <tr>
-                <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
-                {driverList.map(d => (
-                  <th
-                    key={d.id}
-                    style={{
-                      ...thStyle,
-                      minWidth: 180,
-                      textAlign: 'center',
-                      cursor: 'move',
-                      opacity: draggedDriverId === String(d.id) ? 0.5 : 1
-                    }}
-                    title={String(d.id)}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, d.id)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, d.id)}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleDriverVisibility(d.id);
-                        }}
+                <thead>
+                  <tr>
+                    <th style={{ ...thStyle, position: 'sticky', left: 0, zIndex: 2, background: '#f8f9fb', minWidth: 80 }}>Ora</th>
+                    {driverList.map(d => (
+                      <th
+                        key={d.id}
                         style={{
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '2px 4px',
-                          fontSize: '14px',
-                          color: '#666',
-                          display: 'flex',
-                          alignItems: 'center'
+                          ...thStyle,
+                          minWidth: 180,
+                          textAlign: 'center',
+                          cursor: 'move',
+                          opacity: draggedDriverId === String(d.id) ? 0.5 : 1
                         }}
-                        title="Nascondi autista"
+                        title={String(d.id)}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, d.id)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, d.id)}
+                        onDragEnd={handleDragEnd}
                       >
-                        👁️
-                      </button>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loadingActs ? (
-                <tr><td style={tdStyle} colSpan={1 + driverList.length}>Caricamento impegni...</td></tr>
-              ) : timeSlots.length === 0 ? (
-                <tr><td style={tdStyle} colSpan={1 + driverList.length}>Nessuno slot disponibile</td></tr>
-              ) : (
-                timeSlots.map((slot, idx) => (
-                  <tr key={idx}>
-                    <td style={{ ...tdStyle, position: 'sticky', left: 0, zIndex: 1, background: '#fff', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      {slot.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    {driverList.map(d => {
-                        const act = getActivityForSlot(d.id, slot);
-                        return (
-                          <td key={d.id} style={{ ...tdStyle, minWidth: 180, textAlign: 'center' }}>
-                            {act ? (
-                              <div style={{ 
-                                background: '#e3f2fd', 
-                                padding: '4px 8px', 
-                                borderRadius: '4px', 
-                                fontSize: '12px',
-                                color: '#1976d2',
-                                fontWeight: 500,
-                                textAlign: 'center'
-                              }}>
-                                {act.destinazione || act.descrizione || 'Attività'}
-                              </div>
-                            ) : (
-                              <span style={{ color: '#bbb' }}>—</span>
-                            )}
-                          </td>
-                        );
-                      })}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleDriverVisibility(d.id);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              fontSize: '14px',
+                              color: '#666',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Nascondi autista"
+                          >
+                            👁️
+                          </button>
+                        </div>
+                      </th>
+                    ))}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-          </div>
+                </thead>
+                <tbody>
+                  {loadingActs ? (
+                    <tr><td style={tdStyle} colSpan={1 + driverList.length}>Caricamento impegni...</td></tr>
+                  ) : timeSlots.length === 0 ? (
+                    <tr><td style={tdStyle} colSpan={1 + driverList.length}>Nessuno slot disponibile</td></tr>
+                  ) : (
+                    timeSlots.map((slot, idx) => (
+                      <tr key={idx}>
+                        <td style={{ ...tdStyle, position: 'sticky', left: 0, zIndex: 1, background: '#fff', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {slot.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        {driverList.map(d => {
+                          const act = getActivityForSlot(d.id, slot);
+                          return (
+                            <td key={d.id} style={{ ...tdStyle, minWidth: 180, textAlign: 'center' }}>
+                              {act ? (
+                                <div style={{
+                                  background: '#e3f2fd',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  color: '#1976d2',
+                                  fontWeight: 500,
+                                  textAlign: 'center'
+                                }}>
+                                  {act.destinazione || act.descrizione || 'Attività'}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#bbb' }}>—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
           <div style={{ marginTop: 8, color: '#666', fontSize: 12, direction: 'ltr' }}>
             Tabella oraria: vengono mostrati tutti gli autisti. Se hanno attività nell'orario, viene mostrata la destinazione.
@@ -1473,52 +1581,64 @@ export default function AgendaAutistiPage() {
       ) : (
         <div style={{ position: 'relative' }}>
           {/* Scrollbar orizzontale personalizzata sopra la tabella - sempre visibile e fruibile */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            marginBottom: '8px',
-            padding: '8px',
-            background: '#f5f5f5',
-            borderRadius: '4px',
-            border: '1px solid #ddd'
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '12px',
+            padding: '8px 12px',
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #f0f0f0',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
           }}>
             <button
               onClick={() => {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-week');
                   if (container) {
-                    // Con direction: ltr, per andare a sinistra (verso l'inizio) scrollLeft diminuisce
                     const currentScroll = container.scrollLeft;
-                    const newScroll = Math.max(0, currentScroll - 200);
+                    const newScroll = Math.max(0, currentScroll - 300);
                     container.scrollLeft = newScroll;
                   }
                 }
               }}
               style={{
-                padding: '8px 12px',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f8f9fa',
+                color: '#4b5563',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = '#e5e7eb';
+                e.currentTarget.style.color = '#1f2937';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = '#f8f9fa';
+                e.currentTarget.style.color = '#4b5563';
               }}
               title="Scorri a sinistra"
             >
-              ←
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
             </button>
-            <div 
+            <div
               id="horizontal-scrollbar-top-week"
-              style={{ 
+              style={{
                 flex: 1,
-                height: '25px',
-                background: '#e0e0e0',
-                borderRadius: '12px',
+                height: '8px',
+                background: '#f3f4f6',
+                borderRadius: '4px',
                 position: 'relative',
                 cursor: 'pointer',
-                border: '2px solid #999'
+                border: 'none'
               }}
               onClick={(e) => {
                 if (typeof window !== 'undefined') {
@@ -1560,14 +1680,14 @@ export default function AgendaAutistiPage() {
                     const thumb = e.currentTarget;
                     const scrollbar = document.getElementById('horizontal-scrollbar-top-week');
                     if (!container || !thumb || !scrollbar) return;
-                    
+
                     const startX = e.clientX;
                     const startThumbLeft = parseInt(thumb.style.left) || 0;
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
                     const scrollbarWidth = scrollbar.offsetWidth;
                     const thumbWidth = thumb.offsetWidth;
                     const usableWidth = scrollbarWidth - thumbWidth;
-                    
+
                     const handleMouseMove = (moveEvent) => {
                       const deltaX = moveEvent.clientX - startX;
                       const newThumbLeft = Math.max(0, Math.min(usableWidth, startThumbLeft + deltaX));
@@ -1576,13 +1696,13 @@ export default function AgendaAutistiPage() {
                       container.scrollLeft = scrollRatio * maxScroll;
                       thumb.style.left = `${newThumbLeft}px`;
                     };
-                    
+
                     const handleMouseUp = () => {
                       document.removeEventListener('mousemove', handleMouseMove);
                       document.removeEventListener('mouseup', handleMouseUp);
                       thumb.style.cursor = 'grab';
                     };
-                    
+
                     thumb.style.cursor = 'grabbing';
                     document.addEventListener('mousemove', handleMouseMove);
                     document.addEventListener('mouseup', handleMouseUp);
@@ -1590,45 +1710,57 @@ export default function AgendaAutistiPage() {
                 }}
               />
             </div>
+
             <button
               onClick={() => {
                 if (typeof window !== 'undefined') {
                   const container = document.getElementById('table-container-week');
                   if (container) {
-                    // Con direction: ltr, per andare a destra (verso la fine) scrollLeft aumenta
                     const currentScroll = container.scrollLeft;
                     const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-                    const newScroll = Math.min(maxScroll, currentScroll + 200);
+                    const newScroll = Math.min(maxScroll, currentScroll + 300);
                     container.scrollLeft = newScroll;
                   }
                 }
               }}
               style={{
-                padding: '8px 12px',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f8f9fa',
+                color: '#4b5563',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = '#e5e7eb';
+                e.currentTarget.style.color = '#1f2937';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = '#f8f9fa';
+                e.currentTarget.style.color = '#4b5563';
               }}
               title="Scorri a destra"
             >
-              →
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
             </button>
           </div>
-          <div 
+          <div
             id="table-container-week"
-            style={{ 
-              overflowX: 'auto', 
-              overflowY: 'scroll', 
-              maxHeight: 'calc(100vh - 300px)', 
+            style={{
+              overflowX: 'auto',
+              overflowY: 'scroll',
+              maxHeight: 'calc(100vh - 300px)',
               position: 'relative',
               direction: 'ltr',
               scrollbarWidth: 'thin',
               scrollbarColor: '#888 #f1f1f1'
-            }} 
+            }}
             className="custom-scrollbar"
             onScroll={(e) => {
               if (typeof window !== 'undefined') {
@@ -1712,91 +1844,92 @@ export default function AgendaAutistiPage() {
             `}</style>
             <div style={{ direction: 'ltr', minWidth: `${200 + (weekDays.length * 150)}px` }}>
               <table style={{ ...tableStyle, width: 'auto', minWidth: `${200 + (weekDays.length * 150)}px` }}>
-            <thead>
-              <tr>
-                <th style={thStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    Autista
-                  </div>
-                </th>
-                {weekDays.map(d => (
-                  <th key={d} style={thStyle}>{new Date(d).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {driverList.length === 0 ? (
-                <tr><td style={tdStyle} colSpan={1 + weekDays.length}>Nessun autista impegnato nella settimana.</td></tr>
-              ) : (
-                driverList.map(d => (
-                  <tr
-                    key={d.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, d.id)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, d.id)}
-                    onDragEnd={handleDragEnd}
-                    style={{
-                      cursor: 'move',
-                      opacity: draggedDriverId === String(d.id) ? 0.5 : 1
-                    }}
-                  >
-                    <td style={tdStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleDriverVisibility(d.id);
-                          }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '2px 4px',
-                            fontSize: '14px',
-                            color: '#666',
-                            display: 'flex',
-                            alignItems: 'center'
-                          }}
-                          title="Nascondi autista"
-                        >
-                          👁️
-                        </button>
+                        Autista
                       </div>
-                    </td>
-                    {weekDays.map(day => {
-                      const list = (groupedByDriver[String(d.id)]?.perDay?.[day] || []);
-                      return (
-                        <td key={day} style={tdStyle}>
-                          {list.length === 0 ? (
-                            <span style={{ color: '#999' }}>—</span>
-                          ) : (
-                            <ul style={{ margin: 0, paddingLeft: 16 }}>
-                              {list.map(a => (
-                                <li key={a.id}>
-                                  {formatTime(a.start)}{a.end ? `-${formatTime(a.end)}` : ''} ·
-                                  {' '}
-                                  <a href={`/attivita/${a.id}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: '#0b5ed7' }}>
-                                    {a.clientName || 'Nessun cliente'}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </td>
-                      );
-                    })}
+                    </th>
+                    {weekDays.map(d => (
+                      <th key={d} style={thStyle}>{new Date(d).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}</th>
+                    ))}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-          </div>
+                </thead>
+                <tbody>
+                  {driverList.length === 0 ? (
+                    <tr><td style={tdStyle} colSpan={1 + weekDays.length}>Nessun autista impegnato nella settimana.</td></tr>
+                  ) : (
+                    driverList.map(d => (
+                      <tr
+                        key={d.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, d.id)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, d.id)}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                          cursor: 'move',
+                          opacity: draggedDriverId === String(d.id) ? 0.5 : 1
+                        }}
+                      >
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>{(d.nome || d.name || d.first_name || '') + ' ' + (d.cognome || d.surname || d.last_name || '')}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleDriverVisibility(d.id);
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                fontSize: '14px',
+                                color: '#666',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                              title="Nascondi autista"
+                            >
+                              👁️
+                            </button>
+                          </div>
+                        </td>
+                        {weekDays.map(day => {
+                          const list = (groupedByDriver[String(d.id)]?.perDay?.[day] || []);
+                          return (
+                            <td key={day} style={tdStyle}>
+                              {list.length === 0 ? (
+                                <span style={{ color: '#999' }}>—</span>
+                              ) : (
+                                <ul style={{ margin: 0, paddingLeft: 16 }}>
+                                  {list.map(a => (
+                                    <li key={a.id}>
+                                      {formatTime(a.start)}{a.end ? `-${formatTime(a.end)}` : ''} ·
+                                      {' '}
+                                      <a href={`/attivita/${a.id}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: '#0b5ed7' }}>
+                                        {[a.clientName, a.siteName].filter(Boolean).join(' - ') || 'Nessun cliente/cantiere'}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }
 

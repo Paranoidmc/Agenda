@@ -147,7 +147,8 @@ class ActivityController extends Controller
         $normalizeStatus = function($status) {
             if (!$status) return 'non assegnato';
             $statusMap = [
-                'planned' => 'programmato',
+                'planned' => 'non assegnato',
+                'programmato' => 'non assegnato',
                 'in_progress' => 'in corso',
                 'in progress' => 'in corso',
                 'completed' => 'completato',
@@ -299,6 +300,8 @@ class ActivityController extends Controller
             'resources' => 'nullable|array',
             'resources.*.driver_id' => 'required|exists:drivers,id',
             'resources.*.vehicle_id' => 'nullable|exists:vehicles,id',
+            'resources.*.start_time' => 'nullable|date_format:Y-m-d\TH:i',
+            'resources.*.end_time' => 'nullable|date_format:Y-m-d\TH:i',
         ]);
 
         try {
@@ -339,6 +342,11 @@ class ActivityController extends Controller
     /**
      * Display the specified resource.
      */
+
+
+    /**
+     * Display the specified resource.
+     */
     public function show(Activity $activity)
     {
         $activity->load(['client', 'resources.driver', 'resources.vehicle', 'site', 'activityType']);
@@ -370,6 +378,8 @@ class ActivityController extends Controller
             'resources' => 'nullable|array',
             'resources.*.driver_id' => 'required|exists:drivers,id',
             'resources.*.vehicle_id' => 'nullable|exists:vehicles,id',
+            'resources.*.start_time' => 'nullable|date_format:Y-m-d\TH:i',
+            'resources.*.end_time' => 'nullable|date_format:Y-m-d\TH:i',
         ]);
 
         try {
@@ -556,7 +566,8 @@ class ActivityController extends Controller
         $normalizeStatus = function($status) {
             if (!$status) return 'non assegnato';
             $statusMap = [
-                'planned' => 'programmato',
+                'planned' => 'non assegnato',
+                'programmato' => 'non assegnato',
                 'in_progress' => 'in corso',
                 'in progress' => 'in corso',
                 'completed' => 'completato',
